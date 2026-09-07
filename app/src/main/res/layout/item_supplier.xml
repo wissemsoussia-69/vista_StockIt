@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginVertical="4dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/supplierName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Nom Fournisseur"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="#333333" />
+
+            <TextView
+                android:id="@+id/supplierDiscount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="-10%"
+                android:textStyle="bold"
+                android:textColor="#4CAF50" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/supplierContact"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="email@example.com | +33 1 22 33 44 55"
+            android:textSize="13sp"
+            android:textColor="#666666" />
+
+        <TextView
+            android:id="@+id/supplierAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="123 Rue de la Logistique, Paris"
+            android:textSize="13sp"
+            android:textColor="#666666" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/supplierLeadTime"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Délai: 5 jours"
+                android:textSize="12sp"
+                android:textColor="#888888" />
+
+            <ImageButton
+                android:id="@+id/btnOrderSupplier"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@android:drawable/ic_menu_add"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                app:tint="#00AEEF" />
+
+            <ImageButton
+                android:id="@+id/btnEditSupplier"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@android:drawable/ic_menu_edit"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                app:tint="#2C3E50" />
+
+            <ImageButton
+                android:id="@+id/btnDeleteSupplier"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@android:drawable/ic_menu_delete"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                app:tint="#E74C3C" />
+        </LinearLayout>
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

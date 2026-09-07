@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Nécessaire pour le retour haptique lors des scans IA réussis
+         (ScanAssetActivity.vibrateSuccess). Sans cette permission,
+         l'app crashait avec SecurityException à chaque Match détecté. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:testOnly="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/Theme.StockIT">
+
+        <!-- SplashActivity = point d'entrée unique. Décide du routage
+             (session Okta valide → MainActivity, sinon → LoginActivity). -->
+        <activity
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.StockIT.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!-- NOTE Auth0 : la RedirectActivity qui reçoit le callback SSO Vista
+             est déclarée automatiquement par le SDK Auth0 via manifest merging,
+             en utilisant les placeholders auth0Domain / auth0Scheme définis
+             dans app/build.gradle.kts. Aucune activité à ajouter ici. -->
+
+        <activity
+            android:name=".BatchScanActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ScanAssetActivity"
+            android:exported="false"
+            android:label="Scan Asset IA" />
+
+        <activity
+            android:name=".ReceivePackageActivity"
+            android:exported="false"
+            android:label="Réception Colis" />
+
+        <activity
+            android:name=".POSelectionActivity"
+            android:exported="false"
+            android:label="Sélection PO" />
+
+        <activity
+            android:name=".PackageLabelActivity"
+            android:exported="false"
+            android:label="Étiquette Carton" />
+
+        <activity
+            android:name=".ScanOutActivity"
+            android:exported="false"
+            android:label="Sortie Équipement" />
+
+        <activity
+            android:name=".TicketListActivity"
+            android:exported="false"
+            android:label="Tickets Jira" />
+
+        <activity
+            android:name=".AIChatActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ChatActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ClaimActivity"
+            android:exported="false" />
+
+        <receiver
+            android:name=".StockWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/stock_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".MyFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr,barcode,image_labeling" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.example.stockit.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>

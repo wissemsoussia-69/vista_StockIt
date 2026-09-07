@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- =============================================================== -->
+    <!--  Theme.StockIT — Vista Clean & Crisp (Light mode)                -->
+    <!--  Fond très clair, bleu Vista pour les CTA, texte dark navy       -->
+    <!-- =============================================================== -->
+    <style name="Theme.StockIT" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <!-- Brand -->
+        <item name="colorPrimary">@color/vista_blue</item>
+        <item name="colorPrimaryDark">@color/vista_navy</item>
+        <item name="colorAccent">@color/vista_turquoise</item>
+        <item name="colorSecondary">@color/vista_turquoise</item>
+        <item name="colorControlHighlight">#220F53FA</item>
+
+        <!-- Surfaces -->
+        <item name="android:windowBackground">@color/vista_bg</item>
+        <item name="android:colorBackground">@color/vista_bg</item>
+        <item name="colorSurface">@color/vista_surface</item>
+
+        <!-- Texte en dark navy (adoucit la lecture) -->
+        <item name="android:textColor">@color/vista_navy</item>
+        <item name="android:textColorPrimary">@color/vista_navy</item>
+        <item name="android:textColorSecondary">@color/vista_navy_muted</item>
+        <item name="android:textColorHint">@color/vista_navy_faint</item>
+
+        <!-- Status bar en bleu Vista signature -->
+        <item name="android:statusBarColor">@color/vista_blue</item>
+
+        <!-- Ripple / feedback -->
+        <item name="android:colorControlActivated">@color/vista_blue</item>
+    </style>
+
+    <!-- FAB central "Vista" : bleu signature, icône blanche, ombre douce -->
+    <style name="Widget.StockIT.Fab.Vista" parent="Widget.MaterialComponents.FloatingActionButton">
+        <item name="backgroundTint">@color/vista_blue</item>
+        <item name="tint">@color/white</item>
+        <item name="rippleColor">@color/vista_blue_soft</item>
+        <item name="elevation">10dp</item>
+        <item name="borderWidth">0dp</item>
+    </style>
+
+    <!-- Petits FAB satellites qui apparaissent quand on ouvre le menu -->
+    <style name="Widget.StockIT.Fab.Vista.Mini" parent="Widget.MaterialComponents.FloatingActionButton">
+        <item name="backgroundTint">@color/vista_surface</item>
+        <item name="tint">@color/vista_blue</item>
+        <item name="rippleColor">@color/vista_blue_soft</item>
+        <item name="elevation">6dp</item>
+        <item name="fabSize">mini</item>
+        <item name="borderWidth">0dp</item>
+    </style>
+
+    <!-- ================================================================
+         Vista TextAppearance — hiérarchie typographique cohérente.
+         ================================================================ -->
+    <style name="TextAppearance.Vista.HeroTitle" parent="TextAppearance.MaterialComponents.Headline5">
+        <item name="android:fontFamily">sans-serif-black</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:letterSpacing">-0.01</item>
+    </style>
+
+    <style name="TextAppearance.Vista.SectionTitle" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/vista_navy</item>
+        <item name="android:textSize">18sp</item>
+    </style>
+
+    <style name="TextAppearance.Vista.CardTitle" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/vista_navy</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="TextAppearance.Vista.Meta" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textColor">@color/vista_navy_faint</item>
+        <item name="android:textSize">11sp</item>
+    </style>
+
+    <style name="TextAppearance.Vista.Kpi" parent="TextAppearance.MaterialComponents.Headline4">
+        <item name="android:fontFamily">sans-serif-black</item>
+        <item name="android:textColor">@color/vista_blue</item>
+        <item name="android:textSize">26sp</item>
+    </style>
+
+    <!-- Splash Vista : fond bleu + logo au démarrage (compatible <12 et 12+). -->
+    <style name="Theme.StockIT.Splash" parent="Theme.StockIT">
+        <item name="android:windowBackground">@drawable/bg_splash_vista</item>
+        <item name="android:statusBarColor">@color/vista_blue</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>

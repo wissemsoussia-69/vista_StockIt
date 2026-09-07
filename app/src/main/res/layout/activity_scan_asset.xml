@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Scan Asset — StockIT "Vista Effect"
+
+    Camera CameraX en plein cadre.
+    Par-dessus :
+      1. Un cadre bleu marine (bg_scan_target_frame) qui apparaît
+         quand l'IA détecte l'objet ou le PO (setVisibility en Java).
+      2. Un faisceau lumineux bleu Vista (bg_scan_beam) qui balaie
+         verticalement pendant l'analyse (translateY animation).
+      3. Un badge "Match IA" en vert menthe qui apparaît avec un
+         petit rebond (anim/match_success_pop) une fois l'objet reconnu.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/vista_navy">
+
+    <!-- Colonne principale : caméra + panneau bas -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <androidx.camera.view.PreviewView
+            android:id="@+id/scanPreview"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <LinearLayout
+            android:id="@+id/scanBottomPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#F20B1F44"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:id="@+id/scanResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingBottom="12dp"
+                android:text="Pointez la caméra vers un objet informatique puis capturez."
+                android:textColor="@color/white"
+                android:textSize="15sp" />
+
+            <ProgressBar
+                android:id="@+id/scanProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:indeterminate="true"
+                android:indeterminateTint="@color/vista_blue_glow"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/scanCapture"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="@color/vista_blue"
+                android:text="Capturer et analyser"
+                android:textColor="@color/white"
+                android:textStyle="bold"
+                app:cornerRadius="16dp"
+                app:icon="@drawable/ic_fab_scan"
+                app:iconTint="@color/white" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Overlay ciblage + faisceau + badge match, positionné dans la
+         zone caméra (hauteur estimée avec padding bas ≈ panneau). -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingBottom="200dp">
+
+        <!-- Grille de scan "rayon X" (bleu Vista très diffuse) -->
+        <View
+            android:id="@+id/scanGrid"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_scan_grid"
+            android:visibility="gone" />
+
+        <!-- Viseur photo pro : 4 coins en L bleu marine (vector) -->
+        <ImageView
+            android:id="@+id/scanTargetFrame"
+            android:layout_width="260dp"
+            android:layout_height="260dp"
+            android:layout_gravity="center"
+            android:contentDescription="Viseur"
+            android:src="@drawable/ic_target_corners"
+            android:visibility="invisible" />
+
+        <!-- Faisceau de scan bleu Vista -->
+        <View
+            android:id="@+id/scanBeam"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:layout_gravity="top"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="120dp"
+            android:layout_marginEnd="24dp"
+            android:background="@drawable/bg_scan_beam"
+            android:elevation="4dp"
+            android:visibility="gone" />
+
+        <!-- Ondes concentriques turquoise (Match IA) -->
+        <View
+            android:id="@+id/scanWaveRing1"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_wave_ring"
+            android:visibility="gone" />
+
+        <View
+            android:id="@+id/scanWaveRing2"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_wave_ring"
+            android:visibility="gone" />
+
+        <!-- Badge "Match IA" -->
+        <LinearLayout
+            android:id="@+id/scanMatchBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/bg_match_success"
+            android:elevation="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="10dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="Match"
+                android:src="@drawable/ic_match_check" />
+
+            <TextView
+                android:id="@+id/scanMatchText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Match IA"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Bouton torche (flash) : cercle en verre en haut à droite -->
+        <ImageButton
+            android:id="@+id/scanTorch"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="20dp"
+            android:layout_marginEnd="20dp"
+            android:background="@drawable/bg_torch_button"
+            android:contentDescription="Flash"
+            android:elevation="6dp"
+            android:padding="12dp"
+            android:src="@drawable/ic_torch"
+            app:tint="@color/white" />
+
+        <!-- Indicateur de zoom (pinch) — chip Vista en haut à gauche -->
+        <TextView
+            android:id="@+id/scanZoomChip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_marginTop="24dp"
+            android:layout_marginStart="20dp"
+            android:background="@drawable/bg_zoom_chip"
+            android:elevation="4dp"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
+            android:text="1.0×"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </FrameLayout>
+
+</FrameLayout>
+
+

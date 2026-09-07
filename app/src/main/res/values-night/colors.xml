@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Vista Dark Mode "Navy"
+    ================================================================
+    On garde le bleu Vista et le turquoise inchangés (identité forte),
+    on retourne les fonds/surfaces en navy profond et le texte en blanc doux.
+-->
+<resources>
+    <!-- Fond & surface -->
+    <color name="vista_bg">#0B1F44</color>
+    <color name="vista_surface">#152A55</color>
+    <color name="vista_glass_tint">#22FFFFFF</color>
+    <color name="vista_glass_stroke">#33FFFFFF</color>
+
+    <!-- Dark navy → texte devient blanc doux -->
+    <color name="vista_navy">#F3F6FC</color>
+    <color name="vista_navy_muted">#B7C4DE</color>
+    <color name="vista_navy_faint">#7B8AA8</color>
+
+    <!-- Zones d'alerte en mode nuit : fond très sombre teinté corail -->
+    <color name="vista_urgency_soft">#2C1610</color>
+    <color name="vista_mint_soft">#0F2A24</color>
+</resources>

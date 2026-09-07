@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="add_product"
+        android:enabled="true"
+        android:icon="@android:drawable/ic_input_add"
+        android:shortcutShortLabel="@string/shortcut_add_product_short"
+        android:shortcutLongLabel="@string/shortcut_add_product_long">
+        <intent
+            android:action="add_product"
+            android:targetPackage="com.example.stockit"
+            android:targetClass="com.example.stockit.MainActivity" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+</shortcuts>

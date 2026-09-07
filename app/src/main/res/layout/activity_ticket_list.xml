@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/vista_bg"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tlTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="12dp"
+        android:text="Tickets Jira ouverts"
+        android:textAppearance="@style/TextAppearance.Vista.SectionTitle" />
+
+    <EditText
+        android:id="@+id/tlSearch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/bg_glass_card"
+        android:hint="Rechercher (key, sujet, description…)"
+        android:imeOptions="actionSearch"
+        android:inputType="text"
+        android:padding="14dp"
+        android:textColor="@color/vista_navy"
+        android:textColorHint="@color/vista_navy_faint" />
+
+    <!-- Chips filtres Vista : Tous / Highest / En retard / Assignés à moi -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:scrollbars="none">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/tlChipGroup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:selectionRequired="true"
+            app:singleLine="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/tlChipAll"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="Tous"
+                app:chipBackgroundColor="@drawable/bg_chip_filter"
+                app:chipStrokeWidth="0dp"
+                android:textColor="@color/chip_filter_text" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/tlChipHighest"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Highest"
+                app:chipBackgroundColor="@drawable/bg_chip_filter"
+                app:chipStrokeWidth="0dp"
+                android:textColor="@color/chip_filter_text" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/tlChipOverdue"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="En retard"
+                app:chipBackgroundColor="@drawable/bg_chip_filter"
+                app:chipStrokeWidth="0dp"
+                android:textColor="@color/chip_filter_text" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/tlChipMine"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Assignés à moi"
+                app:chipBackgroundColor="@drawable/bg_chip_filter"
+                app:chipStrokeWidth="0dp"
+                android:textColor="@color/chip_filter_text" />
+        </com.google.android.material.chip.ChipGroup>
+    </HorizontalScrollView>
+
+    <ProgressBar
+        android:id="@+id/tlProgress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:indeterminate="true"
+        android:indeterminateTint="@color/vista_blue"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tlStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="4dp"
+        android:text=""
+        android:textColor="@color/vista_navy_muted" />
+
+    <!-- Zone contenu : liste OU skeletons OU empty state -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/tlRecycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:clipToPadding="false"
+            android:paddingBottom="8dp" />
+
+        <LinearLayout
+            android:id="@+id/tlSkeletonContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <include layout="@layout/view_skeleton_ticket" />
+            <include layout="@layout/view_skeleton_ticket" />
+            <include layout="@layout/view_skeleton_ticket" />
+            <include layout="@layout/view_skeleton_ticket" />
+        </LinearLayout>
+
+        <include layout="@layout/view_empty_state" />
+    </FrameLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/tlBtnCancel"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Annuler"
+        android:textColor="@color/vista_blue"
+        app:strokeColor="@color/vista_blue" />
+</LinearLayout>
+
+

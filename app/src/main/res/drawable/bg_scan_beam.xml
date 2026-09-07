@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Faisceau de scan Bleu Vista (glow effect) :
+    dégradé vertical, plus intense au centre, avec lueur diffuse.
+    Le faisceau est translaté verticalement pour balayer l'écran.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:startColor="#000F53FA"
+        android:centerColor="@color/vista_blue_glow"
+        android:endColor="#000F53FA"
+        android:angle="90"
+        android:type="linear" />
+</shape>

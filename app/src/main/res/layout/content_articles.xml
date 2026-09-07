@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/grey_background"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- 1. Barre de recherche (Haut) -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="2dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="4dp">
+
+            <EditText
+                android:id="@+id/articleSearch"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:hint="@string/art_search_hint"
+                android:padding="10dp"
+                android:textSize="14sp" />
+
+            <Spinner
+                android:id="@+id/spinnerFilterCategory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp" />
+
+            <ImageButton
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_search"
+                app:tint="@color/colorPrimary" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- 2. Formulaire Unique (Dates + Infos) -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="2dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <!-- Ligne 1: Dates -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:baselineAligned="false">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginEnd="8dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/art_date_mfg" android:textSize="12sp" android:textStyle="bold" />
+                    <EditText android:id="@+id/inputArtMfgDate" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/art_date_format_hint" android:textSize="13sp" android:focusable="false" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/art_date_exp" android:textSize="12sp" android:textStyle="bold" />
+                    <EditText android:id="@+id/inputArtExpDate" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/art_date_format_hint" android:textSize="13sp" android:focusable="false" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Ligne 2: Nom et Catégorie -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp"
+                android:baselineAligned="false">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/art_name_label" android:textSize="12sp" android:textStyle="bold" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <EditText android:id="@+id/inputArtName" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="@string/art_name_hint" android:textSize="13sp" />
+                        <ImageButton
+                            android:id="@+id/btnShowSubTypes"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:src="@android:drawable/ic_menu_more"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:visibility="gone"
+                            android:padding="8dp"
+                            app:tint="@color/colorPrimary" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/art_category_label" android:textSize="12sp" android:textStyle="bold" />
+                    <Spinner android:id="@+id/spinnerCategory" android:layout_width="match_parent" android:layout_height="wrap_content" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Ligne 3: Quantité, Prix et Bouton -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp"
+                android:baselineAligned="false">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginEnd="4dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/art_qty_label" android:textSize="12sp" android:textStyle="bold" />
+                    <EditText android:id="@+id/inputArtQty" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/art_qty_hint" android:inputType="number" android:textSize="13sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginEnd="4dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/art_price_label" android:textSize="12sp" android:textStyle="bold" />
+                    <EditText android:id="@+id/inputArtPrice" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/art_price_hint" android:inputType="numberDecimal" android:textSize="13sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginEnd="4dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/art_reason_label" android:textSize="12sp" android:textStyle="bold" />
+                    <EditText android:id="@+id/inputArtReason" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/art_reason_hint" android:textSize="13sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnValidateArticle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom"
+                    android:backgroundTint="@color/colorPrimary"
+                    android:text="@string/art_action_validate"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- 3. Tableau d'affichage (Bas) -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="2dp">
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+                <!-- Table Header -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="#F8F9FA"
+                    android:orientation="horizontal"
+                    android:padding="12dp">
+
+                    <TextView android:layout_width="120dp" android:layout_height="wrap_content" android:text="@string/art_table_name" android:textStyle="bold" />
+                    <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="@string/art_table_category" android:textStyle="bold" />
+                    <TextView android:layout_width="80dp" android:layout_height="wrap_content" android:text="@string/art_table_qty" android:textStyle="bold" />
+                    <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="@string/art_table_price" android:textStyle="bold" />
+                    <TextView android:layout_width="120dp" android:layout_height="wrap_content" android:text="@string/art_table_mfg" android:textStyle="bold" />
+                    <TextView android:layout_width="120dp" android:layout_height="wrap_content" android:text="@string/art_table_exp" android:textStyle="bold" />
+                    <TextView android:layout_width="80dp" android:layout_height="wrap_content" android:text="@string/art_table_action" android:textStyle="bold" />
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/articleRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scrollbars="vertical" />
+            </LinearLayout>
+        </HorizontalScrollView>
+    </com.google.android.material.card.MaterialCardView>
+
+</LinearLayout>

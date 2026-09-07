@@ -1,0 +1,39 @@
+# StockIT PFE — Modèle d'environnement (Windows / PowerShell).
+#
+# 1. Copier ce fichier :   Copy-Item set_env.ps1.example set_env.ps1
+# 2. Remplir les valeurs ci-dessous avec VOS propres clés.
+# 3. Charger avant de builder :   . .\set_env.ps1 ; .\gradlew.bat installDebug
+#
+# ⚠  set_env.ps1 est ignoré par git (voir .gitignore). NE JAMAIS committer les vraies clés.
+
+$env:CIMPRESS_GATEWAY_KEY  = ""
+$env:GATEWAY_URL           = "https://gateway.ai.cimpress.io/v1"
+$env:CIMPRESS_VISION_MODEL = "@Anthropic/eu.anthropic.claude-opus-4-8"
+
+$env:PORTKEY_API_KEY  = ""
+$env:GEMINI_API_KEY   = ""
+
+$env:SLACK_WEBHOOK_URL = ""
+
+$env:JIRA_USER_EMAIL   = ""
+$env:JIRA_API_TOKEN    = ""
+$env:JIRA_BASE_URL     = "https://vistaprint.atlassian.net"
+$env:JIRA_PROJECT_KEY  = ""
+$env:JIRA_ISSUE_TYPE   = "Hardware request"
+$env:JIRA_COST_CENTER  = ""
+$env:JIRA_COMPONENT    = ""
+
+$env:HUGGING_FACE_TOKEN = ""
+$env:SENDGRID_API_KEY   = ""
+$env:SLACK_BOT_TOKEN    = ""
+
+# Webhook interne StockIT (n8n / automation.vista.io) — envoi de rapports & e-mails.
+$env:STOCKIT_WEBHOOK_URL    = ""
+$env:STOCKIT_WEBHOOK_SECRET = ""
+
+# NOTE : la configuration Auth0 (Vista SSO) est stockée dans
+# app/src/main/res/values/strings.xml (com_auth0_domain, com_auth0_client_id,
+# com_auth0_scheme). Ces valeurs ne sont pas des secrets — le client_id d'une
+# application native OIDC est publiquement embarqué dans l'APK.
+
+Write-Host "[StockIT] Variables d'environnement chargées." -ForegroundColor Green

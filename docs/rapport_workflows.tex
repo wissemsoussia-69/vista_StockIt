@@ -1,0 +1,206 @@
+% =====================================================================
+%  StockIT — Mini rapport (2 pages max) : workflows Entrée / Sortie
+%  Compilation : pdflatex rapport_workflows.tex
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---- Encodage & langue ----------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+
+% ---- Mise en page ---------------------------------------------------
+\usepackage[a4paper,margin=1.8cm,top=1.6cm,bottom=1.6cm]{geometry}
+\usepackage{parskip}
+\setlength{\parskip}{3pt}
+\setlength{\parindent}{0pt}
+
+% ---- Extensions -----------------------------------------------------
+\usepackage{xcolor}
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=1.2em,itemsep=1pt,topsep=2pt}
+\setlist[enumerate]{leftmargin=1.4em,itemsep=1pt,topsep=2pt}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shadows}
+\usepackage{fontawesome5}
+\usepackage{titlesec}
+\titleformat{\section}{\normalfont\large\bfseries\color{blue!60!black}}{\thesection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{6pt}{2pt}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries\color{black!75}}{}{0em}{}
+\titlespacing*{\subsection}{0pt}{4pt}{1pt}
+
+% ---- Styles TikZ pour les diagrammes --------------------------------
+\tikzset{
+  step/.style   = {rectangle, rounded corners=3pt, draw=blue!60!black,
+                   fill=blue!8, minimum height=8mm, minimum width=28mm,
+                   align=center, font=\scriptsize, drop shadow},
+  choice/.style = {rectangle, rounded corners=3pt, draw=orange!70!black,
+                   fill=orange!12, minimum height=8mm, minimum width=32mm,
+                   align=center, font=\scriptsize},
+  ai/.style     = {rectangle, rounded corners=3pt, draw=purple!70!black,
+                   fill=purple!10, minimum height=8mm, minimum width=28mm,
+                   align=center, font=\scriptsize},
+  arr/.style    = {-{Latex[length=2mm]}, thick, draw=black!60}
+}
+
+% =====================================================================
+\begin{document}
+
+% ---------- En-tête compact -----------------------------------------
+\begin{center}
+  {\LARGE\bfseries StockIT — Workflows Entrée \& Sortie}\\[2pt]
+  {\small Application Android de gestion de stock IT — assistée par IA
+  (Claude Opus~4, ML~Kit, Jira, Slack)}\\[-2pt]
+  \rule{\linewidth}{0.4pt}
+\end{center}
+
+% =====================================================================
+\section{Contexte technique}
+\vspace{-2pt}
+\textbf{Stack :} Android (Java), CameraX, ML~Kit (OCR + Barcode), Room (SQLite),
+Retrofit/OkHttp, Firebase Cloud Messaging, Jira Cloud REST~v3, Slack~Webhooks.
+\textbf{Cascade IA :} Claude Opus~4 (passerelle Cimpress) $\rightarrow$ Portkey
+$\rightarrow$ Gemini $\rightarrow$ HuggingFace \emph{vit-base} $\rightarrow$ ML~Kit local (hors‑ligne).
+Toutes les opérations produisent un \texttt{StockMovement} (IN/OUT), un
+\texttt{AuditLog} et une notification Slack.
+
+% =====================================================================
+\section{Workflow Entrée — Réception d'un article IT}
+\vspace{-2pt}
+
+\begin{tcolorbox}[colback=blue!3,colframe=blue!40!black,
+  boxrule=0.4pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt]
+\textbf{Objectif :} identifier l'équipement reçu, rattacher la livraison à
+un bon de commande (PO) et à sa facture, puis enregistrer l'entrée en stock.
+\end{tcolorbox}
+
+\begin{enumerate}
+  \item \textbf{Scan du produit} — \emph{ScanAssetActivity} :
+        capture caméra $\rightarrow$ vision Claude Opus~4 renvoie le nom de
+        l'équipement (\og Écran\fg{}, \og Clavier\fg{}, \og Souris\fg{}, max
+        2 mots). Fallback ML~Kit si hors‑ligne. Pour un écran, la
+        \emph{Kit anti‑oubli dialog} force la vérification (câble
+        d'alimentation, HDMI).
+  \item \textbf{Scan de la facture / bon de livraison} — \emph{ReceivePackageActivity} :
+        OCR local ML~Kit $\rightarrow$ le texte est envoyé à Claude qui
+        renvoie un JSON \texttt{\{supplier, purchaseOrders:[\{number,description\}]\}}
+        (voir \emph{DeliveryNoteParser}).
+  \item \textbf{Sélection du PO} — \emph{POSelectionActivity} :
+        liste des PO extraits avec badges \og\faCheck{} En base\fg{} (PO
+        existant en DB) et \og\faBullseye{} Correspond au scan\fg{}
+        (correspondance sémantique avec l'équipement). L'utilisateur
+        confirme le bon PO.
+  \item \textbf{Scan de l'étiquette du carton} — \emph{PackageLabelActivity} :
+        OCR + Claude $\rightarrow$ JSON
+        \texttt{\{productName, quantity, articleNumber, brand, poOnLabel\}}
+        (voir \emph{PackageLabelParser}). Contrôle de cohérence PO
+        étiquette $\leftrightarrow$ PO sélectionné.
+  \item \textbf{Enregistrement} : \texttt{Product}, \texttt{PurchaseOrder}
+        (statut \og Reçu\fg{}), \texttt{StockMovement} (type=\texttt{IN}),
+        \texttt{AuditLog}, notification Slack et ticket Jira de réception.
+\end{enumerate}
+
+\begin{center}\vspace{-4pt}
+\begin{tikzpicture}[node distance=3.2mm and 4mm]
+  \node[step] (n1) {\faCamera\ Scan\\produit};
+  \node[step, right=of n1] (n2) {\faFileInvoice\ Scan\\facture / BL};
+  \node[ai,   right=of n2] (n3) {OCR ML~Kit\\+\,Claude Opus~4};
+  \node[step, right=of n3] (n4) {\faListUl\ Sélection\\PO};
+  \node[step, right=of n4] (n5) {\faTags\ Scan\\étiquette};
+  \node[step, right=of n5] (n6) {\faDatabase\ Entrée\\stock IN};
+  \foreach \a/\b in {n1/n2,n2/n3,n3/n4,n4/n5,n5/n6}
+    \draw[arr] (\a) -- (\b);
+\end{tikzpicture}\vspace{-4pt}
+\end{center}
+
+% =====================================================================
+\section{Workflow Sortie — Affectation à un ticket}
+\vspace{-2pt}
+
+\begin{tcolorbox}[colback=orange!4,colframe=orange!60!black,
+  boxrule=0.4pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt]
+\textbf{Objectif :} sortir un ou plusieurs articles du stock, saisir la
+quantité, puis \emph{tracer} chaque unité vers un ticket Jira via l'un
+des \textbf{trois modes d'affectation}.
+\end{tcolorbox}
+
+\begin{enumerate}
+  \item \textbf{Scan du produit} — \emph{ScanOutActivity} : capture caméra
+        $\rightarrow$ Claude identifie l'équipement à sortir.
+  \item \textbf{Saisie de la quantité} : dialogue \emph{\og Combien de
+        \textquotesingle Souris\textquotesingle{} sortir ?\fg{}} — champ
+        numérique validé contre le stock disponible.
+  \item \textbf{Choix du mode d'affectation} (boucle tant que
+        \textit{qtéRestante}~>~0) — 3~modes~+~option \emph{Skip} :
+\end{enumerate}
+
+\vspace{-4pt}
+\begin{center}
+\begin{tikzpicture}[node distance=3mm and 5mm]
+  \node[step] (s1) {\faCamera\ Scan\\produit};
+  \node[step, right=of s1] (s2) {\faKeyboard\ Quantité\\à sortir};
+  \node[choice, right=of s2] (s3) {Choix du mode\\d'affectation};
+  \node[ai,     right=15mm of s3, yshift=9mm] (m1)
+        {\faBrain\ \textbf{Mode 1}\\Auto — Claude};
+  \node[choice, right=15mm of s3] (m2)
+        {\faList\ \textbf{Mode 2}\\Liste Jira};
+  \node[choice, right=15mm of s3, yshift=-9mm] (m3)
+        {\faPencilAlt\ \textbf{Mode 3}\\ID manuel};
+  \node[step, right=8mm of m2] (out) {\faDatabase\ Sortie\\stock OUT};
+  \foreach \a/\b in {s1/s2,s2/s3}\draw[arr] (\a) -- (\b);
+  \draw[arr] (s3) -- (m1);
+  \draw[arr] (s3) -- (m2);
+  \draw[arr] (s3) -- (m3);
+  \draw[arr] (m1.east) -- ++(3mm,0) |- (out.west);
+  \draw[arr] (m2) -- (out);
+  \draw[arr] (m3.east) -- ++(3mm,0) |- (out.west);
+\end{tikzpicture}
+\end{center}
+\vspace{-6pt}
+
+\subsection{Détails des 3 modes d'affectation à un ticket}
+\begin{itemize}
+  \item \textbf{Mode 1 — \faBrain\ \emph{Laisser Claude décider (auto)}} :
+        \emph{TicketMatcher.assign()} charge les tickets Jira ouverts via
+        \emph{JiraReader.loadOpenTickets()}, filtre ceux déjà servis
+        (cache \texttt{AnalyzedTicket}) puis demande à Claude Opus~4
+        d'affecter les quantités selon le \texttt{summary} et la
+        \texttt{description} de chaque ticket, avec justification.
+  \item \textbf{Mode 2 — \faList\ \emph{Choisir dans la liste des tickets}} :
+        ouverture de \emph{TicketListActivity} — RecyclerView filtrable
+        (clé / résumé / priorité) alimenté par \emph{JiraReader}
+        (Jira REST~v3, auth Basic). L'utilisateur sélectionne un ticket
+        puis confirme la quantité.
+  \item \textbf{Mode 3 — \faPencilAlt\ \emph{Taper un ID manuellement}} :
+        saisie libre (ex. \texttt{ETXTUN-42}) validée par
+        \emph{JiraReader.getIssue(key)}~; si le ticket n'existe pas,
+        retour au dialogue de choix.
+  \item \textit{Option \faForward\ Skip} : sortie sans ticket
+        (\texttt{ticketId=null}, mouvement tout de même journalisé).
+\end{itemize}
+
+\begin{enumerate}\setcounter{enumi}{3}
+  \item \textbf{Confirmation \& enregistrement} par affectation :
+        \emph{recordExitToTicket()} insère un \texttt{StockMovement}
+        (type=\texttt{OUT}, \texttt{ticketId}, motif) et
+        \emph{recordDeliveryToTicket()} met à jour
+        \texttt{AnalyzedTicket} (quantité livrée, statut
+        \emph{fulfilled}). La quantité restante est décrémentée et la
+        boucle continue jusqu'à~0.
+  \item \textbf{Clôture} : journal récapitulatif à l'écran + notification
+        Slack ; un ticket Jira d'anomalie est créé si nécessaire.
+\end{enumerate}
+
+% =====================================================================
+\vspace{2pt}\hrule\vspace{2pt}
+\begin{center}\footnotesize
+  \faLightbulb\ Points clés : chaque entrée et chaque sortie sont
+  \textbf{tracées} (produit, PO/ticket, utilisateur, timestamp) et
+  \textbf{notifiées} en temps réel — la couche IA n'est jamais
+  bloquante grâce à la cascade de \emph{fallbacks}.
+\end{center}
+
+\end{document}

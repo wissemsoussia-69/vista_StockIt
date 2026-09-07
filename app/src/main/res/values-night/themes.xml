@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Vista Dark theme — surcharge automatique quand le device est en mode nuit.
+    Toutes les valeurs @color/vista_* sont déjà remappées côté values-night/colors.xml,
+    on ajuste juste les attributs qui référencent des couleurs "en dur".
+-->
+<resources>
+    <style name="Theme.StockIT" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="colorPrimary">@color/vista_blue</item>
+        <item name="colorPrimaryDark">@color/vista_bg</item>
+        <item name="colorAccent">@color/vista_turquoise</item>
+        <item name="colorSecondary">@color/vista_turquoise</item>
+        <item name="colorControlHighlight">#440F53FA</item>
+
+        <item name="android:windowBackground">@color/vista_bg</item>
+        <item name="android:colorBackground">@color/vista_bg</item>
+        <item name="colorSurface">@color/vista_surface</item>
+
+        <item name="android:textColor">@color/vista_navy</item>
+        <item name="android:textColorPrimary">@color/vista_navy</item>
+        <item name="android:textColorSecondary">@color/vista_navy_muted</item>
+        <item name="android:textColorHint">@color/vista_navy_faint</item>
+
+        <item name="android:statusBarColor">@color/vista_bg</item>
+        <item name="android:colorControlActivated">@color/vista_blue</item>
+    </style>
+</resources>

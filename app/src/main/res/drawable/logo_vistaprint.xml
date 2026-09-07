@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Triangle Haut Gauche (Bleu Clair) -->
+    <path
+        android:fillColor="#80D8FF"
+        android:pathData="M18,18 L54,18 L36,54 Z" />
+
+    <!-- Triangle Haut Droite (Bleu Moyen) -->
+    <path
+        android:fillColor="#00B0FF"
+        android:pathData="M54,18 L90,18 L72,54 Z" />
+
+    <!-- Triangle Central (Bleu Vistaprint - pointe vers le haut) -->
+    <path
+        android:fillColor="#0091EA"
+        android:pathData="M36,54 L72,54 L54,18 Z" />
+
+    <!-- Triangle Bas (Bleu Foncé - pointe vers le bas) -->
+    <path
+        android:fillColor="#01579B"
+        android:pathData="M36,54 L72,54 L54,90 Z" />
+
+</vector>

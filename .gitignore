@@ -1,0 +1,26 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+# Build outputs — at every depth (was "/build" root-only, which let app/build/ leak)
+build/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# StockIT PFE — secrets (env vars locales, ne jamais committer)
+.env.sh
+set_env.ps1
+.env
+.env.*
+# Ne PAS ignorer les fichiers d'exemple (template sans secrets)
+!.env.sh.example
+!set_env.ps1.example
+!.env.example

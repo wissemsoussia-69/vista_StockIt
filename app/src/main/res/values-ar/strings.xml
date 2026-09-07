@@ -1,0 +1,313 @@
+<resources>
+    <string name="app_name">StockIT - فيستا برينت</string>
+    <string name="login_title">فيستا برينت StockIT</string>
+    <string name="brand_name">فيستا برينت</string>
+    <string name="username_hint">اسم المستخدم</string>
+    <string name="password_hint">كلمة المرور</string>
+    <string name="login_button">تسجيل الدخول</string>
+    <string name="default_account_hint">الوصول مقيد لموظفي فيستا برينت</string>
+    <string name="stock_mgmt_mvc">مرحباً</string>
+    <string name="refresh_stock">تحديث القائمة</string>
+    <string name="search_hint">بحث بالاسم، الوسم أو الفئة…</string>
+    <string name="empty_stock">لم يتم العثور على أي مواد.</string>
+    <string name="empty_fields">الحقول المطلوبة مفقودة</string>
+    <string name="login_failed">فشل المصادقة</string>
+    <string name="initial_data_loaded">تمت مزامنة بيانات فيستا برينت</string>
+    <string name="brand_styled"><b>فيستا</b>برينت</string>
+
+    <!-- Navigation -->
+    <string name="nav_dashboard">لوحة القيادة</string>
+    <string name="nav_stock">المخزون</string>
+    <string name="nav_article">إدارة المواد</string>
+    <string name="nav_fournisseur">الموردون</string>
+    <string name="nav_commandes">الطلبات</string>
+    <string name="nav_shipping">الشحن</string>
+    <string name="nav_reports">التقارير</string>
+    <string name="nav_ai_opt">تحسين الذكاء الاصطناعي</string>
+    <string name="nav_import_pdf">استيراد الكتالوج (PDF)</string>
+    <string name="nav_users">المستخدمون</string>
+    <string name="nav_audit">إجراءات التدقيق</string>
+    <string name="nav_settings">الإعدادات</string>
+    <string name="nav_profile">ملفي الشخصي</string>
+    <string name="nav_logout">تسجيل الخروج</string>
+    <string name="nav_reclamation">شكوى</string>
+    <string name="nav_inventory_manager">مدير المخزون</string>
+
+    <!-- Dashboard -->
+    <string name="dash_summary">ملخص مخزون تكنولوجيا المعلومات</string>
+    <string name="dash_total_qty">الكمية الإجمالية</string>
+    <string name="dash_current_value">القيمة الحالية</string>
+    <string name="dash_urgent_alerts">🔔 تنبيهات عاجلة</string>
+    <string name="dash_loading_alerts">جاري تحميل التنبيهات...</string>
+    <string name="dash_quick_actions">إجراءات سريعة</string>
+    <string name="dash_ai_assistant">مساعد الذكاء الاصطناعي</string>
+    <string name="dash_scan">مسح</string>
+    <string name="dash_create">إنشاء</string>
+    <string name="dash_stock">مخزون</string>
+    <string name="dash_recent_movements">آخر الحركات</string>
+    <string name="dash_view_all">عرض الكل</string>
+    <string name="dash_all_ok">كل شيء تحت السيطرة.</string>
+    <string name="dash_alert_msg">%1$d مواد في مخزون منخفض، %2$d في نفاذ!</string>
+
+    <!-- Stock -->
+    <string name="stock_title">إدارة مخزون تكنولوجيا المعلومات</string>
+    <string name="stock_quick_scan">📋 مسح سريع</string>
+    <string name="stock_history">📈 السجل</string>
+
+    <!-- Configuration -->
+    <string name="settings_title">الإعدادات</string>
+    <string name="settings_preferences">التفضيلات</string>
+    <string name="settings_dark_mode">الوضع الداكن</string>
+    <string name="settings_language">لغة التطبيق</string>
+    <string name="settings_font_size">حجم الخط</string>
+    <string name="settings_version">إصدار التطبيق: 1.0.0</string>
+
+    <!-- Reports -->
+    <string name="reports_advanced_analytics">تحليلات متقدمة</string>
+    <string name="reports_total_value">القيمة الإجمالية</string>
+    <string name="reports_out_of_stock">نفاذ المخزون</string>
+    <string name="reports_out_of_stock_suffix">مواد</string>
+    <string name="reports_stock_indicators">مؤشرات المخزون</string>
+    <string name="reports_items_in_stock">المواد في المخزون: %1$s</string>
+    <string name="reports_low_stock_alerts">تنبيهات انخفاض المخزون: %1$s</string>
+    <string name="reports_category_distribution">توزيع الفئات</string>
+    <string name="reports_monthly_movements">الحركات الشهرية</string>
+    <string name="reports_stock_evolution">تطور المخزون</string>
+    <string name="reports_performance_by_zone">الأداء حسب المنطقة</string>
+    <string name="reports_category_turnover">دوران المخزون حسب الفئة</string>
+    <string name="reports_category_analysis_loading">تحليل الفئات...</string>
+    <string name="reports_export_excel">🎯 تصدير إلى إكسل (CSV)</string>
+    <string name="default_email">it-admin@vistaservices.io</string>
+    <string name="report_total_stock">إجمالي المواد: %1$d</string>
+    <string name="report_low_stock">تنبيهات انخفاض المخزون: %1$d</string>
+
+    <!-- Articles -->
+    <string name="art_search_hint">بحث...</string>
+    <string name="art_date_mfg">تاريخ الدخول</string>
+    <string name="art_date_exp">تاريخ الخروج</string>
+    <string name="art_date_format_hint">يوم/شهر/سنة</string>
+    <string name="art_name_label">اسم المادة</string>
+    <string name="art_name_hint">الاسم</string>
+    <string name="art_category_label">الفئة</string>
+    <string name="art_qty_label">الكمية</string>
+    <string name="art_qty_hint">الكمية</string>
+    <string name="art_price_label">سعر الوحدة</string>
+    <string name="art_price_hint">السعر</string>
+    <string name="art_reason_label">السبب / تعليق</string>
+    <string name="art_reason_hint">السبب</string>
+    <string name="art_action_validate">تأكيد</string>
+    <string name="art_table_name">اسم المادة</string>
+    <string name="art_table_category">الفئة</string>
+    <string name="art_table_qty">الكمية</string>
+    <string name="art_table_price">سعر الوحدة</string>
+    <string name="art_table_mfg">تاريخ الدخول</string>
+    <string name="art_table_exp">تاريخ الخروج</string>
+    <string name="art_table_action">الإجراء</string>
+
+    <!-- Suppliers -->
+    <string name="sup_name_hint">الاسم</string>
+    <string name="sup_email_hint">البريد الإلكتروني</string>
+    <string name="sup_phone_hint">الهاتف</string>
+    <string name="sup_address_hint">العنوان</string>
+    <string name="sup_lead_time_hint">مدة التسليم (أيام)</string>
+    <string name="sup_discount_hint">الخصم (%)</string>
+    <string name="sup_lead_time">المهلة: %1$d أيام</string>
+
+    <!-- AI Chat -->
+    <string name="ai_chat_title">مساعد فيستا للذكاء الاصطناعي</string>
+    <string name="ai_name">الذكاء الاصطناعي</string>
+    <string name="ai_welcome_msg">مرحباً! أنا مساعد StockIT الخاص بك. كيف يمكنني مساعدتك اليوم؟</string>
+    <string name="user_name_me">أنا</string>
+    <string name="chat_input_hint">اكتب رسالتك...</string>
+    <string name="ai_system_role">أنت مساعد خبير في إدارة مخزون تكنولوجيا المعلومات لشركة فيستا سيرفيسز.</string>
+    <string name="ai_error_prefix">خطأ في الذكاء الاصطناعي: %1$s</string>
+    <string name="ai_invoice_system_role">أنت مستخرج بيانات. قم بتحليل هذه الفاتورة وأرجع فقط JSON بهذا الهيكل: {\"items\": [{\"name\": \"...\", \"qty\": 1, \"price\": 10.0}]}</string>
+    <string name="ai_invoice_user_prompt">استخراج المواد من هذه الفاتورة.</string>
+    <string name="ai_error_analysis">خطأ في التحليل: %1$s</string>
+
+    <!-- Insights -->
+    <string name="ai_insight_recommendation">اقتراح إعادة تزويد: %1$s</string>
+    <string name="ai_insight_recommendation_desc">الطلب المتوقع هو %1$d وحدة. المخزون الحالي غير كافٍ.</string>
+    <string name="ai_insight_anomaly">تم اكتشاف شذوذ</string>
+    <string name="ai_insight_anomaly_desc">حركة غير معتادة لـ %1$d وحدة لـ %2$s</string>
+    <string name="ai_insight_dead_stock">مخزون راكد: %1$s</string>
+    <string name="ai_insight_dead_stock_desc">لم يتم اكتشاف أي حركة. اقتراح خصم 15%% لتصفية المخزون.</string>
+    <string name="ai_insight_risk">خطر التقادم</string>
+    <string name="ai_insight_risk_desc">%1$s يقترب من تاريخ الخروج (%2$s)</string>
+    <string name="ai_insight_done">اكتمل التحليل</string>
+    <string name="ai_insight_no_alerts">لا توجد تنبيهات ذكاء اصطناعي في الوقت الحالي.</string>
+    <string name="ai_insight_priority_label">الأولوية: %1$s</string>
+    <string name="priority_label_full">الأولوية: %1$s</string>
+    <string name="ai_type_telemetry">تتبع</string>
+    <string name="ai_type_recommendation">توصية</string>
+    <string name="ai_type_anomaly">شذوذ</string>
+    <string name="ai_type_risk">خطر</string>
+    <string name="ai_type_prediction">توقع</string>
+    <string name="ai_type_price">سعر</string>
+
+    <!-- Audit & Movements -->
+    <string name="audit_details_label">تفاصيل الإجراء المتخذ</string>
+    <string name="audit_login_success">تسجيل دخول ناجح: %1$s</string>
+    <string name="audit_cat_added">تمت إضافة فئة: %1$s</string>
+    <string name="audit_cat_updated">تم تحديث فئة: %1$s</string>
+    <string name="audit_cat_deleted">تم حذف فئة: %1$s</string>
+    <string name="audit_prod_added">تمت إضافة منتج: %1$s (الكمية: %2$d)</string>
+    <string name="audit_prod_updated">تم تحديث منتج: %1$s</string>
+    <string name="audit_prod_deleted">تم حذف منتج: %1$s</string>
+    <string name="audit_qty_adjusted">تم تعديل الكمية لـ %1$s: %2$d</string>
+    <string name="audit_purchase_created">تم إنشاء طلب: %1$s (الكمية: %2$d)</string>
+    <string name="audit_purchase_updated">تم تحديث طلب: %1$s</string>
+    <string name="audit_purchase_deleted">تم حذف طلب: %1$s</string>
+    <string name="audit_sup_added">تمت إضافة مورد: %1$s</string>
+    <string name="audit_sup_updated">تم تحديث مورد: %1$s</string>
+    <string name="audit_sup_deleted">تم حذف مورد: %1$s</string>
+    <string name="audit_ship_created">تم إنشاء شحن لـ: %1$s</string>
+    <string name="audit_ship_updated">تم تحديث شحن: %1$s</string>
+    <string name="audit_ship_deleted">تم حذف شحن: %1$s</string>
+    <string name="mov_new_product">تمت إضافة مادة جديدة</string>
+    <string name="mov_manual_adj">تعديل يدوي</string>
+    <string name="mov_deleted">تم حذف المادة</string>
+    <string name="mov_label_qty">الكمية: %1$d</string>
+    <string name="mov_label_user">بواسطة: %1$s</string>
+    <string name="mov_label_reason">السبب: %1$s</string>
+    <string name="mov_label_comment">تعليق: %1$s</string>
+
+    <!-- Purchase & Shipping -->
+    <string name="purchase_status_pending">قيد الانتظار</string>
+    <string name="purchase_supplier_label">المورد: %1$s</string>
+    <string name="purchase_qty_label">الكمية: %1$d</string>
+    <string name="purchase_btn_delete">حذف</string>
+    <string name="purchase_btn_receive">تأكيد الاستلام</string>
+    <string name="ship_status_pending">قيد الانتظار</string>
+    <string name="ship_item_label">المنتج: %1$s</string>
+    <string name="ship_ticket_label">تذكرة Jira: %1$s</string>
+    <string name="ship_tracking_label">التتبع: %1$s</string>
+    <string name="order_received">تم الاستلام</string>
+
+    <!-- Login & Biometrics -->
+    <string name="login_biometric_access">الدخول بالبصمة</string>
+    <string name="login_error_no_hardware">لم يتم اكتشاف مستشعر بصمة.</string>
+    <string name="login_error_unavailable">مستشعر البصمة غير متوفر.</string>
+    <string name="login_error_none_enrolled">لم يتم تسجيل أي بصمة أو وجه.</string>
+    <string name="login_error_prefix">خطأ: %1$s</string>
+    <string name="login_error_admin_fail">بيانات دخول المسؤول غير صحيحة</string>
+    <string name="login_auth_failed">فشلت المصادقة</string>
+    <string name="login_prompt_title">مصادقة آمنة</string>
+    <string name="login_prompt_subtitle">استخدم بياناتك الحيوية</string>
+
+    <!-- Claims -->
+    <string name="claims_center_title">مركز الشكاوى</string>
+    <string name="claims_new_title">شكوى جديدة</string>
+    <string name="claims_subject_hint">الموضوع (مثلاً: تعطل الحاسوب)</string>
+    <string name="claims_desc_hint">وصف تفصيلي...</string>
+    <string name="claims_priority_label">الأولوية:</string>
+    <string name="claims_anonymous">مجهول</string>
+
+    <!-- Profile -->
+    <string name="profile_personal_info">المعلومات الشخصية</string>
+    <string name="profile_username">اسم المستخدم: %1$s</string>
+    <string name="profile_email">البريد الإلكتروني: %1$s</string>
+    <string name="profile_dept">القسم: %1$s</string>
+    <string name="profile_location">الموقع: %1$s</string>
+    <string name="profile_logout">تسجيل الخروج</string>
+    <string name="profile_dept_it">البنية التحتية لتكنولوجيا المعلومات</string>
+    <string name="profile_loc_hq">المكتب الرئيسي</string>
+
+    <!-- Common -->
+    <string name="tag_label">الوسم: %1$s | %2$s</string>
+    <string name="user_name_system">النظام</string>
+    <string name="user_name_guest">ضيف</string>
+    <string name="role_admin">مدير</string>
+    <string name="role_employee">موظف</string>
+    <string name="status_label">الحالة: %1$s</string>
+    <string name="status_open">مفتوح</string>
+    <string name="status_shipped">تم الشحن</string>
+    <string name="status_delivered">تم التسليم</string>
+    <string name="status_preparing">جاري التحضير</string>
+    <string name="status_pending">قيد الانتظار</string>
+    <string name="status_received">تم الاستلام</string>
+    <string name="priority_high">عالية</string>
+    <string name="priority_medium">متوسطة</string>
+    <string name="priority_low">منخفضة</string>
+    <string name="btn_modifier">تعديل</string>
+    <string name="btn_valider">تأكيد</string>
+    <string name="btn_close">إغلاق</string>
+    <string name="history_title">السجل</string>
+    <string name="yes">نعم</string>
+    <string name="no">لا</string>
+    <string name="product_details_title">تفاصيل المنتج</string>
+    <string name="product_details_msg">تفاصيل المنتج:\nالكمية: %1$d\nالحد الأدنى: %2$d\n\nهل تريد إرسال تنبيه إعادة التزويد عبر n8n؟</string>
+    <string name="n8n_send_alert">إرسال تنبيه n8n</string>
+    <string name="n8n_sending">جاري إرسال التنبيه إلى n8n...</string>
+    <string name="n8n_sent">تم إرسال تنبيه n8n (Slack/Jira)</string>
+
+    <!-- Toasts -->
+    <string name="toast_unauthorized">إجراء غير مصرح به</string>
+    <string name="toast_admin_only">الوصول مقيد للمسؤول فقط</string>
+    <string name="toast_ai_analyzing">جاري التحليل بالذكاء الاصطناعي...</string>
+    <string name="toast_camera_permission_denied">تم رفض إذن الكاميرا</string>
+    <string name="toast_pdf_reading">جاري قراءة كتالوج PDF...</string>
+    <string name="toast_pdf_imported_success">تم استيراد %1$d مادة من الكتالوج!</string>
+    <string name="toast_pdf_import_error">خطأ أثناء استيراد PDF: %1$s</string>
+    <string name="toast_command_unrecognized">أمر غير معترف به: %1$s</string>
+    <string name="toast_searching_for">البحث عن: %1$s</string>
+    <string name="toast_file_creation_error">خطأ أثناء إنشاء الملف</string>
+    <string name="toast_photo_uri_null">خطأ: رابط الصورة فارغ</string>
+    <string name="toast_file_unreadable">ملف الصورة غير قابل للقراءة</string>
+    <string name="toast_ia_system_error">خطأ في نظام الذكاء الاصطناعي: %1$s</string>
+    <string name="toast_voice_unavailable">التعرف على الصوت غير متوفر في هذا الجهاز</string>
+    <string name="toast_ai_added_success">تم إضافة %1$s إلى المخزون!</string>
+    <string name="toast_ai_no_object">IA: تعذر تحديد الكائن بدقة. حاول تأطير الشعار.</string>
+    <string name="toast_ai_no_barcode">IA: لم يتم اكتشاف كود. اقترب أكثر.</string>
+    <string name="toast_ai_no_text">IA: لم يتم اكتشاف نص.</string>
+    <string name="toast_ai_standard_no_object">IA Standard: لم يتم التعرف على أي كائن.</string>
+    <string name="toast_access_denied_rights">تم رفض الوصول: صلاحيات غير كافية</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_scan_mode_title">اختر وضع المسح</string>
+    <string name="dialog_ai_multiple_objects_title">اكتشف الذكاء الاصطناعي كائنات متعددة</string>
+    <string name="dialog_ai_add_qty_msg">أدخل الكمية لهذا الجهاز:</string>
+    <string name="dialog_ai_confirm_add">تأكيد الإضافة</string>
+    <string name="dialog_detected_object_title">كائن مكتشف: %1$s</string>
+    <string name="dialog_detected_object_msg">لقد حدد الذكاء الاصطناعي هذه المادة.\nهل ترغب في رؤية حالة المخزون لـ: %1$s؟</string>
+    <string name="btn_show_stock">عرض المخزون</string>
+    <string name="dialog_barcode_detected_title">تم اكتشاف باركود</string>
+    <string name="dialog_barcode_detected_msg">الكود: %1$s\n\nهل ترغب في البحث عن هذه المادة في المخزون؟</string>
+    <string name="btn_search">بحث</string>
+    <string name="dialog_text_detected_title">تم اكتشاف نص</string>
+    <string name="dialog_text_detected_msg">%1$s\n\nهل ترغب في استخدام هذا نص للبحث؟</string>
+
+    <string name="scan_mode_ocr">مسح النص (OCR)</string>
+    <string name="scan_mode_barcode">مسح الباركود / QR</string>
+    <string name="scan_mode_ai_expert">خبير الذكاء الاصطناعي (أجهزة IT)</string>
+    <string name="scan_mode_invoice">تحليل الفاتورة بالذكاء الاصطناعي 📄</string>
+    <string name="category_it_peripheral">ملحقات IT</string>
+    <string name="reason_scan_ai">مسح بالذكاء الاصطناعي</string>
+    <string name="speak_voice_prompt">قل أمراً (مثلاً: \'عرض المخزون\')</string>
+    <string name="error_start_app">خطأ عند البدء: %1$s</string>
+    <string name="btn_create_product">إنشاء منتج</string>
+    <string name="open_drawer">فتح القائمة</string>
+    <string name="close_drawer">إغلاق القائمة</string>
+
+    <!-- Category Labels (for Adapter) -->
+    <string name="cat_computer_label">حاسوب</string>
+    <string name="cat_dock">قاعدة توصيل</string>
+    <string name="cat_keyboard_label">لوحة مفاتيح</string>
+    <string name="cat_connectivity_label">توصيلات</string>
+    <string name="cat_screen_label">شاشة</string>
+    <string name="cat_mouse_label">فأرة</string>
+
+    <!-- Categories -->
+    <string name="cat_accessories">إكسسوارات</string>
+    <string name="cat_computer">حاسوب</string>
+    <string name="cat_desktop">حاسوب مكتبي</string>
+    <string name="cat_laptop">حاسوب محمول</string>
+    <string name="cat_monitor">شاشة</string>
+
+    <!-- Placeholders & Seeds -->
+    <string name="placeholder_new_article">مادة IT جديدة</string>
+    <string name="placeholder_supplier">لوجستيات فيستا برينت</string>
+    <string name="seed_product_dell">Dell Latitude 5420</string>
+    <string name="seed_desc_workstation">محطة عمل فيستا برينت القياسية</string>
+    <string name="seed_reason_init">تهيئة المخزون</string>
+</resources>

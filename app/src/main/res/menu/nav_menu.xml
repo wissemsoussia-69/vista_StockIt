@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Drawer StockIT — allégé.
+    Les 3 destinations principales (Dashboard / Stock / Profil) sont dans
+    la BottomNavigationView. Ce menu ne contient plus que les sections
+    secondaires (données de référence, admin, paramètres).
+-->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:id="@+id/nav_group_catalog" android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_article"
+            android:icon="@android:drawable/ic_menu_agenda"
+            android:title="@string/nav_article" />
+        <item
+            android:id="@+id/nav_fournisseur"
+            android:icon="@android:drawable/ic_menu_myplaces"
+            android:title="@string/nav_fournisseur" />
+        <item
+            android:id="@+id/nav_commandes"
+            android:icon="@android:drawable/ic_menu_sort_by_size"
+            android:title="@string/nav_commandes" />
+        <item
+            android:id="@+id/nav_shipping"
+            android:icon="@android:drawable/ic_menu_send"
+            android:title="@string/nav_shipping" />
+    </group>
+
+    <group android:id="@+id/nav_group_intelligence" android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_analyses"
+            android:icon="@android:drawable/ic_menu_compass"
+            android:title="@string/nav_reports" />
+        <item
+            android:id="@+id/nav_ai"
+            android:icon="@android:drawable/ic_menu_info_details"
+            android:title="@string/nav_ai_opt" />
+        <item
+            android:id="@+id/nav_leaderboard"
+            android:icon="@android:drawable/btn_star_big_on"
+            android:title="Classement / Leaderboard" />
+        <item
+            android:id="@+id/nav_audit"
+            android:icon="@android:drawable/ic_menu_info_details"
+            android:title="@string/nav_audit" />
+    </group>
+
+    <group android:id="@+id/nav_group_admin" android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_utilisateur"
+            android:icon="@android:drawable/ic_menu_myplaces"
+            android:title="@string/nav_users" />
+        <item
+            android:id="@+id/nav_reclamation"
+            android:icon="@android:drawable/ic_menu_help"
+            android:title="@string/nav_reclamation" />
+        <item
+            android:id="@+id/nav_import_pdf"
+            android:icon="@android:drawable/ic_menu_add"
+            android:title="@string/nav_import_pdf" />
+    </group>
+
+    <group android:id="@+id/nav_group_settings" android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_configuration"
+            android:icon="@android:drawable/ic_menu_preferences"
+            android:title="@string/nav_settings" />
+        <item
+            android:id="@+id/nav_deconnexion"
+            android:icon="@android:drawable/ic_menu_close_clear_cancel"
+            android:title="@string/nav_logout" />
+    </group>
+</menu>
+

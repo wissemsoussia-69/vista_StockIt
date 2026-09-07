@@ -1,0 +1,150 @@
+{
+  "name": "StockIT — send (webhook → Slack + Gmail)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stockit/send",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook-in",
+      "name": "Webhook (POST /webhook/stockit/send)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-400, 0],
+      "webhookId": "stockit-send"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.secret }}",
+              "rightValue": "={{ $env.STOCKIT_WEBHOOK_SECRET }}",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "secret-check",
+      "name": "IF secret OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-160, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "to",
+              "name": "to",
+              "value": "={{ $json.body.email || 'wissem.soussia@vista.com' }}",
+              "type": "string"
+            },
+            {
+              "id": "subject",
+              "name": "subject",
+              "value": "=StockIT — {{ $json.body.barcode }}",
+              "type": "string"
+            },
+            {
+              "id": "text",
+              "name": "text",
+              "value": "=User : {{ $json.body.user }}\nEvent : {{ $json.body.barcode }}\n\n{{ $json.body.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare",
+      "name": "Prepare fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [120, -100]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.text }}",
+        "options": {
+          "senderName": "StockIT Bot"
+        }
+      },
+      "id": "gmail-send",
+      "name": "Gmail — Send",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [380, -100],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_GMAIL_CRED_ID",
+          "name": "Gmail OAuth2 (StockIT)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"ok\",\n  \"mailId\": $json.id,\n  \"threadId\": $json.threadId\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-ok",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [640, -100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"forbidden\", \"reason\": \"bad_secret\" }",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "respond-403",
+      "name": "Respond 403",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [120, 140]
+    }
+  ],
+  "connections": {
+    "Webhook (POST /webhook/stockit/send)": {
+      "main": [[{ "node": "IF secret OK", "type": "main", "index": 0 }]]
+    },
+    "IF secret OK": {
+      "main": [
+        [{ "node": "Prepare fields", "type": "main", "index": 0 }],
+        [{ "node": "Respond 403", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare fields": {
+      "main": [[{ "node": "Gmail — Send", "type": "main", "index": 0 }]]
+    },
+    "Gmail — Send": {
+      "main": [[{ "node": "Respond 200", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

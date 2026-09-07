@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Empty state réutilisable : illustration + titre + sous-titre.
+    Les IDs sont accessibles par findViewById(R.id.emptyIcon / emptyTitle / emptySubtitle).
+    Masquer/afficher via setVisibility().
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/emptyStateRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp"
+    android:visibility="gone">
+
+    <ImageView
+        android:id="@+id/emptyIcon"
+        android:layout_width="140dp"
+        android:layout_height="140dp"
+        android:contentDescription="État vide"
+        android:src="@drawable/ic_empty_tickets" />
+
+    <TextView
+        android:id="@+id/emptyTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Rien à afficher"
+        android:textAppearance="@style/TextAppearance.Vista.SectionTitle" />
+
+    <TextView
+        android:id="@+id/emptySubtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:text="Aucun élément trouvé pour le moment."
+        android:textAppearance="@style/TextAppearance.Vista.Meta" />
+</LinearLayout>

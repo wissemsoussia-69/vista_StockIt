@@ -1,0 +1,341 @@
+<resources>
+    <string name="app_name">StockIT - Vistaprint</string>
+
+    <!-- =============================================================== -->
+    <!--  Auth0 (Vista SSO)                                              -->
+    <!--  Lus automatiquement par le SDK Auth0 via manifest placeholders. -->
+    <!--  Callback URL configuré côté Auth0 :                            -->
+    <!--    com.example.stockit://dev-4gildm0dvlqvugka.us.auth0.com/     -->
+    <!--    android/com.example.stockit/callback                          -->
+    <!-- =============================================================== -->
+    <string name="com_auth0_domain">dev-4gildm0dvlqvugka.us.auth0.com</string>
+    <string name="com_auth0_client_id">LekyJbJqARi5SkhteYEZvMtJ7F1jWulT</string>
+    <string name="com_auth0_scheme">com.example.stockit</string>
+
+    <string name="login_title">Vistaprint StockIT</string>
+    <string name="brand_name">vistaprint</string>
+    <string name="username_hint">Nom d\'utilisateur</string>
+    <string name="password_hint">Mot de passe</string>
+    <string name="login_button">SE CONNECTER</string>
+    <string name="default_account_hint">Accès restreint aux employés Vistaprint</string>
+    <string name="stock_mgmt_mvc">BIENVENUE</string>
+    <string name="refresh_stock">Actualiser la liste</string>
+    <string name="search_hint">Rechercher par Nom, Tag ou Catégorie…</string>
+    <string name="empty_stock">Aucun matériel trouvé.</string>
+    <string name="empty_fields">Champs obligatoires manquants</string>
+    <string name="login_failed">Échec de l\'authentification</string>
+    <string name="initial_data_loaded">Données Vistaprint synchronisées</string>
+    <string name="brand_styled"><b>Vista</b>print</string>
+
+    <!-- Navigation -->
+    <string name="nav_dashboard">Tableau de bord</string>
+    <string name="nav_stock">Inventaire</string>
+    <string name="nav_article">Gestion Articles</string>
+    <string name="nav_fournisseur">Fournisseurs</string>
+    <string name="nav_commandes">Commandes</string>
+    <string name="nav_shipping">Expéditions</string>
+    <string name="nav_reports">Rapports</string>
+    <string name="nav_ai_opt">IA Optimisation</string>
+    <string name="nav_import_pdf">Import Catalogue (PDF)</string>
+    <string name="nav_users">Utilisateurs</string>
+    <string name="nav_audit">Audit Actions</string>
+    <string name="nav_settings">Paramètres</string>
+    <string name="nav_profile">Mon Profil</string>
+    <string name="nav_logout">Déconnexion</string>
+    <string name="nav_reclamation">Réclamation</string>
+    <string name="nav_inventory_manager">Gestionnaire d\'inventaire</string>
+
+    <!-- Dashboard -->
+    <string name="dash_summary">Résumé du Stock IT</string>
+    <string name="dash_total_qty">Quantité Totale</string>
+    <string name="dash_current_value">Valeur Actuelle</string>
+    <string name="dash_urgent_alerts">🔔 Alertes Urgentes</string>
+    <string name="dash_loading_alerts">Chargement des alertes...</string>
+    <string name="dash_quick_actions">Actions Rapides</string>
+    <string name="dash_ai_assistant">Assistant IA</string>
+    <string name="dash_scan">Scan</string>
+    <string name="dash_create">Créer</string>
+    <string name="dash_stock">Stock</string>
+    <string name="dash_recent_movements">Derniers Mouvements</string>
+    <string name="dash_view_all">Voir tout</string>
+    <string name="dash_all_ok">Tout est sous contrôle.</string>
+    <string name="dash_alert_msg">%1$d articles en stock faible, %2$d en rupture !</string>
+
+    <!-- Stock -->
+    <string name="stock_title">Gestion de Stock IT</string>
+    <string name="stock_quick_scan">📋 Scan Rapide</string>
+    <string name="stock_history">📈 Historique</string>
+
+    <!-- Configuration -->
+    <string name="settings_title">Paramètres</string>
+    <string name="settings_preferences">Préférences</string>
+    <string name="settings_dark_mode">Mode sombre</string>
+    <string name="settings_language">Langue de l\'application</string>
+    <string name="settings_font_size">Taille de la police</string>
+    <string name="settings_version">Version de l\'application : 1.0.0</string>
+
+    <!-- Reports -->
+    <string name="reports_advanced_analytics">Analytiques Avancées</string>
+    <string name="reports_total_value">Valeur Totale</string>
+    <string name="reports_out_of_stock">Ruptures</string>
+    <string name="reports_out_of_stock_suffix">articles</string>
+    <string name="reports_stock_indicators">Indicateurs de Stock</string>
+    <string name="reports_items_in_stock">Articles en stock: %1$s</string>
+    <string name="reports_low_stock_alerts">Alertes niveau faible: %1$s</string>
+    <string name="reports_category_distribution">Distribution par Catégorie</string>
+    <string name="reports_monthly_movements">Mouvements mensuels</string>
+    <string name="reports_stock_evolution">Évolution du Stock</string>
+    <string name="reports_performance_by_zone">Performance par Zone</string>
+    <string name="reports_category_turnover">Turnover par catégorie</string>
+    <string name="reports_category_analysis_loading">Analyse des catégories...</string>
+    <string name="reports_export_excel">🎯 EXPORTER EN EXCEL (CSV)</string>
+    <string name="default_email">it-admin@vistaservices.io</string>
+    <string name="report_total_stock">Total des articles : %1$d</string>
+    <string name="report_low_stock">Alertes stock faible : %1$d</string>
+
+    <!-- Articles -->
+    <string name="art_search_hint">Recherche...</string>
+    <string name="art_date_mfg">Date d\'entrée</string>
+    <string name="art_date_exp">Date de sortie</string>
+    <string name="art_date_format_hint">jj/mm/aaaa</string>
+    <string name="art_name_label">Nom de l\'article</string>
+    <string name="art_name_hint">Nom</string>
+    <string name="art_category_label">Catégorie</string>
+    <string name="art_qty_label">Quantité</string>
+    <string name="art_qty_hint">Qté</string>
+    <string name="art_price_label">Prix unitaire</string>
+    <string name="art_price_hint">Prix</string>
+    <string name="art_reason_label">Motif / Commentaire</string>
+    <string name="art_reason_hint">Motif</string>
+    <string name="art_action_validate">Valider</string>
+    <string name="art_table_name">Nom article</string>
+    <string name="art_table_category">Catégorie</string>
+    <string name="art_table_qty">Quantité</string>
+    <string name="art_table_price">Prix unitaire</string>
+    <string name="art_table_mfg">Date entrée</string>
+    <string name="art_table_exp">Date sortie</string>
+    <string name="art_table_action">Action</string>
+
+    <!-- Suppliers -->
+    <string name="sup_name_hint">Nom</string>
+    <string name="sup_email_hint">Email</string>
+    <string name="sup_phone_hint">Téléphone</string>
+    <string name="sup_address_hint">Adresse</string>
+    <string name="sup_lead_time_hint">Délai (jours)</string>
+    <string name="sup_discount_hint">Réduction (%)</string>
+    <string name="sup_lead_time">Délai: %1$d jours</string>
+
+    <!-- AI Chat -->
+    <string name="ai_chat_title">Assistant IA Vista</string>
+    <string name="ai_name">IA</string>
+    <string name="ai_welcome_msg">Bonjour ! Je suis votre assistant StockIT. Comment puis-je vous aider aujourd\'hui ?</string>
+    <string name="user_name_me">Moi</string>
+    <string name="chat_input_hint">Tapez votre message...</string>
+    <string name="ai_system_role">Tu es un assistant expert en gestion de stock IT pour Vista Services.</string>
+    <string name="ai_error_prefix">Erreur IA : %1$s</string>
+    <string name="ai_invoice_system_role">Tu es un extracteur de données. Analyse cette facture et renvoie UNIQUEMENT un JSON avec cette structure: {\"items\": [{\"name\": \"...\", \"qty\": 1, \"price\": 10.0}]}</string>
+    <string name="ai_invoice_user_prompt">Extrait les articles de cette facture.</string>
+    <string name="ai_error_analysis">Erreur Analyse : %1$s</string>
+
+    <!-- Insights -->
+    <string name="ai_insight_recommendation">Réapprovisionnement suggéré: %1$s</string>
+    <string name="ai_insight_recommendation_desc">La demande prédite est de %1$d unités. Stock actuel insuffisant.</string>
+    <string name="ai_insight_anomaly">Anomalie détectée</string>
+    <string name="ai_insight_anomaly_desc">Mouvement inhabituel de %1$d unités pour %2$s</string>
+    <string name="ai_insight_dead_stock">Stock dormant: %1$s</string>
+    <string name="ai_insight_dead_stock_desc">Aucun mouvement détecté. Suggérer une réduction de 15%% pour vider le stock.</string>
+    <string name="ai_insight_risk">Risque d\'obsolescence</string>
+    <string name="ai_insight_risk_desc">%1$s approche de sa date de sortie (%2$s)</string>
+    <string name="ai_insight_done">Analyse terminée</string>
+    <string name="ai_insight_no_alerts">Aucune alerte IA pour le moment.</string>
+    <string name="ai_insight_priority_label">PRIORITÉ: %1$s</string>
+    <string name="priority_label_full">PRIORITÉ : %1$s</string>
+    <string name="ai_type_telemetry">TÉLÉMÉTRIE</string>
+    <string name="ai_type_recommendation">RECOMMANDATION</string>
+    <string name="ai_type_anomaly">ANOMALIE</string>
+    <string name="ai_type_risk">RISQUE</string>
+    <string name="ai_type_prediction">PRÉDICTION</string>
+    <string name="ai_type_price">PRIX</string>
+
+    <!-- Audit & Movements -->
+    <string name="audit_details_label">Détails de l\'action effectuée</string>
+    <string name="audit_login_success">Connexion réussie: %1$s</string>
+    <string name="audit_cat_added">Catégorie ajoutée: %1$s</string>
+    <string name="audit_cat_updated">Catégorie mise à jour: %1$s</string>
+    <string name="audit_cat_deleted">Catégorie supprimée: %1$s</string>
+    <string name="audit_prod_added">Produit ajouté: %1$s (Qty: %2$d)</string>
+    <string name="audit_prod_updated">Produit mis à jour: %1$s</string>
+    <string name="audit_prod_deleted">Produit supprimé: %1$s</string>
+    <string name="audit_qty_adjusted">Quantité ajustée pour %1$s: %2$d</string>
+    <string name="audit_purchase_created">Commande créée: %1$s (Qty: %2$d)</string>
+    <string name="audit_purchase_updated">Commande mise à jour: %1$s</string>
+    <string name="audit_purchase_deleted">Commande supprimée: %1$s</string>
+    <string name="audit_sup_added">Fournisseur ajouté: %1$s</string>
+    <string name="audit_sup_updated">Fournisseur mis à jour: %1$s</string>
+    <string name="audit_sup_deleted">Fournisseur supprimé: %1$s</string>
+    <string name="audit_ship_created">Expédition créée pour: %1$s</string>
+    <string name="audit_ship_updated">Expédition mise à jour: %1$s</string>
+    <string name="audit_ship_deleted">Expédition supprimée: %1$s</string>
+    <string name="mov_new_product">Nouvel article ajouté</string>
+    <string name="mov_manual_adj">Ajustement manuel</string>
+    <string name="mov_deleted">Article supprimé</string>
+    <string name="mov_label_qty">Qte: %1$d</string>
+    <string name="mov_label_user">Par: %1$s</string>
+    <string name="mov_label_reason">Motif: %1$s</string>
+    <string name="mov_label_comment">Com: %1$s</string>
+
+    <!-- Purchase & Shipping -->
+    <string name="purchase_status_pending">En attente</string>
+    <string name="purchase_supplier_label">Fournisseur: %1$s</string>
+    <string name="purchase_qty_label">Quantité: %1$d</string>
+    <string name="purchase_btn_delete">Supprimer</string>
+    <string name="purchase_btn_receive">Valider Réception</string>
+    <string name="ship_status_pending">EN ATTENTE</string>
+    <string name="ship_item_label">Produit: %1$s</string>
+    <string name="ship_ticket_label">Ticket Jira: %1$s</string>
+    <string name="ship_tracking_label">Suivi: %1$s</string>
+    <string name="order_received">Reçu</string>
+
+    <!-- Login & Biometrics -->
+    <string name="login_biometric_access">Accès Biométrique</string>
+    <string name="login_error_no_hardware">Pas de capteur biométrique détecté.</string>
+    <string name="login_error_unavailable">Capteur biométrique indisponible.</string>
+    <string name="login_error_none_enrolled">Aucune empreinte ou visage enregistré.</string>
+    <string name="login_error_prefix">Erreur: %1$s</string>
+    <string name="login_error_admin_fail">Identifiants admin incorrects</string>
+    <string name="login_auth_failed">Authentification échouée</string>
+    <string name="login_prompt_title">Authentification Sécurisée</string>
+    <string name="login_prompt_subtitle">Utilisez vos identifiants biométriques</string>
+
+    <!-- SSO Auth0 (Vista) -->
+    <string name="sso_title">Connexion Vista SSO</string>
+    <string name="sso_subtitle">Authentification sécurisée avec vos identifiants Vistaprint (Auth0 Universal Login).</string>
+    <string name="sso_button_okta">Se connecter avec Vista SSO</string>
+    <string name="sso_not_configured">SSO non configuré. Renseignez com_auth0_domain et com_auth0_client_id dans strings.xml.</string>
+    <string name="sso_error">Erreur SSO : %1$s</string>
+    <string name="login_local_fallback_hint">Accès de secours (démo hors ligne)</string>
+    <string name="splash_checking_session">Vérification de votre session…</string>
+    <string name="splash_secured_by_okta">Sécurisé par Auth0 · Vista Services</string>
+
+    <!-- Claims -->
+    <string name="claims_center_title">Centre de Réclamations</string>
+    <string name="claims_new_title">Nouvelle Réclamation</string>
+    <string name="claims_subject_hint">Sujet (ex: PC en panne)</string>
+    <string name="claims_desc_hint">Description détaillée...</string>
+    <string name="claims_priority_label">Priorité :</string>
+    <string name="claims_anonymous">Anonyme</string>
+
+    <!-- Profile -->
+    <string name="profile_personal_info">Informations personnelles</string>
+    <string name="profile_username">Nom d\'utilisateur: %1$s</string>
+    <string name="profile_email">Email: %1$s</string>
+    <string name="profile_dept">Département: %1$s</string>
+    <string name="profile_location">Localisation: %1$s</string>
+    <string name="profile_logout">Se déconnecter</string>
+    <string name="profile_dept_it">IT Infrastructure</string>
+    <string name="profile_loc_hq">Bureau Central</string>
+
+    <!-- Common -->
+    <string name="tag_label">Tag: %1$s | %2$s</string>
+    <string name="user_name_system">Système</string>
+    <string name="user_name_guest">Invité</string>
+    <string name="role_admin">ADMINISTRATEUR</string>
+    <string name="role_employee">EMPLOYÉ</string>
+    <string name="status_label">STATUT : %1$s</string>
+    <string name="status_open">OUVERT</string>
+    <string name="status_shipped">EXPÉDIÉ</string>
+    <string name="status_delivered">LIVRÉ</string>
+    <string name="status_preparing">EN PRÉPARATION</string>
+    <string name="status_pending">EN ATTENTE</string>
+    <string name="status_received">REÇU</string>
+    <string name="priority_high">HAUTE</string>
+    <string name="priority_medium">MOYENNE</string>
+    <string name="priority_low">BASSE</string>
+    <string name="btn_modifier">Modifier</string>
+    <string name="btn_valider">Valider</string>
+    <string name="btn_close">Fermer</string>
+    <string name="history_title">Historique</string>
+    <string name="yes">Oui</string>
+    <string name="no">No</string>
+    <string name="product_details_title">Détails du produit</string>
+    <string name="product_details_msg">Détails du produit :\nQuantité : %1$d\nSeuil : %2$d\n\nVoulez-vous envoyer une alerte de réapprovisionnement via n8n ?</string>
+    <string name="n8n_send_alert">Envoyer Alerte n8n</string>
+    <string name="n8n_sending">Envoi de l\'alerte à n8n...</string>
+    <string name="n8n_sent">Alerte n8n envoyée (Slack/Jira)</string>
+
+    <!-- Toasts -->
+    <string name="toast_unauthorized">Action non autorisée</string>
+    <string name="toast_admin_only">Accès réservé à l\'administrateur</string>
+    <string name="toast_ai_analyzing">IA en cours d\'analyse...</string>
+    <string name="toast_camera_permission_denied">Permission caméra refusée</string>
+    <string name="toast_pdf_reading">Lecture du catalogue PDF...</string>
+    <string name="toast_pdf_imported_success">%1$d articles importés du catalogue !</string>
+    <string name="toast_pdf_import_error">Erreur lors de l\'import PDF: %1$s</string>
+    <string name="toast_command_unrecognized">Commande non reconnue : %1$s</string>
+    <string name="toast_searching_for">Recherche de : %1$s</string>
+    <string name="toast_file_creation_error">Erreur lors de la création du fichier</string>
+    <string name="toast_photo_uri_null">Erreur : URI de la photo nulle</string>
+    <string name="toast_file_unreadable">Fichier photo illisible</string>
+    <string name="toast_ia_system_error">Erreur système IA : %1$s</string>
+    <string name="toast_voice_unavailable">Reconnaissance vocale non disponible sur cet appareil</string>
+    <string name="toast_ai_added_success">%1$s ajouté au stock !</string>
+    <string name="toast_ai_no_object">IA: Impossible d\'identifier précisément l\'objet. Essayez de cadrer le logo.</string>
+    <string name="toast_ai_no_barcode">IA: Aucun code détecté. Essayez plus près.</string>
+    <string name="toast_ai_no_text">IA: Aucun texte détecté.</string>
+    <string name="toast_ai_standard_no_object">IA Standard: Aucun objet reconnu.</string>
+    <string name="toast_access_denied_rights">Accès refusé : Droits insuffisants</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_scan_mode_title">Choisir le mode de scan</string>
+    <string name="dialog_ai_multiple_objects_title">L\'IA a détecté plusieurs objets</string>
+    <string name="dialog_ai_add_qty_msg">Entrez la quantité pour ce matériel :</string>
+    <string name="dialog_ai_confirm_add">Confirmer l\'ajout</string>
+    <string name="dialog_detected_object_title">Objet Détecté : %1$s</string>
+    <string name="dialog_detected_object_msg">L\'IA a identifié cet article.\nSouhaitez-vous voir l\'état des stocks pour : %1$s ?</string>
+    <string name="btn_show_stock">Afficher Stock</string>
+    <string name="dialog_barcode_detected_title">Code-barres détecté</string>
+    <string name="dialog_barcode_detected_msg">Code : %1$s\n\nSouhaitez-vous rechercher cet article dans le stock ?</string>
+    <string name="btn_search">Rechercher</string>
+    <string name="dialog_text_detected_title">Texte détecté</string>
+    <string name="dialog_text_detected_msg">%1$s\n\nSouhaitez-vous utiliser ce texte pour une recherche ?</string>
+
+    <string name="scan_mode_ocr">Scanner Texte (OCR)</string>
+    <string name="scan_mode_barcode">Scanner Code-barres / QR</string>
+    <string name="scan_mode_ai_expert">IA Expert (Matériel Info)</string>
+    <string name="scan_mode_invoice">Analyse Facture IA 📄</string>
+    <string name="category_it_peripheral">Périphérique IT</string>
+    <string name="reason_scan_ai">Scan IA</string>
+    <string name="speak_voice_prompt">Dites une commande (ex: \'Afficher le stock\')</string>
+    <string name="error_start_app">Erreur au démarrage: %1$s</string>
+    <string name="btn_create_product">Créer Produit</string>
+    <string name="open_drawer">Ouvrir le menu</string>
+    <string name="close_drawer">Fermer le menu</string>
+
+    <!-- Category Labels (for Adapter) -->
+    <string name="cat_computer_label">ordinateur</string>
+    <string name="cat_dock_label">dock</string>
+    <string name="cat_keyboard_label">clavier</string>
+    <string name="cat_connectivity_label">connectique</string>
+    <string name="cat_screen_label">écran</string>
+    <string name="cat_mouse_label">souris</string>
+    <string name="cat_dock">Station d\'accueil</string>
+
+    <!-- Categories -->
+    <string name="cat_accessories">Accessoires</string>
+    <string name="cat_computer">Ordinateur</string>
+    <string name="cat_desktop">Desktop</string>
+    <string name="cat_laptop">Laptop</string>
+    <string name="cat_monitor">Écran</string>
+
+    <!-- Placeholders & Seeds -->
+    <string name="placeholder_new_article">Nouvel Article IT</string>
+    <string name="placeholder_supplier">Vistaprint Logistics</string>
+    <string name="seed_product_dell">Dell Latitude 5420</string>
+    <string name="seed_desc_workstation">Poste de travail standard Vistaprint</string>
+    <string name="seed_reason_init">Initialisation du stock</string>
+
+    <!-- Shortcuts & Missing -->
+    <string name="biometric_access">Accès Biométrique</string>
+    <string name="shortcut_add_product_long">Ajouter un nouveau produit au stock</string>
+    <string name="shortcut_add_product_short">Ajouter Produit</string>
+</resources>

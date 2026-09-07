@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chip d'indicateur de zoom Vista (fond navy translucide, texte blanc). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="20dp" />
+    <solid android:color="#B30B1F44" />
+    <stroke android:width="1dp" android:color="#440F53FA" />
+</shape>

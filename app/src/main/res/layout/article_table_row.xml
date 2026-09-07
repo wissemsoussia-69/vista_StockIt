@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/rowName"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        android:text="HP"
+        android:textColor="#333333" />
+
+    <TextView
+        android:id="@+id/rowCategory"
+        android:layout_width="100dp"
+        android:layout_height="wrap_content"
+        android:text="Ordinateur"
+        android:textColor="#333333" />
+
+    <TextView
+        android:id="@+id/rowQty"
+        android:layout_width="80dp"
+        android:layout_height="wrap_content"
+        android:text="3"
+        android:textColor="#333333" />
+
+    <TextView
+        android:id="@+id/rowPrice"
+        android:layout_width="100dp"
+        android:layout_height="wrap_content"
+        android:text="200000"
+        android:textColor="#333333" />
+
+    <TextView
+        android:id="@+id/rowMfgDate"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        android:text="15/09/2022"
+        android:textColor="#666666"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/rowExpDate"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        android:text="18/09/2022"
+        android:textColor="#666666"
+        android:textSize="12sp" />
+
+    <ImageButton xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/btnEditArticle"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@android:drawable/ic_menu_edit"
+        app:tint="#673AB7" />
+
+    <ImageButton xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/btnDeleteArticle"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@android:drawable/ic_menu_delete"
+        app:tint="#E74C3C" />
+
+</LinearLayout>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Réciproque de fab_mini_pop_in : disparition fluide -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:anim/accelerate_interpolator">
+
+    <alpha
+        android:duration="180"
+        android:fromAlpha="1.0"
+        android:toAlpha="0.0" />
+
+    <scale
+        android:duration="180"
+        android:fromXScale="1.0"
+        android:fromYScale="1.0"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:toXScale="0.4"
+        android:toYScale="0.4" />
+
+    <translate
+        android:duration="180"
+        android:fromYDelta="0"
+        android:toYDelta="30" />
+</set>
