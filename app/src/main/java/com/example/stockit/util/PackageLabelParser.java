@@ -21,21 +21,6 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-/**
- * StockIT PFE — Extraction structurée d'une étiquette de carton.
- *
- * Pipeline :
- *   1) OCR MLKit local sur la photo de l'étiquette.
- *   2) Envoi du texte brut à Cimpress Gateway (Claude Opus 4) pour extraction JSON :
- *      {
- *        "productName":  "IMPACT 100 MS Stereo USB-C+A",
- *        "quantity":     20,
- *        "articleNumber":"1001421",
- *        "brand":        "EPOS",
- *        "poOnLabel":    "3480"
- *      }
- *   3) Retour d'un objet {@link Label} (Serializable pour Intent extras).
- */
 public final class PackageLabelParser {
 
     private static final String TAG = "PackageLabelParser";
@@ -54,6 +39,8 @@ public final class PackageLabelParser {
         public String articleNumber;
         public String brand;
         public String poOnLabel;
+        public String serialNumber;
+        public String upc;
         public String error;
     }
 
@@ -65,26 +52,25 @@ public final class PackageLabelParser {
 
         new Thread(() -> {
             try {
-                if (progress != null) progress.onStep("[1/2] OCR MLKit sur l'étiquette…");
+                if (progress != null) progress.onStep("[1/2] OCR MLKit on label...");
                 String ocr = runOcr(photo);
                 if (ocr == null || ocr.trim().isEmpty()) {
-                    cb.onParsed(errorLabel("OCR vide — texte non détecté sur l'étiquette"));
+                    cb.onParsed(errorLabel("OCR empty - no text detected on label"));
                     return;
                 }
                 Log.i(TAG, "OCR chars=" + ocr.length() + " preview=" + preview(ocr, 200));
 
-                if (progress != null) progress.onStep("[2/2] Claude Opus 4 via Cimpress (" + ocr.length() + " chars)…");
+                if (progress != null) progress.onStep("[2/2] Claude Opus 4 via Cimpress (" + ocr.length() + " chars)...");
                 Label lbl = extractViaClaude(ocr);
                 lbl.rawOcr = ocr;
                 cb.onParsed(lbl);
             } catch (Throwable t) {
                 Log.e(TAG, "parser crash", t);
-                cb.onParsed(errorLabel("Crash parser : " + t.getClass().getSimpleName() + " — " + t.getMessage()));
+                cb.onParsed(errorLabel("Parser crash: " + t.getClass().getSimpleName() + " - " + t.getMessage()));
             }
         }, "package-label-parser").start();
     }
 
-    // ---------- OCR MLKit ----------
     private static String runOcr(Bitmap bmp) {
         try {
             InputImage img = InputImage.fromBitmap(bmp, 0);
@@ -102,7 +88,6 @@ public final class PackageLabelParser {
         }
     }
 
-    // ---------- Claude Opus 4 via Cimpress ----------
     private static Label extractViaClaude(String ocrText) {
         Label lbl = new Label();
         String key = BuildConfig.CIMPRESS_GATEWAY_KEY;
@@ -113,26 +98,29 @@ public final class PackageLabelParser {
             return lbl;
         }
 
-        String prompt =
-              "Voici le texte OCR d'une ETIQUETTE DE CARTON d'expedition d'un produit informatique. "
-            + "Extrais UNIQUEMENT ce JSON strict :\n"
+                String prompt =
+                            "Here is OCR text from a SHIPPING BOX LABEL of an IT product. "
+                        + "Extract ONLY this strict JSON:\n"
             + "{\n"
-            + "  \"productName\":   \"Nom exact et complet du produit (ex: IMPACT 100 MS Stereo USB-C+A)\",\n"
+            + "  \"productName\":   \"Exact full product name (e.g. IMPACT 100 MS Stereo USB-C+A)\",\n"
             + "  \"quantity\":       20,\n"
-            + "  \"articleNumber\": \"Numero d'article (Art.-No.)\",\n"
-            + "  \"brand\":          \"Marque (ex: EPOS)\",\n"
-            + "  \"poOnLabel\":      \"Numero PO imprime sur l'etiquette (ex: 3480 ou PO-3480), ou null si absent\"\n"
+            + "  \"articleNumber\": \"Item number (Art.-No.)\",\n"
+            + "  \"brand\":          \"Brand (e.g. EPOS)\",\n"
+            + "  \"poOnLabel\":      \"PO number printed on label (e.g. 3480 or PO-3480), or null if missing\",\n"
+            + "  \"serialNumber\":   \"Serial number (S/N, Serial No, SN), or null if missing\",\n"
+            + "  \"upc\":            \"UPC/EAN/GTIN printed on barcode (8-14 digits), or null if missing\"\n"
             + "}\n"
-            + "Regles strictes :\n"
-            + "- quantity est un ENTIER (regarde QTY / QUANTITY / Qte). Par defaut 1 si absent.\n"
-            + "- productName = designation complete, PAS le nom de la marque seule.\n"
-            + "- Ne devine PAS : si un champ est absent, mets une chaine vide ou null.\n"
-            + "- Reponds UNIQUEMENT le JSON, rien avant, rien apres, pas de markdown.\n\n"
-            + "Texte OCR :\n" + ocrText;
+            + "Strict rules:\n"
+            + "- quantity must be an INTEGER (look for QTY / QUANTITY). Default to 1 if missing.\n"
+            + "- productName must be the full product designation, NOT only the brand.\n"
+            + "- upc must be digits only (8 to 14), barcode format. Ignore non-barcode identifiers.\n"
+            + "- DO NOT GUESS: if a field is missing, use empty string or null.\n"
+            + "- Return ONLY JSON, nothing before or after, no markdown.\n\n"
+            + "OCR text:\n" + ocrText;
 
         String body = "{\n" +
                 "  \"model\": " + jsonQuote(model) + ",\n" +
-                "  \"max_tokens\": 400,\n" +
+                "  \"max_tokens\": 500,\n" +
                 "  \"messages\": [{\n" +
                 "    \"role\": \"user\",\n" +
                 "    \"content\": " + jsonQuote(prompt) + "\n" +
@@ -179,11 +167,20 @@ public final class PackageLabelParser {
             lbl.articleNumber  = optStrOrNull(obj, "articleNumber");
             lbl.brand          = optStrOrNull(obj, "brand");
             lbl.poOnLabel      = optStrOrNull(obj, "poOnLabel");
+            lbl.serialNumber   = optStrOrNull(obj, "serialNumber");
+            lbl.upc            = sanitizeUpc(optStrOrNull(obj, "upc"));
             if (lbl.quantity <= 0) lbl.quantity = 1;
         } catch (org.json.JSONException e) {
             Log.w(TAG, "JSON parse fail, raw=" + preview(clean, 300), e);
-            lbl.error = "json_parse_fail — raw=" + preview(clean, 120);
+            lbl.error = "json_parse_fail - raw=" + preview(clean, 120);
         }
+    }
+
+    private static String sanitizeUpc(String raw) {
+        if (raw == null) return null;
+        String digits = raw.replaceAll("[^0-9]", "");
+        if (digits.length() < 8 || digits.length() > 14) return null;
+        return digits;
     }
 
     private static String optStrOrNull(org.json.JSONObject o, String key) {
@@ -192,34 +189,55 @@ public final class PackageLabelParser {
         return v.isEmpty() || "null".equalsIgnoreCase(v) ? null : v;
     }
 
-    // ---------- helpers (identiques à DeliveryNoteParser) ----------
     private static String extractOpenAiContent(String json) {
-        if (json == null) return null;
-        int c = json.indexOf("\"content\"");
-        if (c < 0) return null;
-        int colon = json.indexOf(':', c);
-        if (colon < 0) return null;
-        int q1 = json.indexOf('"', colon + 1);
-        if (q1 < 0) return null;
-        StringBuilder sb = new StringBuilder();
-        for (int i = q1 + 1; i < json.length(); i++) {
-            char ch = json.charAt(i);
-            if (ch == '\\' && i + 1 < json.length()) {
-                char n = json.charAt(++i);
-                switch (n) {
-                    case 'n': sb.append('\n'); break;
-                    case 't': sb.append('\t'); break;
-                    case '"': sb.append('"'); break;
-                    case '\\': sb.append('\\'); break;
-                    default:  sb.append(n);
+        if (json == null || json.trim().isEmpty()) return null;
+        try {
+            org.json.JSONObject root = new org.json.JSONObject(json);
+
+            org.json.JSONArray choices = root.optJSONArray("choices");
+            if (choices != null && choices.length() > 0) {
+                org.json.JSONObject first = choices.optJSONObject(0);
+                if (first != null) {
+                    org.json.JSONObject msg = first.optJSONObject("message");
+                    if (msg != null) {
+                        String v = contentToString(msg.opt("content"));
+                        if (v != null && !v.trim().isEmpty()) return v;
+                    }
                 }
-            } else if (ch == '"') {
-                return sb.toString();
-            } else {
-                sb.append(ch);
             }
+
+            String direct = contentToString(root.opt("content"));
+            return (direct == null || direct.trim().isEmpty()) ? null : direct;
+        } catch (Exception ignored) {
+            return null;
         }
-        return sb.toString();
+    }
+
+    private static String contentToString(Object content) {
+        if (content == null || content == org.json.JSONObject.NULL) return null;
+        if (content instanceof String) return (String) content;
+        if (content instanceof org.json.JSONArray) {
+            org.json.JSONArray arr = (org.json.JSONArray) content;
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < arr.length(); i++) {
+                Object item = arr.opt(i);
+                if (item instanceof org.json.JSONObject) {
+                    String txt = ((org.json.JSONObject) item).optString("text", "").trim();
+                    if (!txt.isEmpty()) {
+                        if (sb.length() > 0) sb.append('\n');
+                        sb.append(txt);
+                    }
+                } else if (item instanceof String) {
+                    String txt = ((String) item).trim();
+                    if (!txt.isEmpty()) {
+                        if (sb.length() > 0) sb.append('\n');
+                        sb.append(txt);
+                    }
+                }
+            }
+            return sb.length() == 0 ? null : sb.toString();
+        }
+        return null;
     }
 
     private static String jsonQuote(String s) {
@@ -243,7 +261,7 @@ public final class PackageLabelParser {
 
     private static String preview(String s, int max) {
         if (s == null) return "";
-        return s.length() > max ? s.substring(0, max) + "…" : s;
+        return s.length() > max ? s.substring(0, max) + "..." : s;
     }
 
     private static Label errorLabel(String err) {

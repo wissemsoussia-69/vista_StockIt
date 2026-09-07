@@ -43,26 +43,25 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ViewHold
         Product p = products.get(position);
         android.content.Context ctx = holder.itemView.getContext();
         
-        holder.name.setText(p.getName());
+        holder.name.setText(com.example.stockit.util.LegacyTextNormalizer.toEnglishProductName(p.getName()));
         holder.qty.setText(String.valueOf(p.getQuantity()));
 
         if (p.getQuantity() <= p.getMinThreshold()) {
             holder.qty.setTextColor(android.graphics.Color.RED);
-            holder.qty.setText(p.getQuantity() + " ⚠️");
+            holder.qty.setText(p.getQuantity() + " !");
         } else {
             holder.qty.setTextColor(android.graphics.Color.BLACK);
         }
         
         holder.desc.setText(p.getDescription());
 
-        // Icon based on category
-        String icon = "📦";
+        String icon = "[PKG]";
         String cat = p.getCategory().toLowerCase();
-        if (cat.contains("computer") || cat.contains("laptop") || cat.contains("ordinateur")) icon = "💻";
-        else if (cat.contains("keyboard") || cat.contains("clavier")) icon = "⌨️";
-        else if (cat.contains("screen") || cat.contains("monitor") || cat.contains("écran")) icon = "🖥️";
-        else if (cat.contains("mouse") || cat.contains("souris")) icon = "🖱️";
-        else if (cat.contains("cable") || cat.contains("câble") || cat.contains("connectique")) icon = "🔌";
+        if (cat.contains("computer") || cat.contains("laptop")) icon = "[PC]";
+        else if (cat.contains("keyboard")) icon = "[KB]";
+        else if (cat.contains("screen") || cat.contains("monitor")) icon = "[MON]";
+        else if (cat.contains("mouse")) icon = "[MSE]";
+        else if (cat.contains("cable")) icon = "[CBL]";
 
         holder.icon.setText(icon);
 

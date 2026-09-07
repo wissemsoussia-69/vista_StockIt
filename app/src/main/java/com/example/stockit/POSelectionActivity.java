@@ -21,21 +21,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * StockIT PFE — Écran de sélection d'un PO parmi ceux extraits d'une facture.
- *
- * Entrée (Intent extras) :
- *   - EXTRA_EQUIPMENT_NAME (String) : ex "Écran" — nom détecté par Claude
- *   - EXTRA_PARSED_NOTE    (Serializable) : {@link DeliveryNoteParser.ParsedNote}
- *
- * Sortie (setResult) :
- *   - EXTRA_SELECTED_NUMBER      (String) : ex "PO-5678"
- *   - EXTRA_SELECTED_DESCRIPTION (String) : description Claude du PO choisi
- *   - EXTRA_SELECTED_SUPPLIER    (String) : fournisseur extrait de la facture
- *
- * Politique (B) : si le PO choisi ne mentionne pas l'équipement scanné dans sa description,
- * on affiche un warning non bloquant. L'utilisateur peut forcer.
- */
 public class POSelectionActivity extends AppCompatActivity {
 
     public static final String EXTRA_EQUIPMENT_NAME      = "equipment_name";
@@ -43,6 +28,11 @@ public class POSelectionActivity extends AppCompatActivity {
     public static final String EXTRA_SELECTED_NUMBER     = "selected_po_number";
     public static final String EXTRA_SELECTED_DESCRIPTION= "selected_po_description";
     public static final String EXTRA_SELECTED_SUPPLIER   = "selected_po_supplier";
+    public static final String EXTRA_SELECTED_BRAND      = "selected_po_brand";
+    public static final String EXTRA_SELECTED_MODEL      = "selected_po_model";
+    public static final String EXTRA_SELECTED_SERIALS    = "selected_po_serials";
+    public static final String EXTRA_INVOICE_NUMBER      = "invoice_number";
+    public static final String EXTRA_INVOICE_DATE        = "invoice_date";
 
     private TextView title, subtitle;
     private RecyclerView recycler;
@@ -68,18 +58,18 @@ public class POSelectionActivity extends AppCompatActivity {
 
         if (note == null || note.purchaseOrders == null || note.purchaseOrders.isEmpty()) {
             new AlertDialog.Builder(this)
-                    .setTitle("❌ Aucun PO détecté")
-                    .setMessage("La facture n'a produit aucun numéro de PO exploitable."
+                    .setTitle(R.string.dlg_title_no_po)
+                    .setMessage(getString(R.string.dlg_msg_invoice_no_po)
                             + (note != null && note.rawOcr != null ? "\n\nOCR:\n" + trim(note.rawOcr, 500) : ""))
-                    .setPositiveButton("OK", (d, w) -> { setResult(RESULT_CANCELED); finish(); })
+                    .setPositiveButton(R.string.action_ok, (d, w) -> { setResult(RESULT_CANCELED); finish(); })
                     .setCancelable(false)
                     .show();
             return;
         }
 
-        title.setText(note.purchaseOrders.size() + " PO détecté(s) — sélectionne le bon");
-        subtitle.setText("🖥️ Équipement scanné : " + (equipmentName == null ? "?" : equipmentName)
-                + (note.supplier != null ? "   •   Fournisseur facture : " + note.supplier : ""));
+        title.setText(note.purchaseOrders.size() + " PO detected - select the correct one");
+        subtitle.setText("Scanned equipment: " + (equipmentName == null ? "?" : equipmentName)
+            + (note.supplier != null ? " | Invoice supplier: " + note.supplier : ""));
 
         setupRecycler();
 
@@ -88,8 +78,7 @@ public class POSelectionActivity extends AppCompatActivity {
     }
 
     private void setupRecycler() {
-        // Récupère les ids de PO existants en base (pour badge "✅ En base")
-        MainController controller = new MainController(this);
+        MainController controller = MainController.getInstance(this);
         controller.getPurchaseOrders(orders -> {
             Set<Integer> known = new HashSet<>();
             if (orders != null) for (PurchaseOrder po : orders) known.add(po.getId());
@@ -109,16 +98,14 @@ public class POSelectionActivity extends AppCompatActivity {
             returnResult(selected);
             return;
         }
-        // Option B : warning non bloquant
         new AlertDialog.Builder(this)
-                .setTitle("⚠️ Incohérence possible")
-                .setMessage("Tu as scanné : « " + (equipmentName == null ? "?" : equipmentName) + " ».\n\n"
-                        + "Mais le PO " + selected.number + " indique :\n« "
-                        + (selected.description == null ? "(sans description)" : selected.description) + " »\n\n"
-                        + "Ce PO ne mentionne pas ton équipement.\n"
-                        + "Confirmer quand même ce rattachement ?")
-                .setPositiveButton("Oui, rattacher", (d, w) -> returnResult(selected))
-                .setNegativeButton("Non, choisir un autre", null)
+                .setTitle(R.string.dlg_title_po_inconsistency)
+                .setMessage(getString(R.string.dlg_msg_po_inconsistency,
+                    equipmentName == null ? "?" : equipmentName,
+                    selected.number,
+                    selected.description == null ? "(no description)" : selected.description))
+                .setPositiveButton(R.string.action_yes_attach, (d, w) -> returnResult(selected))
+                .setNegativeButton(R.string.action_no_pick_another, null)
                 .show();
     }
 
@@ -135,12 +122,22 @@ public class POSelectionActivity extends AppCompatActivity {
         data.putExtra(EXTRA_SELECTED_NUMBER,      selected.number);
         data.putExtra(EXTRA_SELECTED_DESCRIPTION, selected.description);
         data.putExtra(EXTRA_SELECTED_SUPPLIER,    note != null ? note.supplier : null);
+        data.putExtra(EXTRA_SELECTED_BRAND, selected.brand);
+        data.putExtra(EXTRA_SELECTED_MODEL, selected.model);
+        if (selected.serialNumbers != null && !selected.serialNumbers.isEmpty()) {
+            data.putStringArrayListExtra(EXTRA_SELECTED_SERIALS,
+                    new java.util.ArrayList<>(selected.serialNumbers));
+        }
+        if (note != null) {
+            data.putExtra(EXTRA_INVOICE_NUMBER, note.invoiceNumber);
+            data.putExtra(EXTRA_INVOICE_DATE,   note.invoiceDate);
+        }
         setResult(RESULT_OK, data);
         finish();
     }
 
     private static String trim(String s, int max) {
         if (s == null) return "";
-        return s.length() > max ? s.substring(0, max) + "…" : s;
+        return s.length() > max ? s.substring(0, max) + "..." : s;
     }
 }

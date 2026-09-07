@@ -59,11 +59,11 @@ public class PurchaseOrderAdapter extends RecyclerView.Adapter<PurchaseOrderAdap
         
         String status = order.getStatus();
         String localizedStatus = status;
-        if ("En attente".equals(status)) {
+        if ("Pending".equals(status)) {
             localizedStatus = ctx.getString(R.string.status_pending);
             holder.status.setTextColor(android.graphics.Color.RED);
             holder.btnValidate.setVisibility(View.VISIBLE);
-        } else if ("Reçu".equals(status)) {
+        } else if ("Received".equals(status)) {
             localizedStatus = ctx.getString(R.string.status_received);
             holder.status.setTextColor(android.graphics.Color.GREEN);
             holder.btnValidate.setVisibility(View.GONE);

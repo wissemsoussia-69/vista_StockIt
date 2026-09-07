@@ -53,7 +53,6 @@ public class ShippingOrderAdapter extends RecyclerView.Adapter<ShippingOrderAdap
         String status = order.getStatus();
         String localizedStatus = status;
         
-        // Status color logic
         switch (status) {
             case "PREPARING":
                 localizedStatus = ctx.getString(R.string.status_preparing);

@@ -20,4 +20,16 @@
     <!-- Zones d'alerte en mode nuit : fond très sombre teinté corail -->
     <color name="vista_urgency_soft">#2C1610</color>
     <color name="vista_mint_soft">#0F2A24</color>
+
+    <!-- Kanban tiles night — fonds très sombres teintés + texte clair contrasté -->
+    <color name="kanban_created_bg">#1A2E4C</color>
+    <color name="kanban_created_fg">#BBDEFB</color>
+    <color name="kanban_pending_bg">#3D2A0F</color>
+    <color name="kanban_pending_fg">#FFB74D</color>
+    <color name="kanban_assigned_bg">#14332A</color>
+    <color name="kanban_assigned_fg">#81C784</color>
+
+    <!-- Recent assets card night -->
+    <color name="recent_card_bg">#152A55</color>
+    <color name="recent_card_text">#F3F6FC</color>
 </resources>

@@ -1,7 +1,7 @@
 # StockIT — Checklist finalisation SSO Vista (Okta/Auth0)
 
 Ce document liste les actions **côté tenant IAM** (non-code) à réaliser pour
-passer du SSO dev-tenant au SSO production Vista. Le code Android est prêt et
+stabiliser le SSO Vista en production. Le code Android est prêt et
 lit tout depuis les variables d'environnement / `strings.xml` — aucun autre
 changement de code n'est requis pour ces étapes.
 
@@ -10,16 +10,19 @@ changement de code n'est requis pour ces étapes.
 Actuellement :
 ```xml
 <!-- app/src/main/res/values/strings.xml -->
-<string name="com_auth0_domain">dev-4gildm0dvlqvugka.us.auth0.com</string>
-<string name="com_auth0_client_id">LekyJbJqARi5SkhteYEZvMtJ7F1jWulT</string>
+<string name="com_auth0_domain">cimpress.auth0.com</string>
+<string name="com_auth0_client_id">46HIhCVTaDjXJzQI66jslidCCasu7pgc</string>
 <string name="com_auth0_scheme">com.example.stockit</string>
 ```
 
+Note d'incident (résolu) : le client `82d4a7571ba3ca5c525cf0dcdc956cfb` a été
+rejeté par le tenant Cimpress avec `invalid_request: Unknown client`.
+
 À demander à l'équipe IAM Vista :
 
-- `com_auth0_domain` → issuer réel (ex. `login.vista.com` ou `vista.okta.com`).
-- `com_auth0_client_id` → client ID d'une nouvelle **Application Native /
-  Mobile** enregistrée dans le tenant Vista, avec **PKCE obligatoire**.
+- `com_auth0_domain` → domaine actif validé : `cimpress.auth0.com`.
+- `com_auth0_client_id` → client ID actif validé :
+  `46HIhCVTaDjXJzQI66jslidCCasu7pgc`.
 - Type de client : **Public** (natif). Pas de secret côté APK.
 
 ## 2 · Callback + Logout URLs à enregistrer dans le tenant

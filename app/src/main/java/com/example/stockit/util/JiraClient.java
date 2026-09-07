@@ -6,6 +6,9 @@ import android.util.Log;
 
 import com.example.stockit.BuildConfig;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
@@ -15,13 +18,6 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-/**
- * StockIT PFE — Client minimal pour Jira Cloud REST API v3.
- * Auth : Basic (email + API token en Base64).
- *
- * Endpoint utilisé : POST /rest/api/3/issue
- * Doc : https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/
- */
 public final class JiraClient {
 
     private static final String TAG = "JiraClient";
@@ -38,13 +34,10 @@ public final class JiraClient {
         void onResult(boolean success, String issueKeyOrError);
     }
 
-    /**
-     * Crée une tâche (Task) sur le projet Jira indiqué.
-     *
-     * @param projectKey ex: "STOCK"
-     * @param summary    titre de la tâche
-     * @param description texte libre (converti en ADF plain paragraph)
-     */
+    public interface SimpleCallback {
+        void onResult(boolean success, String details);
+    }
+
     public static void createTask(final String projectKey,
                                   final String summary,
                                   final String description,
@@ -54,7 +47,7 @@ public final class JiraClient {
         final String token = BuildConfig.JIRA_API_TOKEN;
 
         if (TextUtils.isEmpty(baseUrl) || TextUtils.isEmpty(email) || TextUtils.isEmpty(token)) {
-            Log.w(TAG, "Jira non configuré — création ignorée.");
+            Log.w(TAG, "Jira not configured - creation ignored.");
             if (cb != null) cb.onResult(false, "jira_credentials_missing");
             return;
         }
@@ -75,11 +68,9 @@ public final class JiraClient {
                 fields.append("    \"summary\": ").append(jsonQuote(summary)).append(",\n");
                 fields.append("    \"issuetype\": { \"name\": ").append(jsonQuote(issueType)).append(" },\n");
                 fields.append("    \"labels\": [\"StockIT-PFE\",\"AutoCreated\"],\n");
-                // Component (ex : "ETX Tunis") - obligatoire pour la queue TUN-Unassigned
                 if (component != null && !component.isEmpty()) {
                     fields.append("    \"components\": [{ \"name\": ").append(jsonQuote(component)).append(" }],\n");
                 }
-                // SD project requires Cost Center ID (customfield_11485)
                 if (costCenter != null && !costCenter.isEmpty()) {
                     fields.append("    \"customfield_11485\": ").append(jsonQuote(costCenter)).append(",\n");
                 }
@@ -96,7 +87,7 @@ public final class JiraClient {
                 String body = "{\n  \"fields\": {\n" + fields + "  }\n}";
 
                 Request req = new Request.Builder()
-                        .url(baseUrl.replaceAll("/$", "") + "/rest/api/3/issue")
+                    .url(JiraUrlHelper.apiUrl("/rest/api/3/issue"))
                         .header("Authorization", basic)
                         .header("Accept", "application/json")
                         .post(RequestBody.create(body, JSON))
@@ -109,19 +100,156 @@ public final class JiraClient {
                         String key = extractField(payload, "key");
                         if (cb != null) cb.onResult(true, key != null ? key : "OK");
                     } else {
-                        // Logue aussi le body envoyé pour aider au debug (400 = champs invalides).
                         Log.w(TAG, "Jira request body was: " + trimForLog(body));
                         if (cb != null) cb.onResult(false, "HTTP " + resp.code() + " " + trimForLog(payload));
                     }
                 }
             } catch (Throwable e) {
-                Log.e(TAG, "Jira error (silencée)", e);
+                Log.e(TAG, "Jira error (suppressed)", e);
                 if (cb != null) cb.onResult(false, e.getClass().getSimpleName() + ": " + e.getMessage());
             }
         }, "jira-client").start();
     }
 
-    // --- utilitaires internes ---
+    public static void addCommentToIssue(final String issueKey,
+                                         final String comment,
+                                         final SimpleCallback cb) {
+        final String baseUrl = BuildConfig.JIRA_BASE_URL;
+        final String email = BuildConfig.JIRA_USER_EMAIL;
+        final String token = BuildConfig.JIRA_API_TOKEN;
+
+        if (TextUtils.isEmpty(issueKey) || TextUtils.isEmpty(baseUrl)
+                || TextUtils.isEmpty(email) || TextUtils.isEmpty(token)) {
+            if (cb != null) cb.onResult(false, "jira_credentials_or_key_missing");
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                String basic = "Basic " + Base64.encodeToString(
+                        (email + ":" + token).getBytes("UTF-8"),
+                        Base64.NO_WRAP);
+
+                String body = "{"
+                        + "\"body\":{" 
+                        + "\"type\":\"doc\",\"version\":1,"
+                        + "\"content\":[{"
+                        + "\"type\":\"paragraph\","
+                        + "\"content\":[{\"type\":\"text\",\"text\":"
+                        + jsonQuote(comment == null ? "" : comment)
+                        + "}]"
+                        + "}]"
+                        + "}"
+                        + "}";
+
+                String issue = issueKey.trim().toUpperCase();
+                Request req = new Request.Builder()
+                        .url(JiraUrlHelper.apiUrl("/rest/api/3/issue/" + issue + "/comment"))
+                        .header("Authorization", basic)
+                        .header("Accept", "application/json")
+                        .post(RequestBody.create(body, JSON))
+                        .build();
+
+                try (Response resp = CLIENT.newCall(req).execute()) {
+                    String payload = resp.body() != null ? resp.body().string() : "";
+                    if (resp.isSuccessful()) {
+                        if (cb != null) cb.onResult(true, "OK");
+                    } else {
+                        if (cb != null) cb.onResult(false, "HTTP " + resp.code() + " " + trimForLog(payload));
+                    }
+                }
+            } catch (Throwable e) {
+                if (cb != null) cb.onResult(false, e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+        }, "jira-comment").start();
+    }
+
+    public static void transitionIssueToStatus(final String issueKey,
+                                               final String targetStatus,
+                                               final SimpleCallback cb) {
+        final String baseUrl = BuildConfig.JIRA_BASE_URL;
+        final String email = BuildConfig.JIRA_USER_EMAIL;
+        final String token = BuildConfig.JIRA_API_TOKEN;
+
+        if (TextUtils.isEmpty(issueKey) || TextUtils.isEmpty(targetStatus)
+                || TextUtils.isEmpty(baseUrl) || TextUtils.isEmpty(email) || TextUtils.isEmpty(token)) {
+            if (cb != null) cb.onResult(false, "jira_credentials_key_or_status_missing");
+            return;
+        }
+
+        new Thread(() -> {
+            String issue = issueKey.trim().toUpperCase();
+            String statusNeedle = targetStatus.trim();
+            try {
+                String basic = "Basic " + Base64.encodeToString(
+                        (email + ":" + token).getBytes("UTF-8"),
+                        Base64.NO_WRAP);
+
+                Request getReq = new Request.Builder()
+                        .url(JiraUrlHelper.apiUrl("/rest/api/3/issue/" + issue + "/transitions"))
+                        .header("Authorization", basic)
+                        .header("Accept", "application/json")
+                        .get()
+                        .build();
+
+                String transitionId = null;
+                try (Response getResp = CLIENT.newCall(getReq).execute()) {
+                    String payload = getResp.body() != null ? getResp.body().string() : "";
+                    if (!getResp.isSuccessful()) {
+                        if (cb != null) cb.onResult(false,
+                                "HTTP " + getResp.code() + " " + trimForLog(payload));
+                        return;
+                    }
+
+                    JSONObject json = new JSONObject(payload);
+                    JSONArray transitions = json.optJSONArray("transitions");
+                    if (transitions != null) {
+                        for (int i = 0; i < transitions.length(); i++) {
+                            JSONObject tr = transitions.optJSONObject(i);
+                            if (tr == null) continue;
+                            JSONObject to = tr.optJSONObject("to");
+                            String toName = to == null ? null : to.optString("name", null);
+                            if (toName == null) continue;
+
+                            if (toName.equalsIgnoreCase(statusNeedle)
+                                    || toName.toLowerCase().contains(statusNeedle.toLowerCase())) {
+                                transitionId = tr.optString("id", null);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (TextUtils.isEmpty(transitionId)) {
+                    if (cb != null) cb.onResult(false,
+                            "transition_not_found_for_status:" + statusNeedle);
+                    return;
+                }
+
+                String body = "{\"transition\":{\"id\":" + jsonQuote(transitionId) + "}}";
+                Request postReq = new Request.Builder()
+                        .url(JiraUrlHelper.apiUrl("/rest/api/3/issue/" + issue + "/transitions"))
+                        .header("Authorization", basic)
+                        .header("Accept", "application/json")
+                        .post(RequestBody.create(body, JSON))
+                        .build();
+
+                try (Response postResp = CLIENT.newCall(postReq).execute()) {
+                    String payload = postResp.body() != null ? postResp.body().string() : "";
+                    if (postResp.isSuccessful()) {
+                        if (cb != null) cb.onResult(true, "OK");
+                    } else {
+                        if (cb != null) cb.onResult(false,
+                                "HTTP " + postResp.code() + " " + trimForLog(payload));
+                    }
+                }
+            } catch (Throwable e) {
+                if (cb != null) cb.onResult(false,
+                        e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+        }, "jira-transition").start();
+    }
+
     private static String jsonQuote(String s) {
         if (s == null) return "\"\"";
         StringBuilder sb = new StringBuilder(s.length() + 2).append('"');
@@ -142,7 +270,6 @@ public final class JiraClient {
     }
 
     private static String extractField(String json, String field) {
-        // Extraction naïve mais suffisante pour "key" à la racine
         String needle = "\"" + field + "\"";
         int idx = json.indexOf(needle);
         if (idx < 0) return null;
@@ -157,6 +284,6 @@ public final class JiraClient {
 
     private static String trimForLog(String s) {
         if (s == null) return "";
-        return s.length() > 300 ? s.substring(0, 300) + "…" : s;
+        return s.length() > 300 ? s.substring(0, 300) + "..." : s;
     }
 }

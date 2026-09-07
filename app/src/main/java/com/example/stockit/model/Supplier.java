@@ -11,8 +11,8 @@ public class Supplier {
     private String email;
     private String phone;
     private String address;
-    private int leadTime; // Délai de livraison en jours
-    private double discount; // % réduction
+    private int leadTime; // Delivery lead time in days
+    private double discount; // Discount percentage
 
     public Supplier(String name, String email, String phone, String address, int leadTime, double discount) {
         this.name = name;

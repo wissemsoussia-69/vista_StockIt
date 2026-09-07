@@ -34,24 +34,19 @@ public class ProfileAdapter extends RecyclerView.Adapter<ProfileAdapter.ViewHold
         User user = users.get(position);
         holder.name.setText(user.getUsername());
         
-        // --- LOGIQUE PHOTO ---
-        // Chercher une image dans drawable nommée nadhem, nour, eya, majdi ou zied
         String fileName = user.getUsername().toLowerCase();
         int imageId = holder.itemView.getContext().getResources().getIdentifier(
                 fileName, "drawable", holder.itemView.getContext().getPackageName());
 
         if (imageId != 0) {
-            // PHOTO TROUVÉE
             holder.profileImage.setImageResource(imageId);
             holder.profileImage.setVisibility(View.VISIBLE);
             holder.initial.setVisibility(View.GONE);
         } else {
-            // PAS DE PHOTO (MODE BULLLE)
             holder.profileImage.setVisibility(View.GONE);
             holder.initial.setVisibility(View.VISIBLE);
             holder.initial.setText(user.getUsername().substring(0, 1).toUpperCase());
             
-            // Couleurs style Netflix
             int[] colors = {0xFFE74C3C, 0xFF3498DB, 0xFF2ECC71, 0xFFF1C40F, 0xFF9B59B6, 0xFF34495E};
             holder.initial.setBackgroundColor(colors[position % colors.length]);
         }

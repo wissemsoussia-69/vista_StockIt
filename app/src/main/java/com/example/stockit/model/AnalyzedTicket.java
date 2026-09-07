@@ -4,22 +4,6 @@ import androidx.room.Entity;
 import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
-/**
- * StockIT PFE — Cache d'analyse des tickets Jira.
- *
- * À chaque suggestion du LLM (Claude Opus 4) et à chaque affectation manuelle,
- * on garde une trace de :
- *   - la quantité que le LLM avait proposée
- *   - la quantité réellement livrée
- *   - la raison (analyse texte du LLM ou "Choix manuel")
- *   - le champ `updated` de Jira au moment de l'analyse (invalidation cache)
- *
- * Quand `deliveredQty >= suggestedQty` on marque `fulfilled = true`
- * et le ticket ne sera plus proposé au LLM la fois suivante.
- *
- * Unique par couple (ticketId, equipmentKey) : un même ticket peut demander
- * plusieurs types d'équipements (ex : 3 souris + 2 claviers).
- */
 @Entity(
         tableName = "analyzed_tickets",
         indices = {@Index(value = {"ticketId", "equipmentKey"}, unique = true)}
@@ -29,17 +13,17 @@ public class AnalyzedTicket {
     @PrimaryKey(autoGenerate = true)
     private int id;
 
-    private String ticketId;       // ex "SD-234398"
-    private String equipmentKey;   // nom équipement normalisé lowercase (ex "souris")
-    private String equipmentName;  // nom équipement lisible (ex "Souris")
-    private int    suggestedQty;   // qté proposée par le LLM (0 si affectation manuelle sans IA)
-    private int    deliveredQty;   // qté réellement sortie
-    private String reason;         // raison LLM ou "Choix manuel"
-    private boolean fulfilled;     // deliveredQty >= suggestedQty (et suggestedQty > 0)
+    private String ticketId;       // e.g. "SD-234398"
+    private String equipmentKey;   // normalized equipment name in lowercase (e.g. "mouse")
+    private String equipmentName;  // readable equipment name (e.g. "Mouse")
+    private int    suggestedQty;   // quantity suggested by the LLM (0 when manually assigned without AI)
+    private int    deliveredQty;   // actually delivered quantity
+    private String reason;         // LLM reason or "Manual selection"
+    private boolean fulfilled;     // deliveredQty >= suggestedQty (and suggestedQty > 0)
     private long   analyzedAt;     // epoch ms
-    private long   fulfilledAt;    // epoch ms, 0 si non fulfilled
-    private String jiraUpdated;    // champ Jira `updated` au moment de l'analyse
-    private String ticketSummary;  // pour debug / affichage sans re-fetch Jira
+    private long   fulfilledAt;    // epoch ms, 0 if not fulfilled
+    private String jiraUpdated;    // Jira `updated` field at analysis time
+    private String ticketSummary;  // for debug/display without Jira re-fetch
 
     public AnalyzedTicket() {}
 

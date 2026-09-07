@@ -12,10 +12,14 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -23,24 +27,12 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-/**
- * StockIT PFE — Extraction structurée d'une facture / bon de livraison.
- *
- * Pipeline :
- *   1) OCR MLKit local sur la photo.
- *   2) Envoi du texte brut à Cimpress Gateway (Claude Opus 4) pour extraction JSON :
- *      {
- *        "supplier": "...",
- *        "purchaseOrders": [
- *          { "number": "PO-1234", "description": "1 phrase résumant les articles" },
- *          ...
- *        ]
- *      }
- *   3) Retour d'un objet {@link ParsedNote} avec la LISTE des POs détectés.
- */
 public final class DeliveryNoteParser {
 
     private static final String TAG = "DeliveryNoteParser";
+        private static final String[] KNOWN_BRANDS = {
+            "EPOS", "DELL", "HP", "LENOVO", "LOGITECH", "JABRA", "SENNHEISER", "ACT"
+        };
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final OkHttpClient CLIENT = new OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
@@ -49,16 +41,20 @@ public final class DeliveryNoteParser {
 
     private DeliveryNoteParser() {}
 
-    /** Un bloc PO extrait de la facture. Serializable pour transit via Intent extras. */
     public static class POBlock implements Serializable {
         public final String number;      // ex "PO-1234"
-        public final String description; // ex "Écrans Dell 24", 5 unités"
+        public final String description; // e.g. "Dell 24-inch screens", 5 units
+        public String brand;             // e.g. "Dell" - used as Device Name in Jira Assets
+        public String model;             // e.g. "Dell Pro Micro QCM 1250" - Asset Model in Jira
+        public java.util.List<String> serialNumbers = new java.util.ArrayList<>();
         public POBlock(String n, String d) { number = n; description = d; }
     }
 
     public static class ParsedNote implements Serializable {
         public String rawOcr;
         public String supplier;
+        public String invoiceNumber;   // e.g. "INV-2024-001" - Invoice Number field in Jira
+        public String invoiceDate;     // e.g. "2024-08-14" - Invoice Date field in Jira
         public final List<POBlock> purchaseOrders = new ArrayList<>();
         public String error;
     }
@@ -75,26 +71,25 @@ public final class DeliveryNoteParser {
 
         new Thread(() -> {
             try {
-                if (progress != null) progress.onStep("[1/3] OCR MLKit…");
+                if (progress != null) progress.onStep("[1/3] OCR MLKit...");
                 String ocr = runOcr(photo);
                 if (ocr == null || ocr.trim().isEmpty()) {
-                    cb.onParsed(errorNote("OCR vide — le texte n'a pas été détecté", null));
+                    cb.onParsed(errorNote("OCR empty - no text detected", null));
                     return;
                 }
                 Log.i(TAG, "OCR chars=" + ocr.length() + " preview=" + preview(ocr, 200));
 
-                if (progress != null) progress.onStep("[2/3] Claude Opus 4 via Cimpress (" + ocr.length() + " chars)…");
+                if (progress != null) progress.onStep("[2/3] Claude Opus 4 via Cimpress (" + ocr.length() + " chars)...");
                 ParsedNote note = extractViaClaude(ocr);
                 note.rawOcr = ocr;
                 cb.onParsed(note);
             } catch (Throwable t) {
                 Log.e(TAG, "parser crash", t);
-                cb.onParsed(errorNote("Crash parser : " + t.getClass().getSimpleName() + " — " + t.getMessage(), null));
+                cb.onParsed(errorNote("Parser crash: " + t.getClass().getSimpleName() + " - " + t.getMessage(), null));
             }
         }, "delivery-note-parser").start();
     }
 
-    // ---------- OCR MLKit ----------
     private static String runOcr(Bitmap bmp) {
         try {
             InputImage img = InputImage.fromBitmap(bmp, 0);
@@ -112,7 +107,6 @@ public final class DeliveryNoteParser {
         }
     }
 
-    // ---------- Claude Opus 4 via Cimpress ----------
     private static ParsedNote extractViaClaude(String ocrText) {
         ParsedNote note = new ParsedNote();
         String key = BuildConfig.CIMPRESS_GATEWAY_KEY;
@@ -123,26 +117,38 @@ public final class DeliveryNoteParser {
             return note;
         }
 
-        String prompt =
-              "Voici le texte OCR d'une facture ou bon de livraison. "
-            + "Elle peut contenir PLUSIEURS numéros de PO (Purchase Order, BL, commande...). "
-            + "Extrais UNIQUEMENT un JSON strict avec cette structure exacte :\n"
+                String prompt =
+                            "Here is OCR text from an invoice or delivery note. "
+                        + "It can contain MULTIPLE PO numbers (Purchase Order, delivery note, order...). "
+                        + "Extract ONLY strict JSON with this exact structure:\n"
             + "{\n"
-            + "  \"supplier\": \"nom du fournisseur/expéditeur\",\n"
+            + "  \"supplier\":      \"supplier name: Lactech or ACT (only these values), else null\",\n"
+            + "  \"invoiceNumber\": \"invoice number (Invoice # / Bill #)\",\n"
+            + "  \"invoiceDate\":   \"invoice date in YYYY-MM-DD if possible, else as printed\",\n"
             + "  \"purchaseOrders\": [\n"
-            + "    { \"number\": \"PO-1234\", \"description\": \"1 phrase courte résumant les articles associés à ce PO\" }\n"
+            + "    {\n"
+            + "      \"number\":        \"PO-1234\",\n"
+            + "      \"description\":   \"complete article line summary including quantity/reference when visible\",\n"
+            + "      \"brand\":         \"product brand (e.g. Dell, HP, Lenovo) or null\",\n"
+            + "      \"model\":         \"exact model (e.g. Dell Pro Micro QCM 1250) or null\",\n"
+            + "      \"serialNumbers\": [\"12HVTC4\", \"12HVTC5\"]\n"
+            + "    }\n"
             + "  ]\n"
             + "}\n"
-            + "Règles strictes :\n"
-            + "- Détecte TOUS les numéros de PO/BL/commande présents.\n"
-            + "- Pour CHAQUE PO, résume en 1 phrase (max 15 mots) le ou les articles rattachés.\n"
-            + "- Si aucun PO trouvé, renvoie purchaseOrders: [].\n"
-            + "- Réponds UNIQUEMENT le JSON, rien avant, rien après, pas de balise markdown.\n\n"
-            + "Texte OCR :\n" + ocrText;
+            + "Strict rules:\n"
+            + "- supplier must be exactly \"Lactech\" or \"ACT\" when detected; otherwise null.\n"
+            + "- Detect ALL PO/delivery/order numbers present.\n"
+            + "- For EACH PO, extract brand, model, and COMPLETE list of serial numbers / service tags (S/N, SN, Service Tag).\n"
+            + "- serialNumbers must be a JSON array, even empty (`[]`) when none are detected.\n"
+            + "- Keep invoiceNumber and invoiceDate when present; do not drop them.\n"
+            + "- If no PO is found, return purchaseOrders: [].\n"
+            + "- If a field is missing, use null or empty array. DO NOT GUESS.\n"
+            + "- Return ONLY JSON, nothing before or after, no markdown fences.\n\n"
+            + "OCR text:\n" + ocrText;
 
         String body = "{\n" +
                 "  \"model\": " + jsonQuote(model) + ",\n" +
-                "  \"max_tokens\": 1200,\n" +
+                "  \"max_tokens\": 2000,\n" +
                 "  \"messages\": [{\n" +
                 "    \"role\": \"user\",\n" +
                 "    \"content\": " + jsonQuote(prompt) + "\n" +
@@ -166,6 +172,7 @@ public final class DeliveryNoteParser {
             String content = extractOpenAiContent(payload);
             Log.i(TAG, "LLM raw -> " + preview(content, 400));
             fillFromJson(note, content);
+            enrichWithOcrFallback(note, ocrText);
         } catch (IOException e) {
             Log.e(TAG, "Cimpress IO", e);
             note.error = e.getMessage();
@@ -185,7 +192,15 @@ public final class DeliveryNoteParser {
         try {
             org.json.JSONObject obj = new org.json.JSONObject(clean);
             if (obj.has("supplier") && !obj.isNull("supplier")) {
-                note.supplier = obj.getString("supplier");
+                note.supplier = normalizeSupplier(obj.getString("supplier"));
+            }
+            if (obj.has("invoiceNumber") && !obj.isNull("invoiceNumber")) {
+                String v = obj.optString("invoiceNumber", "").trim();
+                if (!v.isEmpty() && !"null".equalsIgnoreCase(v)) note.invoiceNumber = v;
+            }
+            if (obj.has("invoiceDate") && !obj.isNull("invoiceDate")) {
+                String v = obj.optString("invoiceDate", "").trim();
+                if (!v.isEmpty() && !"null".equalsIgnoreCase(v)) note.invoiceDate = v;
             }
             if (obj.has("purchaseOrders")) {
                 org.json.JSONArray arr = obj.getJSONArray("purchaseOrders");
@@ -193,16 +208,137 @@ public final class DeliveryNoteParser {
                     org.json.JSONObject po = arr.getJSONObject(i);
                     String number = po.optString("number", "").trim();
                     String description = po.optString("description", "").trim();
-                    if (!number.isEmpty()) note.purchaseOrders.add(new POBlock(number, description));
+                    if (number.isEmpty()) continue;
+                    POBlock block = new POBlock(number, description);
+                    String brand = po.optString("brand", "").trim();
+                    String model = po.optString("model", "").trim();
+                    if (!brand.isEmpty() && !"null".equalsIgnoreCase(brand)) block.brand = normalizeBrand(brand);
+                    if (!model.isEmpty() && !"null".equalsIgnoreCase(model)) block.model = model;
+                    if (po.has("serialNumbers") && !po.isNull("serialNumbers")) {
+                        org.json.JSONArray sns = po.optJSONArray("serialNumbers");
+                        if (sns != null) {
+                            for (int j = 0; j < sns.length(); j++) {
+                                String sn = sns.optString(j, "").trim();
+                                String cleanSn = sanitizeSerial(sn);
+                                if (cleanSn != null) block.serialNumbers.add(cleanSn);
+                            }
+                        }
+                    }
+                    note.purchaseOrders.add(block);
                 }
             }
         } catch (org.json.JSONException e) {
             Log.w(TAG, "JSON parse fail, raw=" + preview(clean, 300), e);
-            note.error = "json_parse_fail — raw=" + preview(clean, 120);
+            note.error = "json_parse_fail - raw=" + preview(clean, 120);
         }
     }
 
-    /** Utilitaire public : extrait la partie numérique d'un poNumber (ex "PO-12" → 12). */
+    private static void enrichWithOcrFallback(ParsedNote note, String ocrText) {
+        if (note == null) return;
+
+        if (note.supplier == null || note.supplier.trim().isEmpty()) {
+            note.supplier = normalizeSupplier(ocrText);
+        }
+        if (note.invoiceNumber == null || note.invoiceNumber.trim().isEmpty()) {
+            note.invoiceNumber = extractInvoiceNumber(ocrText);
+        }
+        if (note.invoiceDate == null || note.invoiceDate.trim().isEmpty()) {
+            note.invoiceDate = extractInvoiceDate(ocrText);
+        }
+
+        if (note.purchaseOrders.isEmpty()) {
+            for (String poNum : extractPoCandidates(ocrText)) {
+                POBlock b = new POBlock(poNum, "");
+                b.brand = inferBrand(ocrText);
+                note.purchaseOrders.add(b);
+            }
+        }
+
+        for (POBlock block : note.purchaseOrders) {
+            if (block == null) continue;
+            if (block.brand == null || block.brand.trim().isEmpty()) {
+                block.brand = inferBrand((block.model == null ? "" : block.model) + " "
+                        + (block.description == null ? "" : block.description) + " "
+                        + (ocrText == null ? "" : ocrText));
+            }
+            LinkedHashSet<String> uniq = new LinkedHashSet<>();
+            for (String sn : block.serialNumbers) {
+                String clean = sanitizeSerial(sn);
+                if (clean != null) uniq.add(clean);
+            }
+            block.serialNumbers.clear();
+            block.serialNumbers.addAll(uniq);
+        }
+    }
+
+    private static String normalizeSupplier(String input) {
+        if (input == null) return null;
+        String u = input.toUpperCase(Locale.ROOT);
+        if (u.contains("LACTECH") || u.contains("LAC TECH")) return "Lactech";
+        if (Pattern.compile("\\bACT\\b", Pattern.CASE_INSENSITIVE).matcher(input).find()) return "ACT";
+        return null;
+    }
+
+    private static String normalizeBrand(String input) {
+        if (input == null) return null;
+        String t = input.trim();
+        if (t.isEmpty() || "null".equalsIgnoreCase(t)) return null;
+        for (String b : KNOWN_BRANDS) {
+            if (b.equalsIgnoreCase(t)) return b;
+        }
+        return t;
+    }
+
+    private static String inferBrand(String text) {
+        if (text == null) return null;
+        String u = text.toUpperCase(Locale.ROOT);
+        if (u.contains("LACTECH") || u.contains("LAC TECH")) return "Lactech";
+        for (String b : KNOWN_BRANDS) {
+            if (u.contains(b)) return b;
+        }
+        return null;
+    }
+
+    private static String sanitizeSerial(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim();
+        if (s.isEmpty()) return null;
+        if ("null".equalsIgnoreCase(s)) return null;
+        if ("none".equalsIgnoreCase(s)) return null;
+        if ("none entered".equalsIgnoreCase(s)) return null;
+        return s;
+    }
+
+    private static String extractInvoiceNumber(String text) {
+        if (text == null) return null;
+        Pattern p = Pattern.compile("(?i)(?:invoice|bill|facture)\\s*(?:no|number|n[\\u00b0o]|#)?\\s*[:\\-]?\\s*([A-Z0-9][A-Z0-9\\-/]{3,})");
+        Matcher m = p.matcher(text);
+        if (!m.find()) return null;
+        String v = m.group(1);
+        return v == null ? null : v.trim();
+    }
+
+    private static String extractInvoiceDate(String text) {
+        if (text == null) return null;
+        Pattern p = Pattern.compile("\\b(\\d{4}[-/]\\d{2}[-/]\\d{2}|\\d{2}[-/]\\d{2}[-/]\\d{4})\\b");
+        Matcher m = p.matcher(text);
+        if (!m.find()) return null;
+        return m.group(1);
+    }
+
+    private static List<String> extractPoCandidates(String text) {
+        List<String> out = new ArrayList<>();
+        if (text == null) return out;
+        LinkedHashSet<String> uniq = new LinkedHashSet<>();
+        Matcher m = Pattern.compile("(?i)\\bPO[- ]?\\d{3,}\\b").matcher(text);
+        while (m.find()) {
+            String v = m.group();
+            if (v != null && !v.trim().isEmpty()) uniq.add(v.trim().replaceAll("\\s+", "-"));
+        }
+        out.addAll(uniq);
+        return out;
+    }
+
     public static Integer extractIntFromPoNumber(String s) {
         if (s == null) return null;
         StringBuilder d = new StringBuilder();
@@ -211,34 +347,55 @@ public final class DeliveryNoteParser {
         try { return Integer.parseInt(d.toString()); } catch (NumberFormatException e) { return null; }
     }
 
-    // ---------- helpers ----------
     private static String extractOpenAiContent(String json) {
-        if (json == null) return null;
-        int c = json.indexOf("\"content\"");
-        if (c < 0) return null;
-        int colon = json.indexOf(':', c);
-        if (colon < 0) return null;
-        int q1 = json.indexOf('"', colon + 1);
-        if (q1 < 0) return null;
-        StringBuilder sb = new StringBuilder();
-        for (int i = q1 + 1; i < json.length(); i++) {
-            char ch = json.charAt(i);
-            if (ch == '\\' && i + 1 < json.length()) {
-                char n = json.charAt(++i);
-                switch (n) {
-                    case 'n': sb.append('\n'); break;
-                    case 't': sb.append('\t'); break;
-                    case '"': sb.append('"'); break;
-                    case '\\': sb.append('\\'); break;
-                    default:  sb.append(n);
+        if (json == null || json.trim().isEmpty()) return null;
+        try {
+            org.json.JSONObject root = new org.json.JSONObject(json);
+
+            org.json.JSONArray choices = root.optJSONArray("choices");
+            if (choices != null && choices.length() > 0) {
+                org.json.JSONObject first = choices.optJSONObject(0);
+                if (first != null) {
+                    org.json.JSONObject msg = first.optJSONObject("message");
+                    if (msg != null) {
+                        String v = contentToString(msg.opt("content"));
+                        if (v != null && !v.trim().isEmpty()) return v;
+                    }
                 }
-            } else if (ch == '"') {
-                return sb.toString();
-            } else {
-                sb.append(ch);
             }
+
+            String direct = contentToString(root.opt("content"));
+            return (direct == null || direct.trim().isEmpty()) ? null : direct;
+        } catch (Exception ignored) {
+            return null;
         }
-        return sb.toString();
+    }
+
+    private static String contentToString(Object content) {
+        if (content == null || content == org.json.JSONObject.NULL) return null;
+        if (content instanceof String) return (String) content;
+        if (content instanceof org.json.JSONArray) {
+            org.json.JSONArray arr = (org.json.JSONArray) content;
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < arr.length(); i++) {
+                Object item = arr.opt(i);
+                if (item instanceof org.json.JSONObject) {
+                    String txt = ((org.json.JSONObject) item).optString("text", "").trim();
+                    if (!txt.isEmpty()) {
+                        if (sb.length() > 0) sb.append('\n');
+                        sb.append(txt);
+                    }
+                } else if (item instanceof String) {
+                    String txt = ((String) item).trim();
+                    if (!txt.isEmpty()) {
+                        if (sb.length() > 0) sb.append('\n');
+                        sb.append(txt);
+                    }
+                }
+            }
+            return sb.length() == 0 ? null : sb.toString();
+        }
+        return null;
     }
 
     private static String jsonQuote(String s) {
@@ -262,7 +419,7 @@ public final class DeliveryNoteParser {
 
     private static String preview(String s, int max) {
         if (s == null) return "";
-        return s.length() > max ? s.substring(0, max) + "…" : s;
+        return s.length() > max ? s.substring(0, max) + "..." : s;
     }
 
     private static ParsedNote errorNote(String err, String rawOcr) {

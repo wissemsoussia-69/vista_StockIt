@@ -43,7 +43,6 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.ViewHolder> {
         holder.name.setText(user.getUsername() + " (Lvl " + user.getLevel() + ")");
         holder.email.setText(user.getPoints() + " Points");
         
-        // Initiale pour l'avatar
         if (user.getUsername() != null && !user.getUsername().isEmpty()) {
             holder.initial.setText(user.getUsername().substring(0, 1).toUpperCase());
         }

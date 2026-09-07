@@ -8,8 +8,8 @@ public class Product {
     @PrimaryKey(autoGenerate = true)
     private int id;
     private String name;
-    private String category; // Nom pour affichage rapide
-    private Integer categoryId; // Relation avec la table catégories
+    private String category; // Name for quick display
+    private Integer categoryId; // Relationship with categories table
     private String description;
     private String assetTag;
     private int quantity;
@@ -18,15 +18,13 @@ public class Product {
     private String expirationDate;
     private int minThreshold;
 
-    // --- StockIT PFE : lien avec le PO scanné via facture ---
-    private String poNumber;      // ex "PO-1234"
-    private String poDescription; // ex "Écrans Dell 24 pouces, 5 unités"
-    private String receivedFrom;  // ex "Dell Technologies" (fournisseur extrait de la facture)
+    private String poNumber;      // e.g. "PO-1234"
+    private String poDescription; // e.g. "Dell 24-inch monitors, 5 units"
+    private String receivedFrom;  // e.g. "Dell Technologies" (supplier extracted from invoice)
 
-    // --- StockIT PFE : données extraites de l'étiquette carton ---
-    private String articleNumber;   // ex "1001421"
-    private String brand;           // ex "EPOS"
-    private String packagePoNumber; // ex "3480" (PO imprimé sur le carton, pour cross-check)
+    private String articleNumber;   // e.g. "1001421"
+    private String brand;           // e.g. "EPOS"
+    private String packagePoNumber; // e.g. "3480" (PO printed on the box for cross-check)
 
     public Product(String name, String category, String description, String assetTag, int quantity, double unitPrice, String manufacturingDate, String expirationDate) {
         this.name = name;
@@ -63,7 +61,6 @@ public class Product {
     public int getMinThreshold() { return minThreshold; }
     public void setMinThreshold(int minThreshold) { this.minThreshold = minThreshold; }
 
-    // --- PFE PO linkage ---
     public String getPoNumber() { return poNumber; }
     public void setPoNumber(String poNumber) { this.poNumber = poNumber; }
     public String getPoDescription() { return poDescription; }
@@ -71,7 +68,6 @@ public class Product {
     public String getReceivedFrom() { return receivedFrom; }
     public void setReceivedFrom(String receivedFrom) { this.receivedFrom = receivedFrom; }
 
-    // --- PFE Package label ---
     public String getArticleNumber() { return articleNumber; }
     public void setArticleNumber(String articleNumber) { this.articleNumber = articleNumber; }
     public String getBrand() { return brand; }

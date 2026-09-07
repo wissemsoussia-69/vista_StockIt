@@ -42,7 +42,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingBottom="12dp"
-                android:text="Pointez la caméra vers un objet informatique puis capturez."
+                android:text="Point the camera at an IT device, then capture."
                 android:textColor="@color/white"
                 android:textSize="15sp" />
 
@@ -61,7 +61,7 @@
                 android:layout_height="56dp"
                 android:layout_marginTop="12dp"
                 android:backgroundTint="@color/vista_blue"
-                android:text="Capturer et analyser"
+                android:text="Capture and analyze"
                 android:textColor="@color/white"
                 android:textStyle="bold"
                 app:cornerRadius="16dp"
@@ -151,7 +151,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:text="Match IA"
+                android:text="AI Match"
                 android:textColor="@color/white"
                 android:textSize="14sp"
                 android:textStyle="bold" />

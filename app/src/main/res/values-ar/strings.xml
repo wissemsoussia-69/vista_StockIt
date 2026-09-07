@@ -33,6 +33,119 @@
     <string name="nav_reclamation">شكوى</string>
     <string name="nav_inventory_manager">مدير المخزون</string>
 
+    <!-- Reports -->
+    <string name="rep_articles_short">عنصر</string>
+    <string name="rep_items_in_stock">العناصر في المخزون:</string>
+    <string name="rep_low_stock_alerts">تنبيهات مخزون منخفض:</string>
+    <string name="rep_categories">الفئات</string>
+    <string name="rep_qty_by_category">الكمية حسب الفئة</string>
+    <string name="rep_last_movements">آخر الحركات</string>
+
+    <!-- Toasts -->
+    <string name="toast_camera_error">خطأ في الكاميرا</string>
+    <string name="toast_camera_error_ex">خطأ في الكاميرا: %1$s</string>
+    <string name="toast_read_image_error">خطأ في قراءة الصورة</string>
+    <string name="toast_analysis_failed">فشل التحليل: %1$s</string>
+    <string name="toast_capture_failed">فشل الالتقاط</string>
+    <string name="toast_flash_unavailable">الفلاش غير متوفر</string>
+    <string name="toast_added_stock">%1$s تمت إضافته للمخزون%2$s</string>
+    <string name="toast_added_success">%1$s تمت إضافته!</string>
+    <string name="toast_article_added">تمت إضافة العنصر %1$s بنجاح!</string>
+    <string name="toast_fill_name_qty">يرجى ملء الاسم والكمية</string>
+    <string name="toast_number_format_error">خطأ في التنسيق (رقم متوقع)</string>
+    <string name="toast_pr_created">تم إنشاء PR: %1$s</string>
+    <string name="toast_alert_sent">تم إرسال التنبيه!</string>
+    <string name="toast_pdf_generation_error">خطأ في إنشاء PDF</string>
+    <string name="toast_pdf_generated">تم إنشاء PDF بنجاح</string>
+    <string name="toast_shared_to_slack">تمت المشاركة على Slack ✅</string>
+    <string name="toast_invalid_qty">كمية غير صالحة</string>
+    <string name="toast_insufficient_stock">مخزون غير كافٍ</string>
+    <string name="toast_insufficient_stock_for">مخزون غير كافٍ لـ %1$s</string>
+    <string name="toast_wrong_credentials">بيانات اعتماد خاطئة</string>
+    <string name="toast_biometric_error">خطأ في البصمة: %1$s</string>
+    <string name="toast_jira_creating">إنشاء أصول Jira: %1$d عنصر…</string>
+    <string name="toast_jira_success">✅ أصول Jira: تم إنشاء %1$d/%2$d%3$s</string>
+    <string name="toast_jira_partial">⚠️ أصول Jira جزئي: %1$d نجح، %2$d فشل</string>
+    <string name="toast_jira_failed">❌ فشل أصول Jira: %1$s</string>
+    <string name="toast_language_changed">اللغة: %1$s</string>
+
+    <!-- Dialog titles -->
+    <string name="dlg_title_scan_vision">تحليل الرؤية</string>
+    <string name="dlg_title_timeline">الجدول الزمني: %1$s</string>
+    <string name="dlg_title_ai_report_done">تقرير الذكاء الاصطناعي جاهز</string>
+    <string name="dlg_title_po_mismatch">⚠️ PO الفاتورة ≠ PO الملصق</string>
+    <string name="dlg_title_label_read">🏷️ تمت قراءة الملصق</string>
+    <string name="dlg_title_label_error">❌ ملصق الطرد</string>
+    <string name="dlg_title_no_po">❌ لم يتم اكتشاف PO</string>
+    <string name="dlg_title_po_inconsistency">⚠️ تضارب محتمل</string>
+    <string name="dlg_title_invoice_result">📄 نتيجة الفاتورة</string>
+    <string name="dlg_title_receive_ok">🟢 تم تسجيل الاستلام</string>
+    <string name="dlg_title_receive_error">❌ استلام الطرد</string>
+    <string name="dlg_title_stock_empty">❌ المخزون فارغ</string>
+    <string name="dlg_title_quantity_out">كم « %1$s » للإخراج؟</string>
+    <string name="dlg_title_ticket_id">أدخل معرف التذكرة</string>
+    <string name="dlg_title_ticket_not_found">❌ التذكرة غير موجودة</string>
+    <string name="dlg_title_assign_to">تعيين إلى %1$s</string>
+    <string name="dlg_title_no_ticket_ai">🧠 لا توجد تذكرة للتحليل</string>
+    <string name="dlg_title_ai_no_suggestion">🧠 لم يقترح Claude شيئاً</string>
+    <string name="dlg_title_ai_suggestion">🧠 اقتراح الذكاء الاصطناعي</string>
+    <string name="dlg_title_exit_ok">🟢 تم تسجيل الإخراج</string>
+    <string name="dlg_title_exit_error">❌ إخراج المعدات</string>
+    <string name="dlg_title_ai_report_loading">الذكاء الاصطناعي يحرر التقرير…</string>
+    <string name="dlg_title_login_for">تسجيل دخول لـ %1$s</string>
+
+    <!-- Dialog actions -->
+    <string name="action_ok">موافق</string>
+    <string name="action_cancel">إلغاء</string>
+    <string name="action_share">مشاركة</string>
+    <string name="action_close">إغلاق</string>
+    <string name="action_retry">إعادة المحاولة</string>
+    <string name="action_add">إضافة</string>
+    <string name="action_share_report">مشاركة التقرير</string>
+    <string name="action_open_in_jira">فتح في Jira</string>
+    <string name="action_share_to_slack">مشاركة على Slack</string>
+    <string name="action_yes_confirm">نعم، تأكيد</string>
+    <string name="action_no_rescan">لا، مسح جديد</string>
+    <string name="action_rescan">مسح جديد</string>
+    <string name="action_yes_attach">نعم، ربط</string>
+    <string name="action_no_pick_another">لا، اختر آخر</string>
+    <string name="action_continue">متابعة</string>
+    <string name="action_verify">تحقق</string>
+    <string name="action_confirm">تأكيد</string>
+    <string name="action_back">رجوع</string>
+    <string name="action_other_method">طريقة أخرى</string>
+    <string name="action_apply">تطبيق</string>
+    <string name="action_no_other">لا، خيار آخر</string>
+    <string name="action_validate">تحقق</string>
+
+    <!-- Dialog messages -->
+    <string name="dlg_msg_vision_analyzing">تحليل رؤية Cimpress…</string>
+    <string name="dlg_msg_report_saved">تم إعداد التقرير بواسطة الذكاء الاصطناعي وحفظه.\nهل تريد مشاركته؟</string>
+    <string name="dlg_msg_invoice_no_po">لا تحتوي الفاتورة على رقم PO قابل للاستخدام.</string>
+    <string name="dlg_msg_you_scanned">لقد مسحت: « %1$s ».</string>
+    <string name="dlg_msg_po_inconsistency">لقد مسحت: « %1$s ».\n\nلكن PO %2$s يقول:\n« %3$s »\n\nهذا PO لا يذكر معداتك.\nهل تلحق على أي حال؟</string>
+    <string name="dlg_msg_stock_empty">لا يوجد « %1$s » في المخزون (أو الكمية = 0).</string>
+    <string name="dlg_msg_stock_available">المخزون المتاح: %1$d</string>
+    <string name="dlg_msg_ticket_error">لا يمكن العثور على %1$s (%2$s)</string>
+    <string name="dlg_msg_all_tickets_treated">تمت معالجة جميع تذاكر Jira المفتوحة.</string>
+    <string name="dlg_msg_kit_check">حدد التبعيات الموجودة فعلاً.</string>
+    <string name="dlg_title_kit_anti_forget">طقم منع النسيان — %1$s</string>
+
+    <!-- Divers -->
+    <string name="txt_codes_detected">الرموز المكتشفة: %1$d</string>
+    <string name="txt_by_user">بواسطة %1$s</string>
+    <string name="txt_by_unknown">مجهول</string>
+    <string name="txt_note_prefix">ملاحظة: %1$s</string>
+    <string name="txt_current_stock">المخزون الحالي: %1$d</string>
+    <string name="txt_level_prefix">المستوى %1$d</string>
+    <string name="txt_badges_prefix">الشارات: %1$s</string>
+    <string name="txt_none">لا شيء</string>
+    <string name="txt_no_open_ticket">لا توجد تذاكر مفتوحة.</string>
+    <string name="txt_power_cable">كابل الطاقة</string>
+    <string name="txt_hdmi_cable">كابل HDMI</string>
+    <string name="hint_ex_number">مثال: 5</string>
+    <string name="hint_ex_ticket">مثال: ETXTUN-42</string>
+
     <!-- Dashboard -->
     <string name="dash_summary">ملخص مخزون تكنولوجيا المعلومات</string>
     <string name="dash_total_qty">الكمية الإجمالية</string>

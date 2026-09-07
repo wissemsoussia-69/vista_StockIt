@@ -8,12 +8,6 @@ import retrofit2.http.POST;
 import retrofit2.http.Path;
 
 public interface ApiService {
-    @GET("claims")
-    Call<List<Claim>> getClaims();
-
-    @POST("claims")
-    Call<Claim> addClaim(@Body Claim claim);
-
     @GET("claims/{id}/messages")
     Call<List<ChatMessage>> getMessages(@Path("id") int claimId);
 

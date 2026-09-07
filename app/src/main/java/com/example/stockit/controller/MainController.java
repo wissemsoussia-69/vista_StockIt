@@ -11,17 +11,15 @@ import com.example.stockit.model.Product;
 import com.example.stockit.model.PurchaseOrder;
 import com.example.stockit.model.StockMovement;
 import com.example.stockit.model.User;
-import com.example.stockit.model.Claim;
 import com.example.stockit.model.ApiService;
+import com.example.stockit.model.AlertEvent;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-import com.google.ai.client.generativeai.GenerativeModel;
-import com.google.ai.client.generativeai.java.GenerativeModelFutures;
-import com.google.ai.client.generativeai.type.Content;
-import com.google.ai.client.generativeai.type.GenerateContentResponse;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -47,25 +45,51 @@ public class MainController {
     public interface SupplierCallback { void onSuppliersLoaded(List<com.example.stockit.model.Supplier> suppliers); }
     public interface ShippingCallback { void onShippingOrdersLoaded(List<com.example.stockit.model.ShippingOrder> orders); }
     public interface AICallback { void onInsightsGenerated(List<com.example.stockit.model.AIInsight> insights); }
-    public interface ClaimCallback { void onClaimsLoaded(List<Claim> claims); }
     public interface VisionCallback { void onLabelsDetected(List<String> labels, String fullText); }
     public interface QuestCallback { void onQuestsLoaded(List<com.example.stockit.model.Quest> quests); }
+    public interface AlertHistoryCallback { void onAlertsLoaded(List<AlertEvent> events); }
+    public interface ChannelResultCallback { void onResult(boolean success, String details); }
 
+    private static volatile MainController INSTANCE;
+
+    public static MainController getInstance(Context anyContext) {
+        MainController local = INSTANCE;
+        if (local == null) {
+            synchronized (MainController.class) {
+                local = INSTANCE;
+                if (local == null) {
+                    local = new MainController(anyContext.getApplicationContext());
+                    INSTANCE = local;
+                }
+            }
+        }
+        return local;
+    }
+
+    @Deprecated
     public MainController(Context context) {
-        this.context = context;
-        android.util.Log.d("MainController", "Initializing MainController with context: " + context.getClass().getSimpleName());
-        this.db = AppDatabase.getInstance(context);
+        this.context = context.getApplicationContext();
+        android.util.Log.d("MainController", "Initializing MainController (context="
+                + context.getClass().getSimpleName() + ")");
+        this.db = AppDatabase.getInstance(this.context);
         this.executor = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
-        
-        // Tentative de connexion au serveur local pour n8n/email
-        // On augmente le timeout car un serveur local peut être lent à répondre
+
+        if (currentUser == null) {
+            com.example.stockit.util.SessionManager session = com.example.stockit.util.SessionManager.get(this.context);
+            if (session.isLoggedIn() && session.getUsername() != null) {
+                String uname = session.getUsername();
+                String role = session.getRole() != null ? session.getRole() : "USER";
+                User restored = new User(uname, "sso-restored", role);
+                currentUser = restored;
+                android.util.Log.i("MainController", "currentUser restaure depuis SessionManager : "
+                        + uname + " (role=" + role + ")");
+            }
+        }
+
         okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
                 .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                // Injecte automatiquement Authorization: Bearer <accessToken> Auth0
-                // sur les appels au backend Vista (no-op si SSO non configuré ou
-                // pas de session valide — cf. AuthBearerInterceptor).
-                .addInterceptor(new com.example.stockit.util.AuthBearerInterceptor(context))
+                .addInterceptor(new com.example.stockit.util.AuthBearerInterceptor(this.context))
                 .build();
 
         Retrofit retrofit = new Retrofit.Builder()
@@ -75,70 +99,110 @@ public class MainController {
                 .build();
         this.apiService = retrofit.create(ApiService.class);
 
-        // Configuration Google Gemini 1.5 Pro
         Retrofit aiRetrofit = new Retrofit.Builder()
-                .baseUrl("https://generativelanguage.googleapis.com/v1beta/") 
+                .baseUrl("https://generativelanguage.googleapis.com/v1beta/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         this.aiService = aiRetrofit.create(com.example.stockit.model.AIService.class);
     }
 
     public void askAssistant(String question, AIResponseCallback callback) {
-        GenerativeModel gm = new GenerativeModel("gemini-1.5-pro", com.example.stockit.BuildConfig.GEMINI_API_KEY);
-        GenerativeModelFutures model = GenerativeModelFutures.from(gm);
-
-        Content content = new Content.Builder()
-                .addText(context.getString(R.string.ai_system_role) + "\n\nQuestion: " + question)
-                .build();
-
-        com.google.common.util.concurrent.ListenableFuture<GenerateContentResponse> response = model.generateContent(content);
-        
-        response.addListener(() -> {
-            try {
-                GenerateContentResponse result = response.get();
-                String resultText = result.getText();
-                mainHandler.post(() -> callback.onResponse(resultText));
-            } catch (Exception e) {
-                android.util.Log.e("MainController", "Gemini SDK Error", e);
-                mainHandler.post(() -> callback.onResponse("Désolé, une erreur est survenue avec l'IA."));
-            }
-        }, executor);
-    }
-
-    public void analyzeInvoice(android.net.Uri fileUri, AIResponseCallback callback) {
         executor.execute(() -> {
             try {
-                if (fileUri != null) {
-                    android.util.Log.d("MainController", "Analyzing invoice: " + fileUri.getPath());
+                String baseUrl = com.example.stockit.BuildConfig.GATEWAY_URL;
+                String key     = com.example.stockit.BuildConfig.CIMPRESS_GATEWAY_KEY;
+                String model   = com.example.stockit.BuildConfig.CIMPRESS_VISION_MODEL;
+
+                if (baseUrl == null || baseUrl.isEmpty() || key == null || key.isEmpty()) {
+                        mainHandler.post(() -> callback.onResponse(
+                            "AI assistant not configured (Cimpress Gateway missing)."));
+                    return;
                 }
-                // Pour l'analyse de facture, on demande à l'IA de renvoyer un JSON structuré
-                java.util.Map<String, Object> body = new java.util.HashMap<>();
-                java.util.List<java.util.Map<String, Object>> messages = new java.util.ArrayList<>();
-                
-                java.util.Map<String, Object> systemMsg = new java.util.HashMap<>();
-                systemMsg.put("role", "system");
-                systemMsg.put("content", context.getString(R.string.ai_invoice_system_role));
-                messages.add(systemMsg);
 
-                // Note: En production, on enverrait l'image en base64 ou via une URL publique
-                java.util.Map<String, Object> userMsg = new java.util.HashMap<>();
-                userMsg.put("role", "user");
-                userMsg.put("content", context.getString(R.string.ai_invoice_user_prompt));
-                messages.add(userMsg);
+                String prompt = context.getString(R.string.ai_system_role)
+                        + "\n\nQuestion: " + question;
 
-                body.put("model", "gemini-1.5-flash"); // Utilisation de flash pour l'analyse rapide
+                org.json.JSONObject msg = new org.json.JSONObject();
+                msg.put("role", "user");
+                msg.put("content", prompt);
+                org.json.JSONArray messages = new org.json.JSONArray();
+                messages.put(msg);
+                org.json.JSONObject payload = new org.json.JSONObject();
+                payload.put("model", model);
+                payload.put("max_tokens", 512);
+                payload.put("messages", messages);
 
-                String apiKey = com.example.stockit.BuildConfig.GEMINI_API_KEY;
-                retrofit2.Response<okhttp3.ResponseBody> response = aiService.generateGeminiContent("gemini-1.5-flash", apiKey, body).execute();
-                if (response.isSuccessful() && response.body() != null) {
-                    String raw = response.body().string();
-                    mainHandler.post(() -> callback.onResponse(raw));
+                okhttp3.MediaType JSON = okhttp3.MediaType.parse("application/json; charset=utf-8");
+                okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                        .build();
+
+                okhttp3.Request req = new okhttp3.Request.Builder()
+                        .url(baseUrl.replaceAll("/$", "") + "/chat/completions")
+                        .header("Content-Type", "application/json")
+                        .header("Authorization", "Bearer " + key)
+                        .post(okhttp3.RequestBody.create(payload.toString(), JSON))
+                        .build();
+
+                try (okhttp3.Response resp = client.newCall(req).execute()) {
+                    String body = resp.body() != null ? resp.body().string() : "";
+                    if (!resp.isSuccessful()) {
+                        android.util.Log.w("MainController", "Cimpress chat HTTP "
+                                + resp.code() + " -> " + body);
+                        mainHandler.post(() -> callback.onResponse(
+                            "Sorry, the AI assistant is unavailable (code "
+                                + resp.code() + ")."));
+                        return;
+                    }
+                    org.json.JSONObject json = new org.json.JSONObject(body);
+                    org.json.JSONArray choices = json.optJSONArray("choices");
+                    String text = null;
+                    if (choices != null && choices.length() > 0) {
+                        org.json.JSONObject message = choices.optJSONObject(0)
+                                .optJSONObject("message");
+                        if (message != null) {
+                            Object contentObj = message.opt("content");
+                            if (contentObj instanceof String) {
+                                text = (String) contentObj;
+                            } else if (contentObj instanceof org.json.JSONArray) {
+                                org.json.JSONArray arr = (org.json.JSONArray) contentObj;
+                                StringBuilder sb = new StringBuilder();
+                                for (int i = 0; i < arr.length(); i++) {
+                                    Object item = arr.opt(i);
+                                    if (item instanceof org.json.JSONObject) {
+                                        String t = ((org.json.JSONObject) item)
+                                                .optString("text", "").trim();
+                                        if (!t.isEmpty()) {
+                                            if (sb.length() > 0) sb.append('\n');
+                                            sb.append(t);
+                                        }
+                                    } else if (item instanceof String) {
+                                        String t = ((String) item).trim();
+                                        if (!t.isEmpty()) {
+                                            if (sb.length() > 0) sb.append('\n');
+                                            sb.append(t);
+                                        }
+                                    }
+                                }
+                                if (sb.length() > 0) text = sb.toString();
+                            }
+                        }
+                    }
+                    if (text == null || text.trim().isEmpty()) {
+                        text = "The AI response is empty or unreadable.";
+                    }
+                    final String responseText = text;
+                    mainHandler.post(() -> callback.onResponse(responseText));
                 }
             } catch (Exception e) {
-                mainHandler.post(() -> callback.onResponse(context.getString(R.string.ai_error_analysis, e.getMessage())));
+                android.util.Log.e("MainController", "askAssistant error", e);
+                mainHandler.post(() -> callback.onResponse(
+                    "Sorry, an error occurred with AI."));
             }
         });
     }
+
 
     public void login(String username, String password, AuthCallback callback) {
         android.util.Log.d("MainController", "Login requested for: " + username);
@@ -146,9 +210,8 @@ public class MainController {
             try {
                 android.util.Log.d("MainController", "Login background task started");
                 
-                // Force seed for debug/demo purposes
-                if (db.userDao().getUserCount() < 5) { // Force si l'équipe n'est pas complète
-                    android.util.Log.d("MainController", "Seeding Vistaprint Team...");
+                if (db.userDao().getUserCount() < 5) { // Seed if the team list is incomplete
+                    android.util.Log.d("MainController", "Seeding Vistaprint team...");
                     db.userDao().register(new User("admin", "admin123", "ADMIN"));
                     db.userDao().register(new User("Nadhem", "pass123", "TECHNICIEN"));
                     db.userDao().register(new User("Nour", "pass123", "TECHNICIEN"));
@@ -159,8 +222,6 @@ public class MainController {
                 
                 User user = db.userDao().login(username, password);
                 if (user == null) {
-                    // Fallback for demo: if it's admin/admin123 and still fails, something is wrong with DB
-                    // Let's try to just return a dummy user to unblock the developer
                     if ("admin".equals(username) && "admin123".equals(password)) {
                         android.util.Log.w("MainController", "DB Login failed for admin, using hardcoded fallback");
                         user = new User("admin", "admin123", "ADMIN");
@@ -172,7 +233,7 @@ public class MainController {
                 final User finalUser = user;
                 if (finalUser != null) {
                     currentUser = finalUser;
-                    recordAuditLog("LOGIN", "Utilisateur connecté: " + username);
+                    recordAuditLog("LOGIN", "User logged in: " + username);
                 }
                 
                 mainHandler.post(() -> {
@@ -195,16 +256,6 @@ public class MainController {
         });
     }
 
-    /**
-     * Enregistre en base locale un utilisateur authentifié via SSO Auth0 (Vista).
-     *
-     * Le mot de passe est un placeholder inutilisable ({@code "sso-auth0"}) : les
-     * utilisateurs SSO ne peuvent PAS se reconnecter par le formulaire classique
-     * — Auth0 reste la seule source de vérité pour leur mot de passe.
-     * On persiste tout de même l'utilisateur en Room pour que les vérifications
-     * de rôle ({@link #isAdmin()}, {@link #canEditStock()}) et les jointures
-     * (audit, mouvements de stock…) fonctionnent normalement.
-     */
     public void loginSso(String username, String role, AuthCallback callback) {
         android.util.Log.d("MainController", "SSO login: " + username + " (role=" + role + ")");
         executor.execute(() -> {
@@ -219,7 +270,6 @@ public class MainController {
 
                 User user;
                 if (existing != null) {
-                    // Met à jour uniquement le rôle si nécessaire, préserve id/points/level/badges.
                     if (role != null && !role.equals(existing.getRole())) {
                         existing.setRole(role);
                         db.userDao().update(existing);
@@ -231,7 +281,7 @@ public class MainController {
                 }
 
                 currentUser = user;
-                recordAuditLog("LOGIN_SSO", "Connexion SSO Auth0 : " + username);
+                recordAuditLog("LOGIN_SSO", "Auth0 SSO login: " + username);
 
                 mainHandler.post(() -> callback.onResult(true, user));
             } catch (Exception e) {
@@ -245,7 +295,6 @@ public class MainController {
     public boolean isAdmin() { return currentUser != null && "ADMIN".equals(currentUser.getRole()); }
     public boolean canEditStock() { return currentUser != null && ("ADMIN".equals(currentUser.getRole()) || "MANAGER".equals(currentUser.getRole())); }
 
-    // --- CATEGORIES ---
     public void getCategories(CategoryCallback callback) {
         executor.execute(() -> {
             List<Category> categories = db.categoryDao().getAll();
@@ -289,7 +338,6 @@ public class MainController {
         });
     }
 
-    // --- OTHER METHODS (EXISTING) ---
     public void getUsers(UserCallback callback) {
         executor.execute(() -> {
             List<User> users = db.userDao().getAllUsers();
@@ -323,7 +371,6 @@ public class MainController {
                 null, null, null, onComplete);
     }
 
-    /** Surcharge PFE : enregistre aussi le PO source de la facture + description Claude + fournisseur. */
     public void addProduct(String name, String category, Integer categoryId, String description, String assetTag,
                            int quantity, double unitPrice, String mfgDate, String expDate, String reason,
                            String poNumber, String poDescription, String receivedFrom,
@@ -332,13 +379,15 @@ public class MainController {
                 poNumber, poDescription, receivedFrom, null, null, null, onComplete);
     }
 
-    /** Surcharge PFE complète : ajoute aussi les données extraites de l'étiquette carton. */
     public void addProduct(String name, String category, Integer categoryId, String description, String assetTag,
                            int quantity, double unitPrice, String mfgDate, String expDate, String reason,
                            String poNumber, String poDescription, String receivedFrom,
                            String articleNumber, String brand, String packagePoNumber,
                            Runnable onComplete) {
-        if (!canEditStock()) return;
+        if (currentUser == null) {
+            android.util.Log.w("ScanAsset", "addProduct ABORTED: currentUser is null");
+            return;
+        }
         executor.execute(() -> {
             Product p = new Product(name, category, description, assetTag, quantity, unitPrice, mfgDate, expDate);
             p.setCategoryId(categoryId);
@@ -353,16 +402,12 @@ public class MainController {
             if (poNumber != null && !poNumber.isEmpty()) movReason += " [PO " + poNumber + "]";
             recordMovement((int)newId, name, "IN", quantity, movReason, null);
             recordAuditLog("ADD_PRODUCT", context.getString(R.string.audit_prod_added, name, quantity));
-            addPoints(10, "Ajout produit");
+            addPoints(10, "Product added");
             if (onComplete != null) mainHandler.post(onComplete);
         });
     }
 
     public void updateQuantity(Product product, int delta, Runnable onComplete) {
-        // Tout utilisateur connecté peut ajuster la quantité via les boutons +/−
-        // (technicien en réception, admin en correction manuelle…). Les rôles
-        // ADMIN/MANAGER restent seuls autorisés à créer/supprimer un produit,
-        // voir addProduct / deleteProduct plus haut.
         android.util.Log.d("QtyDebug", "updateQuantity called: product=" + (product != null ? product.getName() : "null")
                 + " delta=" + delta + " currentUser=" + (currentUser != null ? currentUser.getUsername() : "NULL"));
         if (currentUser == null) {
@@ -370,6 +415,7 @@ public class MainController {
             return;
         }
         executor.execute(() -> {
+            int previousQty = product.getQuantity();
             int newQty = Math.max(0, product.getQuantity() + delta);
             android.util.Log.d("QtyDebug", "Updating DB: " + product.getName() + " " + product.getQuantity() + " -> " + newQty);
             product.setQuantity(newQty);
@@ -377,6 +423,9 @@ public class MainController {
             String type = (delta > 0) ? "IN" : "OUT";
             recordMovement(product.getId(), product.getName(), type, Math.abs(delta), context.getString(R.string.mov_manual_adj), null);
             recordAuditLog("UPDATE_QUANTITY", context.getString(R.string.audit_qty_adjusted, product.getName(), delta));
+            if (delta < 0 && shouldSendAutomaticLowStockAlert(previousQty, newQty, product.getMinThreshold())) {
+                triggerN8nAlert(product, null);
+            }
             android.util.Log.d("QtyDebug", "DB updated. Posting UI refresh callback=" + (onComplete != null));
             if (onComplete != null) mainHandler.post(onComplete);
         });
@@ -409,42 +458,43 @@ public class MainController {
         });
     }
 
-    /**
-     * StockIT PFE — Sortie de stock liée à un ticket Jira.
-     * Décrémente Product.quantity et enregistre un StockMovement type=OUT avec le ticketId.
-     * Bloque si stock insuffisant.
-     */
     public void recordExitToTicket(final Product product, final int qty,
                                    final String ticketId, final String assignmentReason,
                                    final Runnable onSuccess, final Runnable onInsufficientStock) {
         if (product == null || qty <= 0) return;
         executor.execute(() -> {
-            // Recharger le produit à jour
             Product fresh = db.productDao().getById(product.getId());
             if (fresh == null) { if (onInsufficientStock != null) mainHandler.post(onInsufficientStock); return; }
             if (fresh.getQuantity() < qty) {
                 if (onInsufficientStock != null) mainHandler.post(onInsufficientStock);
                 return;
             }
+            int previousQty = fresh.getQuantity();
             fresh.setQuantity(fresh.getQuantity() - qty);
             db.productDao().update(fresh);
 
             String date = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(new java.util.Date());
             String userName = (currentUser != null) ? currentUser.getUsername() : context.getString(R.string.user_name_system);
-            String reason = "Sortie sur ticket " + ticketId
-                    + (assignmentReason != null && !assignmentReason.isEmpty() ? " — " + assignmentReason : "");
+                String reason = "Outbound on ticket " + ticketId
+                    + (assignmentReason != null && !assignmentReason.isEmpty() ? " - " + assignmentReason : "");
             StockMovement mv = new StockMovement(fresh.getId(), fresh.getName(), "OUT", qty, date, reason, userName, null);
             mv.setTicketId(ticketId);
             mv.setAssignmentReason(assignmentReason);
             db.stockMovementDao().insert(mv);
 
-            recordAuditLog("EXIT_TO_TICKET", fresh.getName() + " x" + qty + " → " + ticketId);
-            addPoints(5, "Sortie ticket");
+            recordAuditLog("EXIT_TO_TICKET", fresh.getName() + " x" + qty + " -> " + ticketId);
+            addPoints(5, "Ticket outbound");
+            if (shouldSendAutomaticLowStockAlert(previousQty, fresh.getQuantity(), fresh.getMinThreshold())) {
+                triggerN8nAlert(fresh, null);
+            }
             if (onSuccess != null) mainHandler.post(onSuccess);
         });
     }
 
-    // ================== StockIT PFE : cache d'analyse tickets ==================
+    private boolean shouldSendAutomaticLowStockAlert(int previousQty, int newQty, int threshold) {
+        return newQty != previousQty && newQty <= threshold;
+    }
+
 
     public interface AnalyzedTicketsCallback {
         void onLoaded(java.util.List<com.example.stockit.model.AnalyzedTicket> analyzed);
@@ -453,17 +503,11 @@ public class MainController {
         void onLoaded(java.util.List<String> ticketIds);
     }
 
-    /** Normalise un nom d'équipement pour la clé unique (lowercase + trim). */
     private static String equipmentKeyOf(String name) {
         if (name == null) return "";
         return name.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
-    /**
-     * Persiste l'analyse LLM pour un couple (ticket, équipement).
-     * Ne touche pas à `deliveredQty` (fait dans recordDeliveryToTicket).
-     * NO-OP silencieux si ticketId vide.
-     */
     public void saveLlmAnalysis(final String ticketId, final String equipmentName,
                                 final String ticketSummary,
                                 final int suggestedQty, final String reason) {
@@ -497,16 +541,9 @@ public class MainController {
         });
     }
 
-    /**
-     * Incrémente `deliveredQty` de `qty` pour (ticketId, equipmentKey).
-     * Si `deliveredQty >= suggestedQty` (et suggestedQty > 0), passe fulfilled=true.
-     * Si aucune ligne n'existe (ex : mode manuel sans LLM), on en crée une
-     * avec suggestedQty = deliveredQty → fulfilled immédiat.
-     */
     public void recordDeliveryToTicket(final String ticketId, final String equipmentName,
                                        final int qty, final String reasonIfManual) {
         if (ticketId == null || ticketId.isEmpty() || qty <= 0) return;
-        // "NO-TICKET" = sortie libre, on ne pollue pas le cache
         if ("NO-TICKET".equalsIgnoreCase(ticketId)) return;
 
         final String key = equipmentKeyOf(equipmentName);
@@ -521,7 +558,7 @@ public class MainController {
                 t.setEquipmentName(equipmentName);
                 t.setSuggestedQty(qty);
                 t.setDeliveredQty(qty);
-                t.setReason(reasonIfManual != null ? reasonIfManual : "Choix manuel");
+                t.setReason(reasonIfManual != null ? reasonIfManual : "Manual selection");
                 t.setAnalyzedAt(now);
                 t.setFulfilled(true);
                 t.setFulfilledAt(now);
@@ -538,10 +575,6 @@ public class MainController {
         });
     }
 
-    /**
-     * Charge la liste des ticketIds entièrement livrés — à filtrer avant
-     * de passer la liste Jira au LLM.
-     */
     public void getFullyFulfilledTicketIds(final FulfilledIdsCallback cb) {
         executor.execute(() -> {
             java.util.List<String> ids = db.analyzedTicketDao().getFullyFulfilledTicketIds();
@@ -549,7 +582,6 @@ public class MainController {
         });
     }
 
-    /** Toute la table `analyzed_tickets` (pour écran d'audit / debug). */
     public void getAnalyzedTickets(final AnalyzedTicketsCallback cb) {
         executor.execute(() -> {
             java.util.List<com.example.stockit.model.AnalyzedTicket> list =
@@ -558,7 +590,6 @@ public class MainController {
         });
     }
 
-    // ==========================================================================
 
     public void getStockMovements(MovementCallback callback) {
         executor.execute(() -> {
@@ -592,9 +623,15 @@ public class MainController {
         });
     }
 
+    public void getAlertEvents(AlertHistoryCallback callback) {
+        executor.execute(() -> {
+            List<AlertEvent> events = db.alertEventDao().getRecent(300);
+            mainHandler.post(() -> callback.onAlertsLoaded(events));
+        });
+    }
+
     public void getReportData(ReportCallback callback) {
         executor.execute(() -> {
-            // Seed automatique si vide pour la démo
             if (db.productDao().getTotalQuantity() == 0) {
                 seedStock(() -> {});
             }
@@ -611,12 +648,12 @@ public class MainController {
     public void seedStock(Runnable onComplete) {
         executor.execute(() -> {
             if (db.productDao().getTotalQuantity() == 0) {
-                db.productDao().insert(new Product("Laptop Dell Latitude", "Informatique", "Ordinateur portable", "DELL-LAT-01", 15, 1200.0, "10/01/2024", ""));
-                db.productDao().insert(new Product("Souris Logitech MX", "Périphérique", "Souris ergonomique", "LOGI-MX-02", 4, 85.0, "15/01/2024", ""));
-                db.productDao().insert(new Product("Ecran HP 24 pouces", "Informatique", "Moniteur Full HD", "HP-SCR-24", 2, 180.0, "20/01/2024", ""));
+                db.productDao().insert(new Product("Laptop Dell Latitude", "IT", "Laptop", "DELL-LAT-01", 15, 1200.0, "10/01/2024", ""));
+                db.productDao().insert(new Product("Logitech MX Mouse", "Peripheral", "Ergonomic mouse", "LOGI-MX-02", 4, 85.0, "15/01/2024", ""));
+                db.productDao().insert(new Product("HP 24-inch Monitor", "IT", "Full HD monitor", "HP-SCR-24", 2, 180.0, "20/01/2024", ""));
                 
-                db.stockMovementDao().insert(new StockMovement(1, "Laptop Dell Latitude", "IN", 15, "10/06/2024", "Réception", "admin", "Arrivée stock"));
-                db.stockMovementDao().insert(new StockMovement(3, "Ecran HP 24 pouces", "OUT", 1, "12/06/2024", "Prêt", "Thomas", "Sortie pour bureau 302"));
+                db.stockMovementDao().insert(new StockMovement(1, "Laptop Dell Latitude", "IN", 15, "10/06/2024", "Receiving", "admin", "Stock arrival"));
+                db.stockMovementDao().insert(new StockMovement(3, "HP 24-inch Monitor", "OUT", 1, "12/06/2024", "Loan", "Thomas", "Outbound for office 302"));
             }
             mainHandler.post(onComplete);
         });
@@ -643,7 +680,7 @@ public class MainController {
         if (!canEditStock()) return;
         executor.execute(() -> {
             db.purchaseOrderDao().update(order);
-            recordAuditLog("UPDATE_PURCHASE", "Commande mise à jour: " + order.getProductName());
+            recordAuditLog("UPDATE_PURCHASE", "Purchase order updated: " + order.getProductName());
             if (onComplete != null) mainHandler.post(onComplete);
         });
     }
@@ -652,12 +689,11 @@ public class MainController {
         if (!isAdmin()) return;
         executor.execute(() -> {
             db.purchaseOrderDao().delete(order);
-            recordAuditLog("DELETE_PURCHASE", "Commande supprimée: " + order.getProductName());
+            recordAuditLog("DELETE_PURCHASE", "Purchase order deleted: " + order.getProductName());
             if (onComplete != null) mainHandler.post(onComplete);
         });
     }
 
-    // --- SUPPLIERS ---
     public void getSuppliers(SupplierCallback callback) {
         executor.execute(() -> {
             List<com.example.stockit.model.Supplier> suppliers = db.supplierDao().getAll();
@@ -699,7 +735,6 @@ public class MainController {
         });
     }
 
-    // --- SHIPPING ORDERS ---
     public void getShippingOrders(ShippingCallback callback) {
         executor.execute(() -> {
             List<com.example.stockit.model.ShippingOrder> orders = db.shippingOrderDao().getAll();
@@ -739,7 +774,6 @@ public class MainController {
         });
     }
 
-    // --- AI ANALYSIS ---
     public void getAIInsights(AICallback callback) {
         generateAIInsights(callback);
     }
@@ -751,7 +785,6 @@ public class MainController {
             List<com.example.stockit.model.AIInsight> insights = new java.util.ArrayList<>();
 
             for (Product p : products) {
-                // 1. Prediction & Recommendation
                 int monthlyOut = 0;
                 for (StockMovement m : movements) {
                     if (m.getProductId() == p.getId() && "OUT".equals(m.getType())) {
@@ -767,7 +800,6 @@ public class MainController {
                     ));
                 }
 
-                // 2. Anomalies
                 for (StockMovement m : movements) {
                     if (m.getProductId() == p.getId() && m.getQuantity() > 20) {
                         insights.add(new com.example.stockit.model.AIInsight(
@@ -778,7 +810,6 @@ public class MainController {
                     }
                 }
 
-                // 3. Price Sugggestion (Dead stock)
                 boolean hasRecentMovement = false;
                 for (StockMovement m : movements) {
                     if (m.getProductId() == p.getId()) {
@@ -794,7 +825,6 @@ public class MainController {
                     ));
                 }
 
-                // 4. Risks (Expiration)
                 if (p.getExpirationDate() != null && !p.getExpirationDate().isEmpty()) {
                     insights.add(new com.example.stockit.model.AIInsight(
                         context.getString(R.string.ai_insight_risk),
@@ -813,62 +843,6 @@ public class MainController {
         });
     }
 
-    // --- RECLAMATIONS (MYSQL SYNC) ---
-    public void getClaims(ClaimCallback callback) {
-        executor.execute(() -> {
-            // Charger les données : Admin voit tout, Employé voit seulement les siennes
-            List<Claim> claims;
-            if (isAdmin()) {
-                claims = db.claimDao().getAll();
-            } else if (currentUser != null) {
-                claims = db.claimDao().getByUsername(currentUser.getUsername());
-            } else {
-                claims = new java.util.ArrayList<>();
-            }
-            
-            List<Claim> finalClaims = claims;
-            mainHandler.post(() -> callback.onClaimsLoaded(finalClaims));
-
-            // Tenter une synchronisation avec MySQL
-            try {
-                // On pourrait aussi filtrer côté serveur si l'API le supporte
-                retrofit2.Response<List<Claim>> response = apiService.getClaims().execute();
-                if (response.isSuccessful() && response.body() != null) {
-                    // Logique de merge/update locale simplifiée
-                    for (Claim c : response.body()) {
-                        db.claimDao().insert(c); // Room ignorera si conflit selon config
-                    }
-                    // Re-notifier avec les nouvelles données filtrées
-                    List<Claim> updated;
-                    if (isAdmin()) updated = db.claimDao().getAll();
-                    else if (currentUser != null) updated = db.claimDao().getByUsername(currentUser.getUsername());
-                    else updated = new java.util.ArrayList<>();
-                    
-                    mainHandler.post(() -> callback.onClaimsLoaded(updated));
-                }
-            } catch (Exception e) {
-                android.util.Log.e("MainController", "Sync Claims Error: " + e.getMessage());
-            }
-        });
-    }
-
-    public void addClaim(String subject, String description, String priority, Runnable onComplete) {
-        executor.execute(() -> {
-            String sender = (currentUser != null) ? currentUser.getUsername() : context.getString(R.string.claims_anonymous);
-            Claim newClaim = new Claim(subject, description, sender, priority);
-            
-            // 1. Sauvegarde locale (Room)
-            db.claimDao().insert(newClaim);
-            if (onComplete != null) mainHandler.post(onComplete);
-
-            // 2. Envoi vers MySQL (Retrofit)
-            try {
-                apiService.addClaim(newClaim).execute();
-            } catch (Exception e) {
-                android.util.Log.e("MainController", "Upload Claim Error: " + e.getMessage());
-            }
-        });
-    }
 
     public void getMessages(int claimId, ChatCallback callback) {
         executor.execute(() -> {
@@ -901,147 +875,194 @@ public class MainController {
     public void createZycusOrder(Product p, int qty, ZycusCallback callback) {
         executor.execute(() -> {
             try {
-                Thread.sleep(1500); // Effet visuel pour le jury
+                Thread.sleep(1500); // Demo visual delay
                 String mockPR = "PR-2024-VISTA-" + (1000 + new java.util.Random().nextInt(9000));
-                recordAuditLog("ZYCUS_ORDER", "Commande Zycus générée: " + p.getName() + " [Ref: " + mockPR + "]");
+                recordAuditLog("ZYCUS_ORDER", "Zycus order generated: " + p.getName() + " [Ref: " + mockPR + "]");
                 mainHandler.post(() -> callback.onPRCreated(mockPR));
             } catch (Exception e) { e.printStackTrace(); }
         });
     }
 
     public void generateAIReport(String rawData, AIResponseCallback callback) {
-        String prompt = "Agis comme un gestionnaire de stock IT expert pour Vistaprint. Voici les données brutes du mois : " + rawData + 
-                       ". Rédige un rapport de synthèse professionnel en français (max 150 mots). Analyse les tendances, signale les alertes critiques et donne des recommandations. Utilise un ton pro mais concis.";
+        String prompt = "Act as an expert IT inventory manager for Vistaprint. Here is the monthly raw data: " + rawData +
+                   ". Write a professional summary report in English (max 150 words). Analyze trends, highlight critical alerts, and provide recommendations. Use a concise professional tone.";
         askAssistant(prompt, callback);
     }
 
-    public void detectObjectsGemini(android.net.Uri fileUri, VisionCallback callback) {
-        executor.execute(() -> {
-            try {
-                // 1. Lire l'image et l'encoder en Base64
-                java.io.InputStream inputStream = context.getContentResolver().openInputStream(fileUri);
-                java.io.ByteArrayOutputStream byteBuffer = new java.io.ByteArrayOutputStream();
-                byte[] buffer = new byte[1024];
-                int len;
-                while ((len = inputStream.read(buffer)) != -1) byteBuffer.write(buffer, 0, len);
-                byte[] bytes = byteBuffer.toByteArray();
-                inputStream.close();
-                String base64Image = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
-
-                // 2. Préparer la requête Multimodale pour Gemini (Version Flash rapide)
-                java.util.Map<String, Object> body = new java.util.HashMap<>();
-                java.util.List<java.util.Map<String, Object>> contents = new java.util.ArrayList<>();
-                java.util.Map<String, Object> contentMap = new java.util.HashMap<>();
-                java.util.List<java.util.Map<String, Object>> parts = new java.util.ArrayList<>();
-
-                java.util.Map<String, Object> textPart = new java.util.HashMap<>();
-                textPart.put("text", "Réponds par un seul mot (le nom de l'objet IT). " +
-                        "Exemple: Souris, Clavier, Ordinateur, Ecran. " +
-                        "Si tu vois une marque, écris-la après l'objet (ex: Souris Logitech). Rien d'autre.");
-                parts.add(textPart);
-
-                java.util.Map<String, Object> imagePart = new java.util.HashMap<>();
-                java.util.Map<String, String> inlineData = new java.util.HashMap<>();
-                inlineData.put("mime_type", "image/jpeg");
-                inlineData.put("data", base64Image);
-                imagePart.put("inline_data", inlineData);
-                parts.add(imagePart);
-
-                contentMap.put("parts", parts);
-                contents.add(contentMap);
-                body.put("contents", contents);
-
-                // Désactivation des filtres de sécurité pour éviter les faux positifs (blocage d'analyse)
-                java.util.List<java.util.Map<String, String>> safetySettings = new java.util.ArrayList<>();
-                String[] categories = {"HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"};
-                for (String cat : categories) {
-                    java.util.Map<String, String> setting = new java.util.HashMap<>();
-                    setting.put("category", cat);
-                    setting.put("threshold", "BLOCK_NONE");
-                    safetySettings.add(setting);
-                }
-                body.put("safetySettings", safetySettings);
-
-                String apiKey = com.example.stockit.BuildConfig.GEMINI_API_KEY;
-                retrofit2.Response<okhttp3.ResponseBody> response = aiService.generateGeminiContent("gemini-1.5-flash", apiKey, body).execute();
-                
-                if (response.isSuccessful() && response.body() != null) {
-                    String raw = response.body().string();
-                    org.json.JSONObject json = new org.json.JSONObject(raw);
-                    String result = json.getJSONArray("candidates")
-                                     .getJSONObject(0)
-                                     .getJSONObject("content")
-                                     .getJSONArray("parts")
-                                     .getJSONObject(0)
-                                     .getString("text").trim();
-                    
-                    // Nettoyage Markdown (étoiles) et espaces
-                    String cleanResult = result.replaceAll("[\\*]", "").trim();
-
-                    java.util.List<String> labels = new java.util.ArrayList<>();
-                    labels.add(cleanResult);
-                    mainHandler.post(() -> callback.onLabelsDetected(labels, cleanResult));
-                } else {
-                    mainHandler.post(() -> callback.onLabelsDetected(new java.util.ArrayList<>(), "HF Error"));
-                }
-            } catch (Exception e) {
-                android.util.Log.e("MainController", "Gemini Vision Error: " + e.getMessage());
-                mainHandler.post(() -> callback.onLabelsDetected(new java.util.ArrayList<>(), "Erreur"));
-            }
-        });
-    }
 
     public void triggerN8nAlert(Product p, Runnable onComplete) {
-        java.util.Map<String, Object> data = new java.util.HashMap<>();
-        data.put("event", "LOW_STOCK_ALERT");
-        data.put("productName", p.getName());
-        data.put("currentQty", p.getQuantity());
-        data.put("threshold", p.getMinThreshold());
-        data.put("user", currentUser != null ? currentUser.getUsername() : context.getString(R.string.user_name_system));
-        data.put("timestamp", System.currentTimeMillis());
-        data.put("email_to", "wissem.soussia@vista.com");
+        executor.execute(() -> {
+            StockHealthSnapshot health = computeStockHealthSnapshot(p);
+                String alertMessage = "LOW STOCK ALERT\nProduct: " + p.getName()
+                    + "\nCurrent quantity: " + p.getQuantity()
+                    + "\nStatic threshold: " + p.getMinThreshold()
+                    + "\nSmart threshold: " + health.dynamicThreshold
+                    + "\nOut-of-stock risk: " + health.predictedDaysLabel;
 
-        android.util.Log.d("MainController", "Sending alert to local server for email...");
-        apiService.sendAlert(data).enqueue(new retrofit2.Callback<Void>() {
-            @Override public void onResponse(retrofit2.Call<Void> call, retrofit2.Response<Void> response) {
-                android.util.Log.d("MainController", "Server Alert Success Code: " + response.code());
-                if (onComplete != null) mainHandler.post(onComplete);
-            }
-            @Override public void onFailure(retrofit2.Call<Void> call, Throwable t) {
-                android.util.Log.e("MainController", "Server Alert Connection Error: " + t.getMessage());
-                if (onComplete != null) mainHandler.post(onComplete);
-            }
+            long localAlertId = createAlertEvent(p, health, "LOCAL_API", "PENDING", alertMessage, "Waiting for local API send");
+            long slackAlertId = createAlertEvent(p, health, "SLACK", "PENDING", alertMessage, "Waiting for Slack send");
+            long jiraAlertId = createAlertEvent(p, health, "JIRA", "PENDING", "[StockIT] Stock Alert: " + p.getName(), "Waiting for Jira creation");
+            long emailAlertId = createAlertEvent(p, health, "EMAIL", "PENDING", "Low stock alert: " + p.getName(), "Waiting for webhook send");
+
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("event", "LOW_STOCK_ALERT");
+            data.put("productName", p.getName());
+            data.put("currentQty", p.getQuantity());
+            data.put("threshold", p.getMinThreshold());
+            data.put("dynamicThreshold", health.dynamicThreshold);
+            data.put("predictedDays", health.predictedDays);
+            data.put("user", currentUser != null ? currentUser.getUsername() : context.getString(R.string.user_name_system));
+            data.put("timestamp", System.currentTimeMillis());
+            data.put("email_to", "wissem.soussia@vista.com");
+
+            android.util.Log.d("MainController", "Sending alert to local server for email...");
+            apiService.sendAlert(data).enqueue(new retrofit2.Callback<Void>() {
+                @Override public void onResponse(retrofit2.Call<Void> call, retrofit2.Response<Void> response) {
+                    android.util.Log.d("MainController", "Server Alert Success Code: " + response.code());
+                    if (response.isSuccessful()) {
+                        markAlertEvent(localAlertId, "SENT", "HTTP " + response.code());
+                    } else {
+                        markAlertEvent(localAlertId, "FAILED", "HTTP " + response.code());
+                    }
+                    if (onComplete != null) mainHandler.post(onComplete);
+                }
+                @Override public void onFailure(retrofit2.Call<Void> call, Throwable t) {
+                    android.util.Log.e("MainController", "Server Alert Connection Error: " + t.getMessage());
+                    markAlertEvent(localAlertId, "FAILED", t.getMessage());
+                    if (onComplete != null) mainHandler.post(onComplete);
+                }
+            });
+
+            sendSlackNotification(alertMessage, (success, details) ->
+                    markAlertEvent(slackAlertId, success ? "SENT" : "FAILED", details));
+
+            sendJiraTicket(p.getName(), p.getQuantity(), (success, details) ->
+                    markAlertEvent(jiraAlertId, success ? "SENT" : "FAILED", details));
+
+                com.example.stockit.util.StockItReporter.sendEvent(context,
+                    "Low stock alert: " + p.getName(),
+                    "Product \"" + p.getName() + "\" dropped below the critical threshold.\n\n"
+                        + "- Remaining quantity: " + p.getQuantity() + "\n"
+                        + "- Configured threshold: " + p.getMinThreshold() + "\n"
+                        + "- Smart threshold: " + health.dynamicThreshold + "\n"
+                        + "- Estimated stockout: " + health.predictedDaysLabel + "\n\n"
+                        + "Please trigger a supplier order before stockout.",
+                    "wissem.soussia@vista.com",
+                    (success, bodyOrError) -> markAlertEvent(
+                            emailAlertId,
+                            success ? "SENT" : "FAILED",
+                            bodyOrError != null ? bodyOrError : "no_details"));
         });
-
-        // Slack et Jira restent direct comme demandé
-        sendSlackNotification("🚨 *ALERTE STOCK BAS* 🚨\nProduit: " + p.getName() + "\nQuantité actuelle: " + p.getQuantity());
-        sendJiraTicket(p.getName(), p.getQuantity());
-
-        // Email via workflow n8n — destinataire dédié "manager stock" (routé
-        // côté Java, aucun changement n8n requis, voir StockItReporter overload).
-        com.example.stockit.util.StockItReporter.sendEvent(context,
-                "Alerte stock bas : " + p.getName(),
-                "🚨 Le produit \"" + p.getName() + "\" est passé sous le seuil critique.\n\n"
-                        + "• Quantité restante : " + p.getQuantity() + "\n"
-                        + "• Seuil configuré  : " + p.getMinThreshold() + "\n\n"
-                        + "👉 Merci de déclencher une commande fournisseur avant rupture.",
-                "wissem.soussia@vista.com");
     }
 
-    // --- GAMIFICATION ---
+    private static final class StockHealthSnapshot {
+        final int dynamicThreshold;
+        final int predictedDays;
+        final String predictedDaysLabel;
+
+        StockHealthSnapshot(int dynamicThreshold, int predictedDays, String predictedDaysLabel) {
+            this.dynamicThreshold = dynamicThreshold;
+            this.predictedDays = predictedDays;
+            this.predictedDaysLabel = predictedDaysLabel;
+        }
+    }
+
+    private StockHealthSnapshot computeStockHealthSnapshot(Product p) {
+        List<StockMovement> movements = db.stockMovementDao().getByProduct(p.getId());
+        long now = System.currentTimeMillis();
+        long windowStart = now - TimeUnit.DAYS.toMillis(30);
+        double outQty = 0.0;
+        for (StockMovement m : movements) {
+            if (!"OUT".equalsIgnoreCase(m.getType())) continue;
+            long ts = parseMovementDate(m.getDate());
+            if (ts >= windowStart) {
+                outQty += Math.max(0, m.getQuantity());
+            }
+        }
+
+        double avgDailyOut = outQty / 30.0;
+        double criticality = inferCriticality(p);
+        int leadDays = inferLeadTimeDays(p);
+        int dynamicThreshold = Math.max(p.getMinThreshold(), (int) Math.ceil(avgDailyOut * leadDays * criticality));
+
+        int predictedDays;
+        String label;
+        if (avgDailyOut <= 0.01) {
+            predictedDays = -1;
+            label = "stable";
+        } else {
+            predictedDays = (int) Math.floor(p.getQuantity() / avgDailyOut);
+            label = predictedDays + " d";
+        }
+        return new StockHealthSnapshot(dynamicThreshold, predictedDays, label);
+    }
+
+    private double inferCriticality(Product p) {
+        String name = (p.getName() == null ? "" : p.getName()).toLowerCase(Locale.ROOT);
+        if (name.contains("laptop") || name.contains("computer") || name.contains("pc")) return 2.0;
+        if (name.contains("screen") || name.contains("monitor")) return 1.6;
+        return 1.2;
+    }
+
+    private int inferLeadTimeDays(Product p) {
+        String category = (p.getCategory() == null ? "" : p.getCategory()).toLowerCase(Locale.ROOT);
+        if (category.contains("it")) return 10;
+        return 7;
+    }
+
+    private long parseMovementDate(String dateText) {
+        if (dateText == null || dateText.isEmpty()) return 0L;
+        String[] patterns = {"dd/MM/yyyy HH:mm", "dd/MM/yyyy"};
+        for (String pattern : patterns) {
+            try {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(pattern, Locale.getDefault());
+                sdf.setLenient(false);
+                java.util.Date d = sdf.parse(dateText);
+                if (d != null) return d.getTime();
+            } catch (Exception ignored) {
+            }
+        }
+        return 0L;
+    }
+
+    private long createAlertEvent(Product p,
+                                  StockHealthSnapshot health,
+                                  String channel,
+                                  String status,
+                                  String message,
+                                  String details) {
+        long now = System.currentTimeMillis();
+        AlertEvent event = new AlertEvent(
+                p.getName(),
+                p.getQuantity(),
+                p.getMinThreshold(),
+                health.dynamicThreshold,
+                health.predictedDays,
+                channel,
+                status,
+                message,
+                details,
+                now,
+                now);
+        return db.alertEventDao().insert(event);
+    }
+
+    private void markAlertEvent(long alertId, String status, String details) {
+        if (alertId <= 0) return;
+        executor.execute(() -> db.alertEventDao().updateStatus(alertId, status, details, System.currentTimeMillis()));
+    }
+
     public void addPoints(int points, String reason) {
         if (currentUser == null) return;
         executor.execute(() -> {
             currentUser.setPoints(currentUser.getPoints() + points);
-            // Niveau = points / 100
             int newLevel = (currentUser.getPoints() / 100) + 1;
             if (newLevel > currentUser.getLevel()) {
                 currentUser.setLevel(newLevel);
-                recordAuditLog("LEVEL_UP", "Niveau atteint: " + newLevel);
+                recordAuditLog("LEVEL_UP", "Level reached: " + newLevel);
             }
             db.userDao().update(currentUser); // Update user in DB
             
-            // Vérifier les quêtes
             List<com.example.stockit.model.Quest> quests = db.questDao().getActiveQuests();
             for (com.example.stockit.model.Quest q : quests) {
                 q.setCurrentCount(q.getCurrentCount() + 1);
@@ -1054,7 +1075,7 @@ public class MainController {
                     }
                     db.questDao().update(q);
                     db.userDao().update(currentUser);
-                    recordAuditLog("QUEST_DONE", "Quête terminée: " + q.getTitle());
+                    recordAuditLog("QUEST_DONE", "Quest completed: " + q.getTitle());
                 } else {
                     db.questDao().update(q);
                 }
@@ -1065,7 +1086,7 @@ public class MainController {
     public void getQuests(QuestCallback callback) {
         executor.execute(() -> {
             if (db.questDao().getQuestCount() == 0) {
-                db.questDao().insert(new com.example.stockit.model.Quest("Pionnier du Stock", "Ajoutez 5 produits au stock", 5, 50, "Badge Bronze"));
+                db.questDao().insert(new com.example.stockit.model.Quest("Stock Pioneer", "Add 5 products to stock", 5, 50, "Bronze Badge"));
                 db.questDao().insert(new com.example.stockit.model.Quest("Inspecteur Expert", "Scannez 10 objets avec l'IA", 10, 100, "Badge Argent"));
             }
             List<com.example.stockit.model.Quest> quests = db.questDao().getActiveQuests();
@@ -1076,13 +1097,12 @@ public class MainController {
     public void getLeaderboard(UserCallback callback) {
         executor.execute(() -> {
             List<com.example.stockit.model.User> topUsers = db.userDao().getAllUsers();
-            // Tri par points décroissants
             topUsers.sort((u1, u2) -> Integer.compare(u2.getPoints(), u1.getPoints()));
             mainHandler.post(() -> callback.onUsersLoaded(topUsers));
         });
     }
 
-    public void sendSlackNotification(String message) {
+    public void sendSlackNotification(String message, ChannelResultCallback cb) {
         executor.execute(() -> {
             try {
                 android.util.Log.d("MainController", "Attempting to send Slack message...");
@@ -1108,33 +1128,31 @@ public class MainController {
                     String respStr = response.body() != null ? response.body().string() : "no body";
                     if (response.isSuccessful()) {
                         android.util.Log.d("MainController", "Slack message sent successfully!");
+                        if (cb != null) cb.onResult(true, "HTTP " + response.code());
                     } else {
                         android.util.Log.e("MainController", "Slack HTTP error: " + response.code() + " - " + respStr);
+                        if (cb != null) cb.onResult(false, "HTTP " + response.code() + " " + respStr);
                     }
                 }
             } catch (Exception e) {
                 android.util.Log.e("MainController", "Slack Notification Exception: " + e.getMessage());
+                if (cb != null) cb.onResult(false, e.getMessage());
             }
         });
     }
 
-    public void sendJiraTicket(String productName, int qty) {
+    public void sendJiraTicket(String productName, int qty, ChannelResultCallback cb) {
         String token = com.example.stockit.BuildConfig.JIRA_API_TOKEN;
         if (token == null || token.isEmpty() || token.equals("YOUR_JIRA_TOKEN_HERE")) {
             android.util.Log.w("MainController", "Jira Token missing. Skipping ticket creation.");
+            if (cb != null) cb.onResult(false, "jira_token_missing");
             return;
         }
 
-        // On délègue au client centralisé (util/JiraClient) qui envoie déjà :
-        //   - endpoint /rest/api/3/issue (ADF description),
-        //   - issuetype = BuildConfig.JIRA_ISSUE_TYPE (ex: "Hardware request"),
-        //   - components + customfield_11485 (Cost Center) requis par le projet SD.
-        // L'ancienne implémentation locale envoyait "Task" sans customfields ni
-        // component, ce que Jira Service Desk refuse avec un HTTP 400.
         String projectKey  = com.example.stockit.BuildConfig.JIRA_PROJECT_KEY;
-        String summary     = "[StockIT] Alerte Stock: " + productName;
-        String description = "Alerte automatique : la quantité de " + productName
-                + " est descendue à " + qty + ".";
+        String summary     = "[StockIT] Stock Alert: " + productName;
+        String description = "Automatic alert: quantity of " + productName
+            + " dropped to " + qty + ".";
 
         com.example.stockit.util.JiraClient.createTask(
                 projectKey,
@@ -1144,14 +1162,16 @@ public class MainController {
                     if (success) {
                         android.widget.Toast.makeText(
                                 context,
-                                "✅ Ticket Jira créé : " + keyOrError,
+                                "Jira ticket created: " + keyOrError,
                                 android.widget.Toast.LENGTH_LONG).show();
+                        if (cb != null) cb.onResult(true, keyOrError);
                     } else {
                         android.util.Log.e("MainController", "Jira create failed: " + keyOrError);
                         android.widget.Toast.makeText(
                                 context,
-                                "❌ Erreur Jira : " + keyOrError,
+                                "Jira error: " + keyOrError,
                                 android.widget.Toast.LENGTH_LONG).show();
+                        if (cb != null) cb.onResult(false, keyOrError);
                     }
                 }));
     }

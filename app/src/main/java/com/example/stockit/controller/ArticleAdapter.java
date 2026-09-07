@@ -41,7 +41,7 @@ public class ArticleAdapter extends RecyclerView.Adapter<ArticleAdapter.ViewHold
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Product p = articles.get(position);
-        holder.name.setText(p.getName());
+        holder.name.setText(com.example.stockit.util.LegacyTextNormalizer.toEnglishProductName(p.getName()));
         holder.category.setText(p.getCategory());
         holder.qty.setText(String.valueOf(p.getQuantity()));
         holder.price.setText(String.valueOf(p.getUnitPrice()));

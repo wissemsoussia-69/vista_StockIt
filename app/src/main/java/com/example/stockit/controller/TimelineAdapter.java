@@ -28,16 +28,16 @@ public class TimelineAdapter extends RecyclerView.Adapter<TimelineAdapter.ViewHo
         StockMovement m = movements.get(position);
         holder.date.setText(m.getDate());
         holder.title.setText(m.getReason());
-        holder.user.setText("Par " + (m.getUserName() != null ? m.getUserName() : "Inconnu"));
+        holder.user.setText(holder.itemView.getContext().getString(R.string.txt_by_user,
+                m.getUserName() != null ? m.getUserName() : holder.itemView.getContext().getString(R.string.txt_by_unknown)));
         
         if (m.getComment() != null && !m.getComment().isEmpty()) {
-            holder.comment.setText("Note : " + m.getComment());
+            holder.comment.setText(holder.itemView.getContext().getString(R.string.txt_note_prefix, m.getComment()));
             holder.comment.setVisibility(View.VISIBLE);
         } else {
             holder.comment.setVisibility(View.GONE);
         }
 
-        // Gérer les lignes de la frise
         holder.lineTop.setVisibility(position == 0 ? View.INVISIBLE : View.VISIBLE);
         holder.lineBottom.setVisibility(position == movements.size() - 1 ? View.INVISIBLE : View.VISIBLE);
     }

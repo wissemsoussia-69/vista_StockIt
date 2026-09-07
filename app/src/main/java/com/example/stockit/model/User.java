@@ -12,7 +12,7 @@ public class User {
     private String role; // "ADMIN", "MANAGER", "VIEWER"
     private int points;
     private int level;
-    private String badges; // Stockés sous forme de chaîne séparée par des virgules
+    private String badges; // Stockes sous forme de chaine separee par des virgules
 
     public User(String username, String password, String role) {
         this.username = username;
@@ -23,7 +23,6 @@ public class User {
         this.badges = "";
     }
 
-    // Getters and Setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
     public String getUsername() { return username; }

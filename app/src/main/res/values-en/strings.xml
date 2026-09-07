@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">StockIT - Vistaprint</string>
+    <string name="stockit_auth0_domain">cimpress.auth0.com</string>
+    <string name="stockit_auth0_client_id">46HIhCVTaDjXJzQI66jslidCCasu7pgc</string>
+    <string name="stockit_auth0_scheme">com.example.stockit</string>
     <string name="login_title">Vistaprint StockIT</string>
     <string name="brand_name">vistaprint</string>
     <string name="username_hint">Username</string>
@@ -27,11 +30,134 @@
     <string name="nav_import_pdf">Import Catalog (PDF)</string>
     <string name="nav_users">Users</string>
     <string name="nav_audit">Audit Actions</string>
+    <string name="nav_alert_history">Alert History</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_profile">My Profile</string>
     <string name="nav_logout">Logout</string>
     <string name="nav_reclamation">Claim</string>
     <string name="nav_inventory_manager">Inventory Manager</string>
+
+    <!-- Reports -->
+    <string name="rep_articles_short">items</string>
+    <string name="rep_items_in_stock">Items in stock:</string>
+    <string name="rep_low_stock_alerts">Low stock alerts:</string>
+    <string name="rep_categories">Categories</string>
+    <string name="rep_qty_by_category">Quantity by category</string>
+    <string name="rep_last_movements">Latest movements</string>
+
+    <!-- Common toasts -->
+    <string name="toast_camera_error">Camera error</string>
+    <string name="toast_camera_error_ex">Camera error: %1$s</string>
+    <string name="toast_read_image_error">Image read error</string>
+    <string name="toast_analysis_failed">Analysis failed: %1$s</string>
+    <string name="toast_capture_failed">Capture failed</string>
+    <string name="toast_flash_unavailable">Flash unavailable</string>
+    <string name="toast_added_stock">%1$s added to stock%2$s</string>
+    <string name="toast_added_success">%1$s added!</string>
+    <string name="toast_article_added">Item %1$s added successfully!</string>
+    <string name="toast_fill_name_qty">Please fill in name and quantity</string>
+    <string name="toast_number_format_error">Format error (number expected)</string>
+    <string name="toast_pr_created">PR created: %1$s</string>
+    <string name="toast_alert_sent">Alert sent!</string>
+    <string name="toast_pdf_generation_error">PDF generation error</string>
+    <string name="toast_pdf_generated">PDF generated successfully</string>
+    <string name="toast_shared_to_slack">Shared to Slack ✅</string>
+    <string name="toast_invalid_qty">Invalid quantity</string>
+    <string name="toast_insufficient_stock">Insufficient stock</string>
+    <string name="toast_insufficient_stock_for">Insufficient stock for %1$s</string>
+    <string name="toast_wrong_credentials">Wrong credentials</string>
+    <string name="toast_biometric_error">Biometric error: %1$s</string>
+    <string name="toast_jira_creating">Creating Jira Assets: %1$d object(s)…</string>
+    <string name="toast_jira_success">✅ Jira Assets: %1$d/%2$d created%3$s</string>
+    <string name="toast_jira_partial">⚠️ Jira Assets partial: %1$d OK, %2$d KO</string>
+    <string name="toast_jira_failed">❌ Jira Assets failed: %1$s</string>
+    <string name="toast_language_changed">Language: %1$s</string>
+
+    <!-- Dialog titles -->
+    <string name="dlg_title_scan_vision">Vision analysis</string>
+    <string name="dlg_title_timeline">Timeline: %1$s</string>
+    <string name="dlg_title_ai_report_done">AI report ready</string>
+    <string name="dlg_title_po_mismatch">⚠️ Invoice PO ≠ label PO</string>
+    <string name="dlg_title_label_read">🏷️ Label read</string>
+    <string name="dlg_title_label_error">❌ Package label</string>
+    <string name="dlg_title_no_po">❌ No PO detected</string>
+    <string name="dlg_title_po_inconsistency">⚠️ Possible inconsistency</string>
+    <string name="dlg_title_invoice_result">📄 Invoice result</string>
+    <string name="dlg_title_receive_ok">🟢 Receipt registered</string>
+    <string name="dlg_title_receive_error">❌ Package reception</string>
+    <string name="dlg_title_stock_empty">❌ Stock empty</string>
+    <string name="dlg_title_quantity_out">How many « %1$s » to release?</string>
+    <string name="dlg_title_ticket_id">Enter ticket ID</string>
+    <string name="dlg_title_ticket_not_found">❌ Ticket not found</string>
+    <string name="dlg_title_assign_to">Assign to %1$s</string>
+    <string name="dlg_title_no_ticket_ai">🧠 No ticket to analyze</string>
+    <string name="dlg_title_ai_no_suggestion">🧠 Claude has no suggestion</string>
+    <string name="dlg_title_ai_suggestion">🧠 AI suggestion</string>
+    <string name="dlg_title_qty_anomaly">⚠️ Unusual quantity</string>
+    <string name="dlg_title_exit_ok">🟢 Exit registered</string>
+    <string name="dlg_title_exit_error">❌ Equipment exit</string>
+    <string name="dlg_title_ai_report_loading">AI drafting report…</string>
+    <string name="dlg_title_login_for">Login for %1$s</string>
+
+    <!-- Dialog actions -->
+    <string name="action_ok">OK</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_share">Share</string>
+    <string name="action_close">Close</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_add">Add</string>
+    <string name="action_share_report">Share report</string>
+    <string name="action_open_in_jira">Open in Jira</string>
+    <string name="action_share_to_slack">Share on Slack</string>
+    <string name="action_yes_confirm">Yes, confirm</string>
+    <string name="action_no_rescan">No, rescan</string>
+    <string name="action_rescan">Rescan</string>
+    <string name="action_yes_attach">Yes, attach</string>
+    <string name="action_no_pick_another">No, pick another</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_verify">Verify</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_back">Back</string>
+    <string name="action_other_method">Other method</string>
+    <string name="action_apply">Apply</string>
+    <string name="action_no_other">No, other choice</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_yes_continue">Yes, continue</string>
+    <string name="action_validate">Validate</string>
+
+    <!-- Dialog messages -->
+    <string name="dlg_msg_vision_analyzing">Cimpress Vision analysis…</string>
+    <string name="dlg_msg_report_saved">The report has been drafted by AI and saved.\nWant to share it?</string>
+    <string name="dlg_msg_invoice_no_po">The invoice contains no usable PO number.</string>
+    <string name="dlg_msg_you_scanned">You scanned: « %1$s ».</string>
+    <string name="dlg_msg_po_inconsistency">You scanned: « %1$s ».\n\nBut PO %2$s says:\n« %3$s »\n\nThis PO does not mention your equipment.\nAttach anyway?</string>
+    <string name="dlg_msg_stock_empty">No « %1$s » found in stock (or quantity = 0).</string>
+    <string name="dlg_msg_stock_available">Available stock: %1$d</string>
+    <string name="dlg_msg_ticket_error">Cannot find %1$s (%2$s)</string>
+    <string name="dlg_msg_all_tickets_treated">All open Jira tickets have already been processed.</string>
+    <string name="dlg_msg_qty_anomaly">The requested quantity (%1$d) for "%2$s" looks unusual.</string>
+    <string name="dlg_msg_qty_anomaly_confirm">Do you want to continue anyway?</string>
+    <string name="dlg_msg_kit_check">Tick the dependencies actually present.</string>
+    <string name="dlg_title_kit_anti_forget">Anti-Forget Kit — %1$s</string>
+    <string name="qty_anomaly_reason_avg">The requested quantity (%1$d) is far above the average outbound quantity (%2$d).</string>
+    <string name="qty_anomaly_reason_max">The requested quantity (%1$d) is much higher than the historical maximum (%2$d).</string>
+    <string name="qty_anomaly_reason_stock_share">The request represents almost the entire stock (%1$d/%2$d).</string>
+    <string name="qty_anomaly_reason_no_history">No outbound history exists, and the requested quantity (%1$d) is high.</string>
+
+    <!-- Misc -->
+    <string name="txt_codes_detected">Codes detected: %1$d</string>
+    <string name="txt_by_user">By %1$s</string>
+    <string name="txt_by_unknown">Unknown</string>
+    <string name="txt_note_prefix">Note: %1$s</string>
+    <string name="txt_current_stock">Current stock: %1$d</string>
+    <string name="txt_level_prefix">LEVEL %1$d</string>
+    <string name="txt_badges_prefix">Badges: %1$s</string>
+    <string name="txt_none">None</string>
+    <string name="txt_no_open_ticket">No open ticket.</string>
+    <string name="txt_power_cable">Power cable</string>
+    <string name="txt_hdmi_cable">HDMI cable</string>
+    <string name="hint_ex_number">e.g.: 5</string>
+    <string name="hint_ex_ticket">e.g.: ETXTUN-42</string>
 
     <!-- Dashboard -->
     <string name="dash_summary">IT Stock Summary</string>
@@ -61,6 +187,7 @@
     <string name="settings_language">App Language</string>
     <string name="settings_font_size">Font Size</string>
     <string name="settings_version">App Version: 1.0.0</string>
+    <string name="alert_history_title">Alert History</string>
 
     <!-- Reports -->
     <string name="reports_advanced_analytics">Advanced Analytics</string>
@@ -194,6 +321,30 @@
     <string name="login_auth_failed">Authentication failed</string>
     <string name="login_prompt_title">Secure Authentication</string>
     <string name="login_prompt_subtitle">Use your biometric credentials</string>
+    <string name="biometric_access">Biometric Access</string>
+
+    <!-- SSO Auth0 (Vista) -->
+    <string name="sso_title">Vista SSO Sign-in</string>
+    <string name="sso_subtitle">Secure authentication with your Vistaprint credentials (Auth0 Universal Login).</string>
+    <string name="sso_button_okta">Sign in with Vista SSO</string>
+    <string name="sso_verify_title">Additional verification</string>
+    <string name="sso_verify_subtitle">Choose a verification method after SSO sign-in.</string>
+    <string name="sso_verify_method_notification">Verify with notification</string>
+    <string name="sso_verify_method_secret">Verify with secret code</string>
+    <string name="sso_verify_notification_title">StockIT — Verification code</string>
+    <string name="sso_verify_notification_message">Your SSO verification code is: %1$06d</string>
+    <string name="sso_verify_otp_prompt_title">Enter the notification code</string>
+    <string name="sso_verify_otp_prompt_hint">6-digit code</string>
+    <string name="sso_verify_secret_prompt_title">Enter the enterprise secret code</string>
+    <string name="sso_verify_secret_prompt_hint">Secret code</string>
+    <string name="sso_verify_invalid_code">Invalid code</string>
+    <string name="sso_verify_cancelled">Verification cancelled. Please try again.</string>
+    <string name="sso_verify_secret_not_configured">Secret code not configured. Set SSO_SECRET_CODE in the environment.</string>
+    <string name="sso_not_configured">SSO is not configured. Set com_auth0_domain and com_auth0_client_id in strings.xml.</string>
+    <string name="sso_error">SSO error: %1$s</string>
+    <string name="login_local_fallback_hint">Fallback access (offline demo)</string>
+    <string name="splash_checking_session">Checking your session…</string>
+    <string name="splash_secured_by_okta">Secured by Auth0 · Vista Services</string>
 
     <!-- Claims -->
     <string name="claims_center_title">Claims Center</string>
@@ -296,6 +447,7 @@
     <string name="cat_connectivity_label">connectivity</string>
     <string name="cat_screen_label">screen</string>
     <string name="cat_mouse_label">mouse</string>
+    <string name="cat_dock">Docking station</string>
 
     <!-- Categories -->
     <string name="cat_accessories">Accessories</string>
@@ -310,4 +462,6 @@
     <string name="seed_product_dell">Dell Latitude 5420</string>
     <string name="seed_desc_workstation">Standard Vistaprint Workstation</string>
     <string name="seed_reason_init">Stock Initialization</string>
+    <string name="shortcut_add_product_long">Add a new product to stock</string>
+    <string name="shortcut_add_product_short">Add Product</string>
 </resources>

@@ -21,22 +21,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-/**
- * RecyclerView adapter pour la liste des tickets Jira.
- *
- * Style "Vista" :
- *  - pastille de priorité en forme de pill (drawable bg_priority_pill_*)
- *  - petit dot corail animé (pulse continu) pour les tickets High / Highest
- *  - barre de priorité colorée sur le bord gauche
- *  - avatar circulaire (initiales) de l'assignee
- *  - chip SLA (temps restant jusqu'à dueDate) qui bascule en corail si urgent
- *  - couleurs alignées sur la charte Vista.
- */
 public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
 
     public interface OnPicked { void onPicked(JiraTicket t); }
 
-    /** Modes de filtrage pilotés par les chips en haut de la liste. */
     public enum FilterMode { ALL, HIGHEST, OVERDUE, MINE }
 
     private static final SimpleDateFormat ISO_DATE = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
@@ -69,10 +57,13 @@ public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
         applyFilters();
     }
 
-    /** Nombre de tickets actuellement visibles (utile pour l'état vide). */
     public int visibleCount() { return visible.size(); }
 
-    /** Supprime un ticket de la liste (utilisé par les swipe actions). */
+    public JiraTicket getVisibleAt(int position) {
+        if (position < 0 || position >= visible.size()) return null;
+        return visible.get(position);
+    }
+
     public JiraTicket removeAt(int position) {
         if (position < 0 || position >= visible.size()) return null;
         JiraTicket t = visible.remove(position);
@@ -85,7 +76,6 @@ public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
         visible.clear();
         long now = System.currentTimeMillis();
         for (JiraTicket t : all) {
-            // Filtre chip
             if (mode == FilterMode.HIGHEST && t.priorityWeight() < 5) continue;
             if (mode == FilterMode.OVERDUE) {
                 if (t.dueDate == null) continue;
@@ -98,7 +88,6 @@ public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
                 if (currentUserAssignee == null || t.assignee == null) continue;
                 if (!t.assignee.toLowerCase().contains(currentUserAssignee.toLowerCase())) continue;
             }
-            // Filtre recherche
             if (!query.isEmpty()) {
                 boolean hit = (t.key != null && t.key.toLowerCase().contains(query))
                         || (t.summary != null && t.summary.toLowerCase().contains(query))
@@ -124,13 +113,11 @@ public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
         h.key.setText(t.key);
         h.summary.setText(t.summary == null ? "" : t.summary);
 
-        // Meta compacte : status + assignee court (le SLA va dans son propre chip)
         StringBuilder meta = new StringBuilder();
         meta.append(t.status == null ? "?" : t.status);
-        if (t.assignee != null) meta.append(" · @").append(t.assignee);
+        if (t.assignee != null) meta.append("  |  @").append(t.assignee);
         h.meta.setText(meta.toString());
 
-        // --- Pastille + barre de priorité (Vista) ---
         String prio = t.priority == null ? "?" : t.priority;
         h.priority.setText(prio);
         int w = t.priorityWeight();
@@ -149,12 +136,10 @@ public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
                     ContextCompat.getColor(h.itemView.getContext(), barColorRes)));
         }
 
-        // --- Avatar : initiales de l'assignee ---
         if (h.avatar != null) {
             h.avatar.setText(initialsOf(t.assignee));
         }
 
-        // --- Chip SLA : jours restants jusqu'au dueDate ---
         if (h.sla != null) {
             String label = slaLabel(t.dueDate);
             if (label == null) {
@@ -170,7 +155,6 @@ public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
             }
         }
 
-        // --- Pastille corail "vivante" pour les tickets prioritaires ---
         boolean isUrgent = w >= 4;
         if (h.urgencyDot != null) {
             if (isUrgent) {
@@ -193,10 +177,14 @@ public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
             h.desc.setVisibility(View.GONE);
         }
 
-        h.itemView.setOnClickListener(v -> { if (callback != null) callback.onPicked(t); });
+        View.OnClickListener pick = v -> {
+            if (callback != null) callback.onPicked(t);
+        };
+        h.itemView.setOnClickListener(pick);
+        View card = h.itemView.findViewById(R.id.itemTicketCard);
+        if (card != null) card.setOnClickListener(pick);
     }
 
-    /** Extrait les 2 premières initiales d'un nom ("Jean Dupont" -> "JD"). */
     private static String initialsOf(String name) {
         if (name == null || name.isEmpty()) return "?";
         String[] parts = name.trim().split("\\s+");
@@ -207,13 +195,6 @@ public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
         return sb.length() > 0 ? sb.toString() : "?";
     }
 
-    /**
-     * Calcule le libellé du chip SLA :
-     *   - "SLA -3j" si en retard
-     *   - "SLA h" si moins de 24h (déclenche le style urgent)
-     *   - "SLA 2j"
-     * Retourne null si dueDate absent / invalide.
-     */
     private static String slaLabel(String dueDate) {
         if (dueDate == null || dueDate.isEmpty()) return null;
         try {

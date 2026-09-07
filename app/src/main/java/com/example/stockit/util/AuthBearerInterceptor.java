@@ -18,24 +18,6 @@ import okhttp3.Interceptor;
 import okhttp3.Request;
 import okhttp3.Response;
 
-/**
- * StockIT — Interceptor OkHttp qui injecte {@code Authorization: Bearer <accessToken>}
- * sur chaque requête sortante, en s'appuyant sur {@link Auth0Manager}.
- *
- * <p>Comportement :</p>
- * <ul>
- *   <li>Si Auth0 est configuré ET qu'une session valide existe, le token
- *       est récupéré (rafraîchi via refresh_token si nécessaire) puis ajouté.</li>
- *   <li>Sinon la requête part telle quelle (utile pour les endpoints publics
- *       ou en mode démo/offline). Aucun blocage.</li>
- *   <li>Si l'appelant fournit déjà un header {@code Authorization} (ex. Basic
- *       auth Jira, clé API Hugging Face…), on n'y touche pas.</li>
- * </ul>
- *
- * <p>À attacher uniquement aux clients OkHttp qui parlent au backend Vista
- * — pas aux clients qui utilisent leur propre schéma d'auth (Jira, Gemini,
- * Cimpress Gateway, etc.).</p>
- */
 public final class AuthBearerInterceptor implements Interceptor {
 
     private static final String TAG = "AuthBearerInterceptor";
@@ -52,15 +34,12 @@ public final class AuthBearerInterceptor implements Interceptor {
     public Response intercept(@NonNull Chain chain) throws IOException {
         Request original = chain.request();
 
-        // Respecter un éventuel header Authorization déjà positionné (Basic Jira, etc.).
         if (original.header("Authorization") != null) {
             return chain.proceed(original);
         }
 
         String token = fetchAccessTokenBlocking();
         if (token == null || token.isEmpty()) {
-            // Pas de session SSO valide : on laisse passer la requête sans Bearer.
-            // Le backend renverra 401 le cas échéant, l'UI redirigera vers login.
             return chain.proceed(original);
         }
 
@@ -70,11 +49,6 @@ public final class AuthBearerInterceptor implements Interceptor {
         return chain.proceed(authed);
     }
 
-    /**
-     * Bloque le thread OkHttp le temps que {@link Auth0Manager} restitue les
-     * credentials (rafraîchissement inclus). OkHttp exécute déjà les interceptors
-     * sur un thread de fond, donc l'attente est sans risque pour l'UI.
-     */
     private String fetchAccessTokenBlocking() {
         final AtomicReference<String> tokenRef = new AtomicReference<>();
         final CountDownLatch latch = new CountDownLatch(1);
@@ -94,7 +68,7 @@ public final class AuthBearerInterceptor implements Interceptor {
         });
 
         if (!requested) {
-            return null; // Auth0 non configuré : rien à injecter.
+            return null; // Auth0 not configured: nothing to inject.
         }
 
         try {

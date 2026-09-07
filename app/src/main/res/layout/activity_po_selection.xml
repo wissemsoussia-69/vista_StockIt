@@ -10,7 +10,7 @@
         android:id="@+id/poSelTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Sélectionne le PO correspondant"
+        android:text="Select the matching PO"
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="#212121" />
@@ -19,7 +19,7 @@
         android:id="@+id/poSelSubtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Équipement scanné : ..."
+        android:text="Scanned equipment: ..."
         android:textSize="13sp"
         android:textColor="#616161"
         android:paddingTop="4dp"
@@ -44,7 +44,7 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:layout_marginEnd="4dp"
-            android:text="Passer" />
+            android:text="Skip" />
 
         <Button
             android:id="@+id/poSelBtnConfirm"
@@ -52,7 +52,7 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
-            android:text="✅ Confirmer"
+            android:text="✅ Confirm"
             android:enabled="false" />
     </LinearLayout>
 </LinearLayout>

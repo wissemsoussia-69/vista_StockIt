@@ -58,7 +58,7 @@
             android:id="@+id/timelineUser"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Utilisateur"
+            android:text="User"
             android:textSize="14sp"
             android:textColor="#00AEEF" />
 
@@ -67,7 +67,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="Commentaire"
+            android:text="Comment"
             android:textSize="13sp"
             android:visibility="gone" />
 

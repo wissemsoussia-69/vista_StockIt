@@ -20,10 +20,6 @@
             android:id="@+id/nav_commandes"
             android:icon="@android:drawable/ic_menu_sort_by_size"
             android:title="@string/nav_commandes" />
-        <item
-            android:id="@+id/nav_shipping"
-            android:icon="@android:drawable/ic_menu_send"
-            android:title="@string/nav_shipping" />
     </group>
 
     <group android:id="@+id/nav_group_intelligence" android:checkableBehavior="single">
@@ -43,6 +39,10 @@
             android:id="@+id/nav_audit"
             android:icon="@android:drawable/ic_menu_info_details"
             android:title="@string/nav_audit" />
+        <item
+            android:id="@+id/nav_alert_history"
+            android:icon="@android:drawable/ic_menu_recent_history"
+            android:title="@string/nav_alert_history" />
     </group>
 
     <group android:id="@+id/nav_group_admin" android:checkableBehavior="single">
@@ -50,14 +50,6 @@
             android:id="@+id/nav_utilisateur"
             android:icon="@android:drawable/ic_menu_myplaces"
             android:title="@string/nav_users" />
-        <item
-            android:id="@+id/nav_reclamation"
-            android:icon="@android:drawable/ic_menu_help"
-            android:title="@string/nav_reclamation" />
-        <item
-            android:id="@+id/nav_import_pdf"
-            android:icon="@android:drawable/ic_menu_add"
-            android:title="@string/nav_import_pdf" />
     </group>
 
     <group android:id="@+id/nav_group_settings" android:checkableBehavior="single">

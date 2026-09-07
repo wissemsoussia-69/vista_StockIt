@@ -13,12 +13,11 @@ public class StockMovement {
     private int quantity;
     private String date;
     private String reason;
-    private String userName; // Utilisateur ayant effectué l'action
+    private String userName; // Utilisateur ayant effectue l'action
     private String comment; // Commentaire optionnel
 
-    // --- StockIT PFE : sortie liée à un ticket Jira ---
     private String ticketId;         // ex "ETXTUN-42"
-    private String assignmentReason; // ex "urgent 3 casques" (raison choisie par IA ou manuel)
+    private String assignmentReason; // e.g. "urgent 3 headsets" (AI or manual reason)
 
     public StockMovement(int productId, String productName, String type, int quantity, String date, String reason, String userName, String comment) {
         this.productId = productId;
@@ -31,7 +30,6 @@ public class StockMovement {
         this.comment = comment;
     }
 
-    // Getters and Setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
     public int getProductId() { return productId; }
@@ -51,7 +49,6 @@ public class StockMovement {
     public String getComment() { return comment; }
     public void setComment(String comment) { this.comment = comment; }
 
-    // --- PFE Jira link ---
     public String getTicketId() { return ticketId; }
     public void setTicketId(String ticketId) { this.ticketId = ticketId; }
     public String getAssignmentReason() { return assignmentReason; }

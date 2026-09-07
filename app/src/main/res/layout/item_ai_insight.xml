@@ -25,7 +25,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Titre Insight"
+                android:text="Insight Title"
                 android:textColor="#F1F5F9"
                 android:textSize="16sp"
                 android:textStyle="bold" />
@@ -34,7 +34,7 @@
                 android:id="@+id/aiType"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="TÉLÉMETRIE"
+                android:text="TELEMETRY"
                 android:textColor="#38BDF8"
                 android:textSize="10sp"
                 android:textStyle="bold" />
@@ -45,7 +45,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Description détaillée générée par l'IA pour l'optimisation."
+            android:text="Detailed AI-generated description for optimization."
             android:textColor="#94A3B8"
             android:textSize="13sp" />
 

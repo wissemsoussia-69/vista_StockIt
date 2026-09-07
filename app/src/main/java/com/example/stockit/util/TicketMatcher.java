@@ -18,19 +18,6 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-/**
- * StockIT PFE — Attribution intelligente d'une sortie de stock aux tickets Jira.
- *
- * Utilise Claude Opus 4 via Cimpress Gateway.
- * Envoie la liste des tickets ouverts + item scanné + qty à sortir.
- * Retour : un ou plusieurs {@link Assignment} avec la qty allouée à chaque ticket
- * et la raison textuelle (issue de l'analyse LLM).
- *
- * Ordre de priorité imposé au LLM :
- *   1) Priority Jira DESC (Highest → Lowest)
- *   2) Due date ASC (le plus proche d'abord)
- *   3) Ordre d'apparition sinon.
- */
 public final class TicketMatcher {
 
     private static final String TAG = "TicketMatcher";
@@ -113,13 +100,12 @@ public final class TicketMatcher {
         }, "ticket-matcher").start();
     }
 
-    // ---------- Prompt ----------
     private static String buildPrompt(String item, int qty, List<JiraTicket> tickets) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Contexte : StockIT - sortie d'equipement IT.\n");
-        sb.append("Equipement scanne : ").append(item).append("\n");
-        sb.append("Quantite a sortir : ").append(qty).append("\n\n");
-        sb.append("Tickets Jira ouverts :\n");
+        sb.append("Context: StockIT - IT equipment outbound.\n");
+        sb.append("Scanned equipment: ").append(item).append("\n");
+        sb.append("Quantity to release: ").append(qty).append("\n\n");
+        sb.append("Open Jira tickets:\n");
         for (JiraTicket t : tickets) {
             sb.append("---\n");
             sb.append("ID       : ").append(t.key).append("\n");
@@ -134,27 +120,26 @@ public final class TicketMatcher {
                 sb.append("Description : ").append(desc).append("\n");
             }
         }
-        sb.append("\nAnalyse les descriptions et repartis la quantite entre les tickets qui semblent");
-        sb.append(" avoir besoin de cet equipement.\n");
-        sb.append("Ordre de priorite :\n");
+        sb.append("\nAnalyze descriptions and distribute quantity across tickets that seem");
+        sb.append(" to need this equipment.\n");
+        sb.append("Priority order:\n");
         sb.append(" 1. Priority Jira DESC (Highest / J1 > Lowest / J5)\n");
-        sb.append(" 2. Due date ASC (le plus proche d'abord)\n");
-        sb.append(" 3. Sinon ordre d'apparition\n\n");
-        sb.append("Renvoie UNIQUEMENT ce JSON strict :\n");
+        sb.append(" 2. Due date ASC (nearest first)\n");
+        sb.append(" 3. Otherwise order of appearance\n\n");
+        sb.append("Return ONLY this strict JSON:\n");
         sb.append("[\n");
-        sb.append("  { \"ticketId\": \"ETXTUN-42\", \"qty\": 3, \"reason\": \"1-2 phrases pourquoi ce ticket\" }\n");
+        sb.append("  { \"ticketId\": \"ETXTUN-42\", \"qty\": 3, \"reason\": \"1-2 short sentences explaining this ticket\" }\n");
         sb.append("]\n");
-        sb.append("Regles :\n");
-        sb.append(" - N'assigne QUE la quantite reellement necessaire (ne remplis pas pour remplir).\n");
-        sb.append(" - Somme totale des qty <= ").append(qty).append(" ; le reste sera gere manuellement.\n");
-        sb.append(" - Si AUCUN ticket ne correspond, renvoie []. Ne devine pas.\n");
-        sb.append(" - Reponds uniquement le JSON, pas de markdown, pas de texte avant/apres.\n");
+        sb.append("Rules:\n");
+        sb.append(" - Assign ONLY the quantity that is actually needed.\n");
+        sb.append(" - Total qty sum <= ").append(qty).append("; remaining quantity will be handled manually.\n");
+        sb.append(" - If NO ticket matches, return []. Do not guess.\n");
+        sb.append(" - Return JSON only, no markdown, no text before/after.\n");
         return sb.toString();
     }
 
     private static String nn(String s) { return s == null ? "?" : s; }
 
-    // ---------- Parsing ----------
     private static List<Assignment> parseAssignments(String llm, int maxQty) {
         List<Assignment> out = new ArrayList<>();
         if (llm == null) return out;
@@ -181,12 +166,11 @@ public final class TicketMatcher {
                 if (running >= maxQty) break;
             }
         } catch (org.json.JSONException e) {
-            Log.w(TAG, "JSON parse fail — raw=" + trim(clean, 300), e);
+            Log.w(TAG, "JSON parse fail - raw=" + trim(clean, 300), e);
         }
         return out;
     }
 
-    // ---------- helpers ----------
     private static String extractOpenAiContent(String json) {
         if (json == null) return null;
         int c = json.indexOf("\"content\"");
@@ -237,6 +221,6 @@ public final class TicketMatcher {
 
     private static String trim(String s, int max) {
         if (s == null) return "";
-        return s.length() > max ? s.substring(0, max) + "…" : s;
+        return s.length() > max ? s.substring(0, max) + "..." : s;
     }
 }

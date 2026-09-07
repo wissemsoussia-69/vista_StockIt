@@ -30,14 +30,14 @@ public class ProfileActivity extends AppCompatActivity {
             profileUsername.setText(user.getUsername());
             profileEmail.setText(user.getUsername() + "@vistaprint.com");
             
-            // --- GAMIFICATION ---
             android.widget.TextView txtLevel = findViewById(R.id.profileLevel);
             android.widget.TextView txtPoints = findViewById(R.id.profilePoints);
             android.widget.TextView txtBadges = findViewById(R.id.profileBadges);
             
-            if (txtLevel != null) txtLevel.setText("NIVEAU " + user.getLevel());
+            if (txtLevel != null) txtLevel.setText(getString(R.string.txt_level_prefix, user.getLevel()));
             if (txtPoints != null) txtPoints.setText(user.getPoints() + " POINTS");
-            if (txtBadges != null) txtBadges.setText("Badges : " + (user.getBadges().isEmpty() ? "Aucun" : user.getBadges()));
+            if (txtBadges != null) txtBadges.setText(getString(R.string.txt_badges_prefix,
+                    user.getBadges().isEmpty() ? getString(R.string.txt_none) : user.getBadges()));
         }
         
         profileDept.setText(getString(R.string.profile_dept, getString(R.string.profile_dept_it)));
@@ -54,7 +54,6 @@ public class ProfileActivity extends AppCompatActivity {
 
     @Override
     public boolean onSupportNavigateUp() {
-        // Replace onBackPressed() with the new dispatcher
         getOnBackPressedDispatcher().onBackPressed();
         return true;
     }

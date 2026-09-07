@@ -38,6 +38,7 @@ import com.example.stockit.controller.MainController;
 import com.example.stockit.controller.NotificationHelper;
 import com.example.stockit.util.GeminiGatewayClient;
 import com.example.stockit.util.JiraClient;
+import com.example.stockit.util.JiraUrlHelper;
 import com.example.stockit.util.KitAntiOubliDialog;
 import com.example.stockit.util.SlackNotifier;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -45,17 +46,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
 
-/**
- * StockIT PFE — Scan d'un asset informatique.
- *
- * Flux :
- * 1. Aperçu CameraX (PreviewView).
- * 2. Bouton "Capturer" -> photo JPEG.
- * 3. Envoi à la passerelle Gemini (GeminiGatewayClient) avec un prompt strict.
- * 4. Résultat nettoyé (.trim()) affiché dans un TextView.
- * 5. Si "Écran" -> KitAntiOubliDialog obligatoire avant validation en base.
- * 6. Slack + Jira notifiés en cas d'anomalie ou de kit incomplet.
- */
 public class ScanAssetActivity extends AppCompatActivity {
 
     private static final int REQ_CAMERA = 4242;
@@ -67,7 +57,6 @@ public class ScanAssetActivity extends AppCompatActivity {
     private ImageCapture imageCapture;
     private MainController controller;
 
-    // --- Vista visual layer ---
     private View scanBeam;
     private View scanTargetFrame;
     private LinearLayout scanMatchBadge;
@@ -87,13 +76,12 @@ public class ScanAssetActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scan_asset);
 
-        previewView = findViewById(R.id.scanPreview);
+        previewView  = findViewById(R.id.scanPreview);
         txtResult   = findViewById(R.id.scanResult);
         progress    = findViewById(R.id.scanProgress);
         btnCapture  = findViewById(R.id.scanCapture);
-        controller  = new MainController(this);
+        controller  = MainController.getInstance(this);
 
-        // Overlay Vista : faisceau bleu + cadre de ciblage + badge Match
         scanBeam        = findViewById(R.id.scanBeam);
         scanTargetFrame = findViewById(R.id.scanTargetFrame);
         scanMatchBadge  = findViewById(R.id.scanMatchBadge);
@@ -126,7 +114,7 @@ public class ScanAssetActivity extends AppCompatActivity {
         if (code == REQ_CAMERA && r.length > 0 && r[0] == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
-            Toast.makeText(this, "Permission caméra refusée", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.toast_camera_permission_denied, Toast.LENGTH_SHORT).show();
             finish();
         }
     }
@@ -148,20 +136,19 @@ public class ScanAssetActivity extends AppCompatActivity {
 
                 provider.unbindAll();
                 camera = provider.bindToLifecycle(this, selector, preview, imageCapture);
-                // Torche : masque le bouton si le device n'a pas de flash.
                 if (scanTorch != null && camera != null
                         && !camera.getCameraInfo().hasFlashUnit()) {
                     scanTorch.setVisibility(View.GONE);
                 }
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Erreur caméra : " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.toast_camera_error_ex, e.getMessage()), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
     private void capture() {
         if (imageCapture == null) return;
-        setBusy(true, "Capture…");
+        setBusy(true, "Capture...");
         hideMatchBadge();
         hideTargetFrame();
         startScanBeam();
@@ -175,40 +162,39 @@ public class ScanAssetActivity extends AppCompatActivity {
                     @Override public void onError(@NonNull ImageCaptureException e) {
                         setBusy(false, null);
                         stopScanBeam();
-                        Toast.makeText(ScanAssetActivity.this, "Capture échouée", Toast.LENGTH_SHORT).show();
-                        SlackNotifier.send(":warning: [StockIT] Capture caméra échouée : " + e.getMessage());
+                        Toast.makeText(ScanAssetActivity.this, R.string.toast_capture_failed, Toast.LENGTH_SHORT).show();
+                        SlackNotifier.send(":warning: [StockIT] Camera capture failed: " + e.getMessage());
                         com.example.stockit.util.StockItReporter.sendEvent(ScanAssetActivity.this,
-                                "Incident caméra (scan équipement)",
-                                "⚠️ La capture caméra a échoué pendant un scan équipement.\n\n"
-                                        + "• Détail technique : " + e.getMessage() + "\n"
-                                        + "• Écran            : ScanAssetActivity\n\n"
-                                        + "👉 Vérifier permissions caméra et état du terminal.",
+                                "Camera incident (equipment scan)",
+                                "Camera capture failed during an equipment scan.\n\n"
+                                    + "- Technical details: " + e.getMessage() + "\n"
+                                    + "- Screen          : ScanAssetActivity\n\n"
+                                    + "Check camera permissions and device status.",
                                 "wissem.soussia@vista.com");
                     }
                 });
     }
 
     private void analyze(byte[] jpeg) {
-        setBusy(true, "Analyse IA (Gemini)…");
-        GeminiGatewayClient.identify(jpeg, (name, error) ->
+        setBusy(true, "AI analysis (Cimpress)...");
+        GeminiGatewayClient.identify(this, jpeg, (name, error) ->
                 runOnUiThread(() -> {
                     setBusy(false, null);
                     stopScanBeam();
                     if (error != null || name == null || name.isEmpty()) {
-                        String err = error != null ? error : "réponse vide";
-                        txtResult.setText("❌ Analyse impossible (" + err + ")");
-                        SlackNotifier.send(":x: [StockIT] Anomalie scan IA : " + err);
+                        String err = error != null ? error : "empty response";
+                        txtResult.setText("Analysis failed (" + err + ")");
+                        SlackNotifier.send(":x: [StockIT] AI scan anomaly: " + err);
                         com.example.stockit.util.StockItReporter.sendEvent(ScanAssetActivity.this,
-                                "Anomalie détection IA Gemini",
-                                "🤖 L'IA n'a pas pu identifier l'objet scanné.\n\n"
-                                        + "• Erreur renvoyée : " + err + "\n\n"
-                                        + "Cas possibles : image floue, cadrage incorrect, limite du modèle.\n"
-                                        + "À conserver pour ajustement du prompt.",
+                            "Claude AI detection anomaly",
+                                "AI could not identify the scannedd object.\n\n"
+                                    + "- Returned error: " + err + "\n\n"
+                                    + "Possible causes: blurry image, incorrect framing, model limitation.\n"
+                                    + "Keep this case for prompt tuning.",
                                 "wissem.soussia@vista.com");
                         return;
                     }
-                    txtResult.setText("🧠 Objet détecté : " + name);
-                    // Effet Vista : cadre de ciblage bleu marine + badge Match vert menthe.
+                    txtResult.setText("Detected object: " + name);
                     showTargetFrame();
                     showMatchSuccess("Match : " + name);
                     handleDetected(name);
@@ -219,37 +205,37 @@ public class ScanAssetActivity extends AppCompatActivity {
         if (KitAntiOubliDialog.requiresKit(detectedName)) {
             KitAntiOubliDialog.show(this, detectedName, (power, hdmi) -> {
                 if (power && hdmi) {
-                    askScanFacture(detectedName, "Kit complet (Alim + HDMI)");
+                    askScanFacture(detectedName, "Complete kit (Power + HDMI)");
                 } else {
-                    txtResult.setText("⛔ Kit incomplet — validation refusée.");
-                    SlackNotifier.send(":rotating_light: [StockIT] Kit anti-oubli incomplet pour un Écran (Alim=" + power + ", HDMI=" + hdmi + ")");
+                    txtResult.setText("Incompletee kit - validation blocked.");
+                    SlackNotifier.send(":rotating_light: [StockIT] Incompletee anti-forget kit for a screen (Power=" + power + ", HDMI=" + hdmi + ")");
                     com.example.stockit.util.StockItReporter.sendEvent(this,
-                            "Kit anti-oubli incomplet (écran)",
-                            "⛔ Un écran a été scanné sans tous les accessoires obligatoires.\n\n"
-                                    + "• Alimentation présente : " + power + "\n"
-                                    + "• Câble HDMI présent    : " + hdmi + "\n\n"
-                                    + "Un ticket Jira a été créé automatiquement pour tracer l'incident.",
+                                "Incompletee anti-forget kit (screen)",
+                                "A screen was scannedd without all mandatory accessories.\n\n"
+                                    + "- Power adapter present: " + power + "\n"
+                                    + "- HDMI cable present   : " + hdmi + "\n\n"
+                                    + "A Jira ticket was automatically created to trace this incident.",
                             "wissem.soussia@vista.com");
                     JiraClient.createTask(
                             BuildConfig.JIRA_PROJECT_KEY,
-                            "[StockIT] Kit accessoires manquant pour un ecran",
-                            "Un technicien a scanne un ecran sans confirmer toutes les dependances (Alim=" + power + ", HDMI=" + hdmi + ").",
+                            "[StockIT] Missing accessories kit for a screen",
+                            "A technician scannedd a screen without confirming all required accessories (Power=" + power + ", HDMI=" + hdmi + ").",
                             (ok, res) -> runOnUiThread(() -> {
                                 if (ok) {
                                     String key = res;
-                                    txtResult.setText("⛔ Kit incomplet — Ticket Jira créé : " + key);
+                                        txtResult.setText("Incompletee kit - Jira ticket created: " + key);
                                     new androidx.appcompat.app.AlertDialog.Builder(this)
-                                            .setTitle("🟢 Ticket Jira créé")
-                                            .setMessage("Clé : " + key + "\n\nProjet : " + BuildConfig.JIRA_PROJECT_KEY
-                                                    + "\nURL : " + BuildConfig.JIRA_BASE_URL + "/browse/" + key)
+                                            .setTitle("Jira ticket created")
+                                            .setMessage("Key: " + key + "\n\nProject: " + BuildConfig.JIRA_PROJECT_KEY
+                                                + "\nURL : " + JiraUrlHelper.browseUrl(key))
                                             .setPositiveButton("OK", null)
                                             .show();
                                 } else {
-                                    txtResult.setText("⛔ Jira KO — " + res);
-                                    SlackNotifier.send(":warning: [StockIT] Echec creation Jira : " + res);
+                                    txtResult.setText("Jira failure - " + res);
+                                    SlackNotifier.send(":warning: [StockIT] Jira creation failed: " + res);
                                     new androidx.appcompat.app.AlertDialog.Builder(this)
-                                            .setTitle("🔴 Jira KO — projet " + BuildConfig.JIRA_PROJECT_KEY)
-                                            .setMessage("Détail brut renvoyé par Jira :\n\n" + res)
+                                            .setTitle("Jira failure - project " + BuildConfig.JIRA_PROJECT_KEY)
+                                            .setMessage("Raw details returned by Jira:\n\n" + res)
                                             .setPositiveButton("OK", null)
                                             .show();
                                 }
@@ -257,28 +243,28 @@ public class ScanAssetActivity extends AppCompatActivity {
                 }
             });
         } else {
-            askScanFacture(detectedName, "Scan IA StockIT PFE");
+            askScanFacture(detectedName, "StockIT AI scan");
         }
     }
 
-    // --- StockIT PFE : chaînage équipement → facture ---
 
     private static final int REQ_FACTURE_SCAN = 7070;
 
-    /** Nom + motif de l'équipement en attente de sauvegarde (mémoire, pas encore inséré en DB). */
     private String pendingName;
     private String pendingReason;
+    private String pendingIaHint;
 
     private void askScanFacture(final String name, final String reason) {
         pendingName = name;
         pendingReason = reason;
+        pendingIaHint = name;
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("📄 Scanner la facture liée ?")
-                .setMessage("Équipement : " + name + "\n\n"
-                        + "Prends en photo la facture pour rattacher automatiquement le PO. "
-                        + "Sinon l'équipement sera ajouté au stock sans PO.")
-                .setPositiveButton("📷 Scanner la facture", (d, w) -> launchFactureScan(name))
-                .setNegativeButton("Enregistrer sans PO", (d, w) -> saveAsset(name, reason, null, null, null))
+            .setTitle("Scan linked invoice?")
+            .setMessage("Equipment: " + name + "\n\n"
+                + "Take a photo of the invoice to automatically link the PO. "
+                + "Otherwise the equipment will be added without PO.")
+            .setPositiveButton("Scan invoice", (d, w) -> launchFactureScan(name))
+            .setNegativeButton("Save without PO", (d, w) -> saveAsset(name, reason, null, null, null))
                 .setCancelable(false)
                 .show();
     }
@@ -289,14 +275,17 @@ public class ScanAssetActivity extends AppCompatActivity {
         startActivityForResult(i, REQ_FACTURE_SCAN);
     }
 
-    // --- StockIT PFE : chaînage facture → étiquette carton ---
 
     private static final int REQ_LABEL_SCAN = 7071;
 
-    /** État intermédiaire entre la facture et l'étiquette. */
     private String pendingPoNumber;
     private String pendingPoDescription;
     private String pendingSupplier;
+    private String pendingBrand;
+    private String pendingModel;
+    private String pendingInvoiceNumber;
+    private String pendingInvoiceDate;
+    private java.util.ArrayList<String> pendingSerials;
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -305,11 +294,23 @@ public class ScanAssetActivity extends AppCompatActivity {
         if (requestCode == REQ_FACTURE_SCAN) {
             if (pendingName == null) return;
             String poNumber = null, poDesc = null, supplier = null;
+            String brand = null, model = null, invoiceNumber = null, invoiceDate = null;
+            java.util.ArrayList<String> serials = null;
             if (resultCode == RESULT_OK && data != null) {
-                poNumber = data.getStringExtra(POSelectionActivity.EXTRA_SELECTED_NUMBER);
-                poDesc   = data.getStringExtra(POSelectionActivity.EXTRA_SELECTED_DESCRIPTION);
-                supplier = data.getStringExtra(POSelectionActivity.EXTRA_SELECTED_SUPPLIER);
+                poNumber      = data.getStringExtra(POSelectionActivity.EXTRA_SELECTED_NUMBER);
+                poDesc        = data.getStringExtra(POSelectionActivity.EXTRA_SELECTED_DESCRIPTION);
+                supplier      = data.getStringExtra(POSelectionActivity.EXTRA_SELECTED_SUPPLIER);
+                brand         = data.getStringExtra(POSelectionActivity.EXTRA_SELECTED_BRAND);
+                model         = data.getStringExtra(POSelectionActivity.EXTRA_SELECTED_MODEL);
+                invoiceNumber = data.getStringExtra(POSelectionActivity.EXTRA_INVOICE_NUMBER);
+                invoiceDate   = data.getStringExtra(POSelectionActivity.EXTRA_INVOICE_DATE);
+                serials       = data.getStringArrayListExtra(POSelectionActivity.EXTRA_SELECTED_SERIALS);
             }
+            pendingBrand         = brand;
+            pendingModel         = model;
+            pendingInvoiceNumber = invoiceNumber;
+            pendingInvoiceDate   = invoiceDate;
+            pendingSerials       = serials;
             askScanLabel(poNumber, poDesc, supplier);
             return;
         }
@@ -318,31 +319,42 @@ public class ScanAssetActivity extends AppCompatActivity {
             if (pendingName == null) return;
             String name = pendingName, reason = pendingReason;
             String poNumber = pendingPoNumber, poDesc = pendingPoDescription, supplier = pendingSupplier;
+            String brand = pendingBrand, model = pendingModel;
+            String invoiceNumber = pendingInvoiceNumber, invoiceDate = pendingInvoiceDate;
+            java.util.ArrayList<String> serials = pendingSerials;
+            String iaHint = pendingIaHint;
             pendingName = null; pendingReason = null;
             pendingPoNumber = null; pendingPoDescription = null; pendingSupplier = null;
+            pendingBrand = null; pendingModel = null;
+            pendingInvoiceNumber = null; pendingInvoiceDate = null; pendingSerials = null;
+            pendingIaHint = null;
 
             if (resultCode == RESULT_OK && data != null) {
                 String prodName    = data.getStringExtra(PackageLabelActivity.EXTRA_PRODUCT_NAME);
                 int    qty         = data.getIntExtra(PackageLabelActivity.EXTRA_QUANTITY, 1);
                 String articleNum  = data.getStringExtra(PackageLabelActivity.EXTRA_ARTICLE_NUMBER);
-                String brand       = data.getStringExtra(PackageLabelActivity.EXTRA_BRAND);
+                String brandLabel  = data.getStringExtra(PackageLabelActivity.EXTRA_BRAND);
                 String poOnLabel   = data.getStringExtra(PackageLabelActivity.EXTRA_PO_ON_LABEL);
+                String upc         = data.getStringExtra(PackageLabelActivity.EXTRA_UPC);
 
-                // Nom précis prioritaire, sinon nom générique Claude
                 String finalName = (prodName != null && !prodName.isEmpty()) ? prodName : name;
-                // Description enrichie
-                String finalDesc = (brand != null ? brand + " — " : "")
-                        + (articleNum != null ? "Art. " + articleNum : "Scan IA");
-                // AssetTag = numero article si dispo
+                String finalBrand = (brandLabel != null && !brandLabel.isEmpty()) ? brandLabel : brand;
+                String finalDesc = (finalBrand != null ? finalBrand + " - " : "")
+                    + (articleNum != null ? "Art. " + articleNum : "AI scan");
                 String assetTag = (articleNum != null && !articleNum.isEmpty())
                         ? articleNum : "ASSET-" + System.currentTimeMillis();
 
-                saveAssetFull(finalName, "Informatique", finalDesc, assetTag, qty, reason,
+                saveAssetFull(finalName, "IT", finalDesc, assetTag, qty, reason,
                         poNumber, poDesc, supplier,
-                        articleNum, brand, poOnLabel);
+                        articleNum, brandLabel, poOnLabel,
+                        finalBrand, model, invoiceNumber, invoiceDate, upc, serials, iaHint);
             } else {
-                // Étiquette skippée → save avec les infos facture seulement
-                saveAsset(name, reason, poNumber, poDesc, supplier);
+                saveAssetFull(name, "IT", null,
+                        "ASSET-" + System.currentTimeMillis(),
+                        serials != null && !serials.isEmpty() ? serials.size() : 1, reason,
+                        poNumber, poDesc, supplier,
+                        null, null, null,
+                        brand, model, invoiceNumber, invoiceDate, null, serials, iaHint);
             }
         }
     }
@@ -354,16 +366,16 @@ public class ScanAssetActivity extends AppCompatActivity {
 
         final String name = pendingName, reason = pendingReason;
 
-        String msg = "Équipement : " + name + "\n";
-        if (poNumber != null) msg += "PO facture : " + poNumber + "\n";
-        msg += "\nPrends en photo l'étiquette du carton pour obtenir le nom exact du produit, "
-             + "la quantité, la référence article et la marque.";
+        String msg = "Equipment: " + name + "\n";
+        if (poNumber != null) msg += "Invoice PO: " + poNumber + "\n";
+        msg += "\nTake a photo of the package label to get the exact product name, "
+               + "quantity, item reference, and brand.";
 
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("🏷️ Scanner l'étiquette du carton ?")
+            .setTitle("Scan package label?")
                 .setMessage(msg)
-                .setPositiveButton("📷 Scanner l'étiquette", (d, w) -> launchLabelScan(poNumber))
-                .setNegativeButton("Enregistrer sans étiquette", (d, w) -> {
+            .setPositiveButton("Scan label", (d, w) -> launchLabelScan(poNumber))
+            .setNegativeButton("Save without label", (d, w) -> {
                     pendingName = null; pendingReason = null;
                     pendingPoNumber = null; pendingPoDescription = null; pendingSupplier = null;
                     saveAsset(name, reason, poNumber, poDescription, supplier);
@@ -378,64 +390,256 @@ public class ScanAssetActivity extends AppCompatActivity {
         startActivityForResult(i, REQ_LABEL_SCAN);
     }
 
-    /** Insert final en base avec (potentiellement) les champs PO. */
     private void saveAsset(String name, String reason,
                            String poNumber, String poDescription, String receivedFrom) {
-        saveAssetFull(name, "Informatique", null,
+        saveAssetFull(name, "IT", null,
                 "ASSET-" + System.currentTimeMillis(), 1, reason,
                 poNumber, poDescription, receivedFrom,
-                null, null, null);
+                null, null, null,
+                null, null, null, null, null, null, name);
     }
 
-    /** Insert final enrichi avec toutes les infos disponibles (facture + étiquette). */
     private void saveAssetFull(String name, String category, String description,
                                String assetTag, int quantity, String reason,
                                String poNumber, String poDescription, String receivedFrom,
-                               String articleNumber, String brand, String packagePoNumber) {
-        controller.addProduct(name, category, null, description, assetTag, quantity, 0.0, "", "", reason,
+                               String articleNumber, String brand, String packagePoNumber,
+                               String jiraBrand, String jiraModel,
+                               String invoiceNumber, String invoiceDate,
+                               String upc,
+                               java.util.ArrayList<String> serials,
+                               String iaHint) {
+        final android.content.Context appCtx = getApplicationContext();
+        final long entryStartMs = System.currentTimeMillis();
+        final boolean withPo = poNumber != null && !poNumber.isEmpty();
+                    final String normalizedName = com.example.stockit.util.LegacyTextNormalizer.toEnglishProductName(name);
+                    controller.addProduct(normalizedName, category, null, description, assetTag, quantity, 0.0, "", "", reason,
                 poNumber, poDescription, receivedFrom,
                 articleNumber, brand, packagePoNumber,
                 () -> {
-                    String suffix = poNumber != null ? " (lié à " + poNumber + ")" : "";
-                    Toast.makeText(this, name + " x" + quantity + " ajouté au stock" + suffix, Toast.LENGTH_LONG).show();
-                    NotificationHelper.showNotification(this,
-                            "StockIT — Réception",
-                            name + " x" + quantity + " enregistré" + suffix,
+                    com.example.stockit.util.AnalyticsHelper.logEntryValidated(
+                                appCtx, normalizedName, quantity, withPo,
+                            System.currentTimeMillis() - entryStartMs);
+
+                    String eventBarcode = (articleNumber != null && !articleNumber.isEmpty())
+                            ? articleNumber : assetTag;
+                    com.example.stockit.util.StockItReporter.sendStockEvent(
+                            appCtx, eventBarcode, normalizedName, quantity);
+
+                        String suffix = poNumber != null ? " (linked to " + poNumber + ")" : "";
+                        Toast.makeText(appCtx, normalizedName + " x" + quantity + " added to stock" + suffix, Toast.LENGTH_LONG).show();
+                    NotificationHelper.showNotification(appCtx,
+                            "StockIT - Receiving",
+                            normalizedName + " x" + quantity + " recorded" + suffix,
                             (int) System.currentTimeMillis());
 
                     if (poNumber != null) {
-                        SlackNotifier.send(":white_check_mark: [StockIT] " + name
-                                + " x" + quantity + " ajouté au stock et rattaché à " + poNumber
+                        SlackNotifier.send(":white_check_mark: [StockIT] " + normalizedName
+                            + " x" + quantity + " added to stock and linked to " + poNumber
                                 + (receivedFrom != null ? " (" + receivedFrom + ")" : ""));
                     }
 
-                    // Email de synthèse d'ajout au stock (match IA -> asset enregistré).
-                    com.example.stockit.util.StockItReporter.sendEvent(this,
-                            "Nouvel équipement enregistré : " + name + " x" + quantity,
-                            "✅ Un nouvel équipement vient d'être ajouté au stock via scan IA.\n\n"
-                                    + "• Nom         : " + name + "\n"
-                                    + "• Quantité    : " + quantity + "\n"
-                                    + "• PO lié      : " + (poNumber != null ? poNumber : "aucun") + "\n"
-                                    + "• Fournisseur : " + (receivedFrom != null ? receivedFrom : "non renseigné"),
+                    com.example.stockit.util.StockItReporter.sendEvent(appCtx,
+                                "New equipment recorded: " + normalizedName + " x" + quantity,
+                                "New equipment has been added to stock via AI scan.\n\n"
+                                    + "- Name        : " + normalizedName + "\n"
+                                    + "- Quantity    : " + quantity + "\n"
+                                    + "- Linked PO   : " + (poNumber != null ? poNumber : "none") + "\n"
+                                    + "- Supplier    : " + (receivedFrom != null ? receivedFrom : "not provided"),
                             "wissem.soussia@vista.com");
 
                     StringBuilder body = new StringBuilder();
-                    body.append("• Nom : ").append(name).append("\n");
-                    body.append("• Quantité : ").append(quantity).append("\n");
-                    if (brand != null)          body.append("• Marque : ").append(brand).append("\n");
-                    if (articleNumber != null)  body.append("• Art.-No. : ").append(articleNumber).append("\n");
-                    body.append("• Motif : ").append(reason).append("\n");
-                    if (poNumber != null)       body.append("• PO facture : ").append(poNumber).append("\n");
-                    if (poDescription != null)  body.append("• Description PO : ").append(poDescription).append("\n");
-                    if (packagePoNumber != null)body.append("• PO étiquette : ").append(packagePoNumber).append("\n");
-                    if (receivedFrom != null)   body.append("• Fournisseur : ").append(receivedFrom).append("\n");
+                    body.append("- Name: ").append(normalizedName).append("\n");
+                    body.append("- Quantity: ").append(quantity).append("\n");
+                    if (brand != null)          body.append("- Brand: ").append(brand).append("\n");
+                    if (articleNumber != null)  body.append("- Art.-No. : ").append(articleNumber).append("\n");
+                    body.append("- Reason: ").append(reason).append("\n");
+                    if (poNumber != null)       body.append("- Invoice PO: ").append(poNumber).append("\n");
+                    if (poDescription != null)  body.append("- PO Description: ").append(poDescription).append("\n");
+                    if (packagePoNumber != null)body.append("- Label PO: ").append(packagePoNumber).append("\n");
+                    if (receivedFrom != null)   body.append("- Supplier: ").append(receivedFrom).append("\n");
+                    android.util.Log.i("ScanAsset", "Asset saved locally:\n" + body);
 
-                    new androidx.appcompat.app.AlertDialog.Builder(this)
-                            .setTitle("🟢 Équipement enregistré")
-                            .setMessage(body.toString())
-                            .setPositiveButton("OK", (d, w) -> finish())
-                            .show();
+                        createJiraAssetsInBackground(normalizedName, jiraBrand, jiraModel,
+                            poNumber, invoiceNumber, invoiceDate, receivedFrom, upc,
+                            serials, quantity, iaHint);
                 });
+
+        finish();
+    }
+
+
+    private int detectJiraTypeId(String detectedName) {
+        if (detectedName == null) return -1;
+        String n = detectedName.toLowerCase(java.util.Locale.ROOT);
+        if (n.contains("ordinateur") || n.contains("desktop") || n.contains("laptop")
+                || n.contains("pc ") || n.equals("pc") || n.contains("tour")
+                || n.contains("mini-pc") || n.contains("micro-pc") || n.contains("notebook")) {
+            return 939;
+        }
+        if (n.contains("screen") || n.contains("monitor")
+            || n.contains("display")) {
+            return 938;
+        }
+        if (n.contains("mouse") || n.contains("keyboard") || n.contains("cable")
+            || n.contains("webcam") || n.contains("headset")
+                || n.contains("headset") || n.contains("headphone") || n.contains("earphone")
+                || n.contains("earbud") || n.contains("earphone")
+            || n.contains("mouse") || n.contains("keyboard")
+                || n.contains("hub") || n.contains("dock") || n.contains("docking")
+            || n.contains("adapter")
+            || n.contains("charger") || n.contains("power")
+                || n.contains("hdmi") || n.contains("displayport") || n.contains("thunderbolt")
+            || n.contains("stereo") || n.contains("audio") || n.contains("mic ")
+            || n.contains("microphone") || n.contains("speaker")
+                || n.contains("impact") || n.contains("sennheiser") || n.contains("epos")
+                || n.contains("logitech") || n.contains("jabra") || n.contains("plantronics")) {
+            return 940;
+        }
+        return -1;
+    }
+
+    private void createJiraAssetsInBackground(final String detectedName,
+                                              final String brand,
+                                              final String model,
+                                              final String poNumber,
+                                              final String invoiceNumber,
+                                              final String invoiceDate,
+                                              final String vendorName,
+                                              final String upc,
+                                              final java.util.ArrayList<String> serials,
+                                              final int fallbackQuantity,
+                                              final String iaHint) {
+        int resolvedTypeId = detectJiraTypeId(detectedName);
+        if (resolvedTypeId < 0 && iaHint != null) {
+            resolvedTypeId = detectJiraTypeId(iaHint);
+            if (resolvedTypeId >= 0) {
+                android.util.Log.i("ScanAsset", "detectJiraTypeId : match via iaHint '"
+                        + iaHint + "' \u2192 typeId=" + resolvedTypeId
+                        + " (le nom pr\u00e9cis '" + detectedName + "' n'\u00e9tait pas class\u00e9)");
+            }
+        }
+        final int typeId = resolvedTypeId;
+        if (typeId < 0) {
+            android.util.Log.i("ScanAsset", "detectJiraTypeId : type non g\u00e9r\u00e9 par Jira Assets, skip \u2014 "
+                    + detectedName + " (hint=" + iaHint + ")");
+            return;
+        }
+
+        java.util.List<String> realSerials = new java.util.ArrayList<>();
+        if (serials != null) {
+            for (String s : serials) {
+                String clean = cleanToken(s);
+                if (clean != null && !realSerials.contains(clean)) realSerials.add(clean);
+            }
+        }
+
+        String cleanUpc = cleanToken(upc);
+        int objectCount = realSerials.isEmpty() ? Math.max(1, fallbackQuantity) : realSerials.size();
+
+        String assetTypeLabel = (typeId == 939 ? "Desktop" : (typeId == 938 ? "Monitor" : "Peripheral"));
+        java.util.List<java.util.Map<String, String>> batch = new java.util.ArrayList<>();
+        for (int i = 0; i < objectCount; i++) {
+            String sn = i < realSerials.size() ? realSerials.get(i) : null;
+            java.util.Map<String, String> a = new java.util.LinkedHashMap<>();
+            a.put("Name", buildAssetName(detectedName, brand, model, sn, i + 1, objectCount));
+            if (sn != null && !sn.isEmpty()) a.put("Serial Number", sn);
+            if (brand != null && !brand.isEmpty()) {
+                a.put("Device Name",  brand);
+                a.put("Brand",        brand);
+            }
+            if (model != null && !model.isEmpty())         a.put("Asset Model",     model);
+            a.put("Asset Status",         "In stock");
+            a.put("Asset Sub-Status",     "In stock - Brand New");
+            a.put("Asset Type",           assetTypeLabel);
+            a.put("Geo Location",         "Tunis");
+            if (poNumber != null && !poNumber.isEmpty())         a.put("PO Number",       poNumber);
+            if (invoiceDate != null && !invoiceDate.isEmpty())   a.put("Invoice Date",    invoiceDate);
+            if (invoiceNumber != null && !invoiceNumber.isEmpty()) a.put("Invoice Number", invoiceNumber);
+            if (vendorName != null && !vendorName.isEmpty())     a.put("Vendor Name",     vendorName);
+            if (cleanUpc != null && !cleanUpc.isEmpty())         a.put("UPC",             cleanUpc);
+            batch.add(a);
+        }
+
+        final int total = batch.size();
+        final android.content.Context appCtx = getApplicationContext();
+        final android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final int notifId = (int) (System.currentTimeMillis() & 0x7fffffff);
+
+        com.example.stockit.util.JiraNotifier.showProgress(appCtx, notifId, 0, total);
+        Toast.makeText(appCtx, getString(R.string.toast_jira_creating, total), Toast.LENGTH_SHORT).show();
+        android.util.Log.i("ScanAsset", "Jira Assets batch : typeId=" + typeId + " count=" + total);
+
+        com.example.stockit.util.JiraAssetsClient.createAssetsBatch(
+                typeId,
+                batch,
+                (done, tot) -> mainHandler.post(() ->
+                        com.example.stockit.util.JiraNotifier.showProgress(appCtx, notifId, done, tot)),
+                (successCount, failureCount, createdKeys, errorSample) -> mainHandler.post(() -> {
+                    String firstKey = createdKeys.isEmpty() ? null : createdKeys.get(0);
+                    if (failureCount == 0 && successCount > 0) {
+                        com.example.stockit.util.JiraNotifier.showSuccess(appCtx, notifId,
+                                successCount, total, firstKey);
+                        if (firstKey != null) {
+                            com.example.stockit.util.RecentAssetsStore.add(appCtx,
+                                    detectedName, firstKey, total);
+                        }
+                        com.example.stockit.util.JiraTicketMatcher.findAndNotify(appCtx, detectedName);
+                        Toast.makeText(appCtx,
+                                "Jira Assets: " + successCount + "/" + total + " created"
+                                        + (firstKey != null ? " (" + firstKey + ")" : ""),
+                                Toast.LENGTH_LONG).show();
+                    } else if (successCount > 0) {
+                        com.example.stockit.util.JiraNotifier.showPartial(appCtx, notifId,
+                                successCount, failureCount, total, firstKey, errorSample);
+                        if (firstKey != null) {
+                            com.example.stockit.util.RecentAssetsStore.add(appCtx,
+                                    detectedName, firstKey, successCount);
+                        }
+                        com.example.stockit.util.JiraTicketMatcher.findAndNotify(appCtx, detectedName);
+                        Toast.makeText(appCtx,
+                                "Warning: Jira Assets partial: " + successCount + " OK, "
+                                    + failureCount + " failed",
+                                Toast.LENGTH_LONG).show();
+                    } else {
+                        com.example.stockit.util.JiraNotifier.showError(appCtx, notifId, errorSample);
+                        Toast.makeText(appCtx,
+                                "Jira Assets failed: " + errorSample,
+                                Toast.LENGTH_LONG).show();
+                    }
+                }));
+    }
+
+    private static String cleanToken(String s) {
+        if (s == null) return null;
+        String v = s.trim();
+        if (v.isEmpty()) return null;
+        if ("null".equalsIgnoreCase(v)) return null;
+        if ("none".equalsIgnoreCase(v)) return null;
+        if ("none entered".equalsIgnoreCase(v)) return null;
+        if ("n/a".equalsIgnoreCase(v)) return null;
+        return v;
+    }
+
+    private static String buildAssetName(String detectedName,
+                                         String brand,
+                                         String model,
+                                         String serial,
+                                         int index,
+                                         int total) {
+        String base = cleanToken(model);
+        if (base == null) base = cleanToken(detectedName);
+        if (base == null) base = cleanToken(brand);
+        if (base == null) base = "Peripheral";
+
+        String b = cleanToken(brand);
+        if (b != null && !base.toLowerCase(java.util.Locale.ROOT).contains(b.toLowerCase(java.util.Locale.ROOT))) {
+            base = b + " " + base;
+        }
+
+        String sn = cleanToken(serial);
+        if (sn != null) return base + " - SN " + sn;
+        if (total <= 1) return base;
+        return base + " #" + String.format(java.util.Locale.ROOT, "%03d", index);
     }
 
     private void setBusy(boolean busy, String label) {
@@ -451,16 +655,11 @@ public class ScanAssetActivity extends AppCompatActivity {
         return bytes;
     }
 
-    // ================================================================
-    //  Vista scan overlay — faisceau bleu, ciblage bleu marine, badge Match
-    // ================================================================
 
-    /** Faisceau bleu Vista qui balaie l'écran verticalement pendant l'analyse. */
     private void startScanBeam() {
         if (scanBeam == null) return;
         if (scanGrid != null) scanGrid.setVisibility(View.VISIBLE);
         scanBeam.setVisibility(View.VISIBLE);
-        // On lance l'animation dès que la vue a une hauteur connue.
         scanBeam.post(() -> {
             View parent = (View) scanBeam.getParent();
             if (parent == null) return;
@@ -486,7 +685,6 @@ public class ScanAssetActivity extends AppCompatActivity {
         if (scanGrid != null) scanGrid.setVisibility(View.GONE);
     }
 
-    /** Cadre de ciblage bleu marine autour de l'objet détecté. */
     private void showTargetFrame() {
         if (scanTargetFrame == null) return;
         scanTargetFrame.setVisibility(View.VISIBLE);
@@ -500,7 +698,6 @@ public class ScanAssetActivity extends AppCompatActivity {
         scanTargetFrame.setVisibility(View.INVISIBLE);
     }
 
-    /** Badge "Match IA" vert menthe / turquoise avec animation d'entrée fluide. */
     private void showMatchSuccess(String label) {
         if (scanMatchBadge == null) return;
         if (scanMatchText != null && label != null) scanMatchText.setText(label);
@@ -509,14 +706,10 @@ public class ScanAssetActivity extends AppCompatActivity {
                 AnimationUtils.loadAnimation(this, R.anim.match_success_pop));
         scanMatchBadge.performHapticFeedback(HapticFeedbackConstants.CONFIRM);
         vibrateSuccess();
-        // Ondes concentriques turquoise (effet radar).
         fireWaveRing(scanWaveRing1, 0);
         fireWaveRing(scanWaveRing2, 350);
     }
 
-    /** Pattern de vibration double "tap-tap" pour signaler un Match IA franc.
-     *  Protégé par try/catch : une SecurityException (perm révoquée par l'utilisateur
-     *  ou politique OEM) ne doit jamais crasher le flow de scan. */
     private void vibrateSuccess() {
         try {
             Vibrator vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
@@ -528,7 +721,6 @@ public class ScanAssetActivity extends AppCompatActivity {
                 vib.vibrate(pattern, -1);
             }
         } catch (SecurityException | IllegalStateException ignored) {
-            // Vibration best-effort : silencieux si non autorisé.
         }
     }
 
@@ -540,7 +732,6 @@ public class ScanAssetActivity extends AppCompatActivity {
         if (scanWaveRing2 != null) { scanWaveRing2.clearAnimation(); scanWaveRing2.setVisibility(View.GONE); }
     }
 
-    /** Une onde concentrique qui part du centre — scale 0.6→2.4 + fade. */
     private void fireWaveRing(final View ring, long delayMs) {
         if (ring == null) return;
         ring.postDelayed(() -> {
@@ -549,10 +740,9 @@ public class ScanAssetActivity extends AppCompatActivity {
         }, delayMs);
     }
 
-    /** Bascule le flash caméra (torche). Icône colorée en ambre quand actif. */
     private void toggleTorch() {
         if (camera == null || !camera.getCameraInfo().hasFlashUnit()) {
-            Toast.makeText(this, "Flash indisponible", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.toast_flash_unavailable, Toast.LENGTH_SHORT).show();
             return;
         }
         torchOn = !torchOn;
@@ -563,10 +753,6 @@ public class ScanAssetActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Pinch-to-zoom : ScaleGestureDetector qui pilote CameraX ZoomState.
-     * Un petit chip Vista en haut à gauche affiche le facteur courant.
-     */
     private void setupPinchZoom() {
         scaleDetector = new ScaleGestureDetector(this,
                 new ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -589,16 +775,14 @@ public class ScanAssetActivity extends AppCompatActivity {
         if (previewView != null) {
             previewView.setOnTouchListener((v, event) -> {
                 scaleDetector.onTouchEvent(event);
-                // Consomme le geste multi-touch, laisse passer les single taps.
                 return event.getPointerCount() > 1;
             });
         }
     }
 
-    /** Affiche le chip de zoom (fade out automatique après 1.2s d'inactivité). */
     private void showZoomChip(float ratio) {
         if (scanZoomChip == null) return;
-        scanZoomChip.setText(String.format(java.util.Locale.US, "%.1f×", ratio));
+        scanZoomChip.setText(String.format(java.util.Locale.US, "%.1fx", ratio));
         scanZoomChip.setVisibility(View.VISIBLE);
         scanZoomChip.animate().alpha(1f).setDuration(120).start();
         scanZoomChip.removeCallbacks(hideZoomChip);

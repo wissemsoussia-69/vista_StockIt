@@ -12,20 +12,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 
-/**
- * StockIT PFE — Lecture des tickets Jira Cloud REST v3.
- *
- * Endpoints utilisés (LECTURE SEULE) :
- *   GET /rest/api/3/search/jql?jql=...&fields=summary,status,priority,duedate,description,assignee,reporter
- *   GET /rest/api/3/issue/{key}?fields=...
- *
- * Auth : Basic (email + JIRA_API_TOKEN en Base64).
- * Le token existant fait à la fois read et write — on n'appelle QUE les endpoints GET ici.
- */
 public final class JiraReader {
 
     private static final String TAG = "JiraReader";
@@ -33,16 +25,13 @@ public final class JiraReader {
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build();
+    private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
     private JiraReader() {}
 
     public interface SearchCallback { void onResult(List<JiraTicket> tickets, String error); }
     public interface GetCallback    { void onResult(JiraTicket ticket, String error); }
 
-    /**
-     * Charge tous les tickets ouverts du projet configuré.
-     * JQL : project = X AND statusCategory != Done ORDER BY priority DESC, duedate ASC
-     */
     public static void loadOpenTickets(final int maxResults, final SearchCallback cb) {
         String jql = "project = " + BuildConfig.JIRA_PROJECT_KEY
                 + " AND statusCategory != Done ORDER BY priority DESC, duedate ASC";
@@ -52,29 +41,55 @@ public final class JiraReader {
     public static void searchByJql(final String jql, final int maxResults, final SearchCallback cb) {
         new Thread(() -> {
             try {
-                String url = BuildConfig.JIRA_BASE_URL.replaceAll("/$", "")
-                        + "/rest/api/3/search/jql"
-                        + "?jql=" + java.net.URLEncoder.encode(jql, "UTF-8")
-                        + "&fields=summary,status,priority,duedate,description,assignee,reporter,labels"
-                        + "&maxResults=" + Math.max(1, maxResults);
+                String fields = "summary,status,priority,duedate,description,assignee,reporter,labels";
 
-                Request req = new Request.Builder()
-                        .url(url)
+                String postUrl = JiraUrlHelper.apiUrl("/rest/api/3/search/jql");
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("jql", jql);
+                body.put("maxResults", Math.max(1, maxResults));
+                body.put("fields", new org.json.JSONArray(fields.split(",")));
+
+                Request postReq = new Request.Builder()
+                        .url(postUrl)
                         .header("Authorization", basicAuthHeader())
                         .header("Accept", "application/json")
-                        .get()
+                        .header("Content-Type", "application/json")
+                        .post(RequestBody.create(body.toString(), JSON))
                         .build();
 
-                try (Response resp = CLIENT.newCall(req).execute()) {
-                    String payload = resp.body() != null ? resp.body().string() : "";
-                    if (!resp.isSuccessful()) {
-                        Log.w(TAG, "search HTTP " + resp.code() + " -> " + trim(payload, 300));
-                        cb.onResult(null, "HTTP " + resp.code() + " " + trim(payload, 150));
+                try (Response postResp = CLIENT.newCall(postReq).execute()) {
+                    String postPayload = postResp.body() != null ? postResp.body().string() : "";
+                    if (postResp.isSuccessful()) {
+                        List<JiraTicket> list = parseSearchResponse(postPayload);
+                        Log.i(TAG, "search POST /search/jql OK - " + list.size() + " tickets");
+                        cb.onResult(list, null);
                         return;
                     }
-                    List<JiraTicket> list = parseSearchResponse(payload);
-                    Log.i(TAG, "search OK — " + list.size() + " tickets");
-                    cb.onResult(list, null);
+
+                    Log.w(TAG, "search POST /search/jql HTTP " + postResp.code() + " -> " + trim(postPayload, 220));
+                    String getUrl = JiraUrlHelper.apiUrl("/rest/api/3/search/jql")
+                            + "?jql=" + java.net.URLEncoder.encode(jql, "UTF-8")
+                            + "&fields=" + java.net.URLEncoder.encode(fields, "UTF-8")
+                            + "&maxResults=" + Math.max(1, maxResults);
+
+                    Request getReq = new Request.Builder()
+                            .url(getUrl)
+                            .header("Authorization", basicAuthHeader())
+                            .header("Accept", "application/json")
+                            .get()
+                            .build();
+
+                    try (Response getResp = CLIENT.newCall(getReq).execute()) {
+                        String getPayload = getResp.body() != null ? getResp.body().string() : "";
+                        if (!getResp.isSuccessful()) {
+                            Log.w(TAG, "search GET /search/jql HTTP " + getResp.code() + " -> " + trim(getPayload, 300));
+                            cb.onResult(null, "HTTP " + getResp.code() + " " + trim(getPayload, 150));
+                            return;
+                        }
+                        List<JiraTicket> list = parseSearchResponse(getPayload);
+                        Log.i(TAG, "search GET /search/jql OK - " + list.size() + " tickets");
+                        cb.onResult(list, null);
+                    }
                 }
             } catch (Throwable t) {
                 Log.e(TAG, "search error", t);
@@ -83,12 +98,11 @@ public final class JiraReader {
         }, "jira-reader").start();
     }
 
-    /** Récupère un ticket unique par sa clé (pour valider une saisie manuelle). */
     public static void getIssue(final String key, final GetCallback cb) {
         new Thread(() -> {
             try {
-                String url = BuildConfig.JIRA_BASE_URL.replaceAll("/$", "")
-                        + "/rest/api/3/issue/" + key.trim()
+                String url = JiraUrlHelper.apiUrl("/rest/api/3/issue")
+                    + "/" + key.trim()
                         + "?fields=summary,status,priority,duedate,description,assignee,reporter,labels";
 
                 Request req = new Request.Builder()
@@ -115,7 +129,6 @@ public final class JiraReader {
         }, "jira-reader-single").start();
     }
 
-    // ---------- Parsing ----------
     private static List<JiraTicket> parseSearchResponse(String payload) throws org.json.JSONException {
         List<JiraTicket> out = new ArrayList<>();
         org.json.JSONObject root = new org.json.JSONObject(payload);
@@ -148,7 +161,6 @@ public final class JiraReader {
         org.json.JSONObject rep = f.optJSONObject("reporter");
         if (rep != null) t.reporter = rep.optString("displayName", null);
 
-        // Description : ADF -> texte plat
         Object descRaw = f.opt("description");
         if (descRaw instanceof org.json.JSONObject) {
             t.description = flattenAdf((org.json.JSONObject) descRaw);
@@ -158,7 +170,6 @@ public final class JiraReader {
         return t;
     }
 
-    /** Aplatit un document ADF (Atlassian Document Format) en texte lisible. */
     static String flattenAdf(org.json.JSONObject node) {
         StringBuilder sb = new StringBuilder();
         flattenAdfInto(node, sb);
@@ -175,7 +186,6 @@ public final class JiraReader {
                 return;
             }
             if ("hardBreak".equals(type) || "paragraph".equals(type)) {
-                // rien de plus, on descend puis on ajoutera newline
             }
             org.json.JSONArray content = obj.optJSONArray("content");
             if (content != null) {
@@ -192,7 +202,6 @@ public final class JiraReader {
         }
     }
 
-    // ---------- helpers ----------
     private static String basicAuthHeader() throws UnsupportedEncodingException {
         String creds = BuildConfig.JIRA_USER_EMAIL + ":" + BuildConfig.JIRA_API_TOKEN;
         return "Basic " + Base64.encodeToString(creds.getBytes("UTF-8"), Base64.NO_WRAP);
@@ -206,6 +215,6 @@ public final class JiraReader {
 
     private static String trim(String s, int max) {
         if (s == null) return "";
-        return s.length() > max ? s.substring(0, max) + "…" : s;
+        return s.length() > max ? s.substring(0, max) + "..." : s;
     }
 }

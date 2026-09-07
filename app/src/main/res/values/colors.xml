@@ -48,4 +48,16 @@
     <color name="white">#FFFFFFFF</color>
     <color name="grey_background">@color/vista_bg</color>
     <color name="grey_text">@color/vista_navy_muted</color>
+
+    <!-- Kanban dashboard tiles (aujourd'hui) — variantes night dans values-night/colors.xml -->
+    <color name="kanban_created_bg">#E3F2FD</color>
+    <color name="kanban_created_fg">#0B1F44</color>
+    <color name="kanban_pending_bg">#FFF3E0</color>
+    <color name="kanban_pending_fg">#E65100</color>
+    <color name="kanban_assigned_bg">#E8F5E9</color>
+    <color name="kanban_assigned_fg">#2E7D32</color>
+
+    <!-- Recent assets card (historique dashboard) -->
+    <color name="recent_card_bg">#FFFFFF</color>
+    <color name="recent_card_text">#0B1F44</color>
 </resources>

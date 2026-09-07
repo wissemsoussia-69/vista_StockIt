@@ -3,13 +3,6 @@ package com.example.stockit.util;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-/**
- * StockIT — Session locale minimale.
- *
- * Conserve les métadonnées de l'utilisateur connecté (identifiant, email, rôle) en
- * complément du stockage sécurisé des tokens géré par le SDK Okta.
- * Volontairement très simple : les secrets restent gérés par {@link OktaAuthManager}.
- */
 public final class SessionManager {
 
     private static final String PREFS_NAME = "stockit_session";
@@ -17,7 +10,7 @@ public final class SessionManager {
     private static final String KEY_USERNAME  = "username";
     private static final String KEY_EMAIL     = "email";
     private static final String KEY_ROLE      = "role";
-    private static final String KEY_PROVIDER  = "provider"; // "auth0" ou "local"
+    private static final String KEY_PROVIDER  = "provider"; // "auth0" or "local"
 
     private static volatile SessionManager INSTANCE;
 
@@ -47,7 +40,6 @@ public final class SessionManager {
     public String getRole()     { return prefs.getString(KEY_ROLE, "USER"); }
     public String getProvider() { return prefs.getString(KEY_PROVIDER, "local"); }
 
-    /** Sauvegarde une session issue d'un IdP externe (Auth0 / Vista SSO). */
     public void saveSsoSession(String username, String email, String role) {
         prefs.edit()
                 .putBoolean(KEY_LOGGED_IN, true)

@@ -5,7 +5,7 @@ import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
-@Database(entities = {Product.class, User.class, PurchaseOrder.class, StockMovement.class, Category.class, AuditLog.class, Supplier.class, ShippingOrder.class, Claim.class, Quest.class, AnalyzedTicket.class}, version = 22, exportSchema = false)
+@Database(entities = {Product.class, User.class, PurchaseOrder.class, StockMovement.class, Category.class, AuditLog.class, Supplier.class, ShippingOrder.class, Quest.class, AnalyzedTicket.class, AnalyticsEvent.class, AlertEvent.class}, version = 25, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
     private static AppDatabase instance;
 
@@ -17,9 +17,10 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract AuditLogDao auditLogDao();
     public abstract SupplierDao supplierDao();
     public abstract ShippingOrderDao shippingOrderDao();
-    public abstract ClaimDao claimDao();
     public abstract QuestDao questDao();
     public abstract AnalyzedTicketDao analyzedTicketDao();
+    public abstract AnalyticsEventDao analyticsEventDao();
+    public abstract AlertEventDao alertEventDao();
 
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {

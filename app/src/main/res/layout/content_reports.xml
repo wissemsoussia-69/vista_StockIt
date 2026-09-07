@@ -56,7 +56,7 @@
                     android:orientation="vertical"
                     android:padding="16dp">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/reports_out_of_stock" android:textSize="12sp" android:textColor="#666666" />
-                    <TextView android:id="@+id/reportOutOfStock" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 articles" android:textSize="18sp" android:textStyle="bold" android:textColor="#F44336" />
+                    <TextView android:id="@+id/reportOutOfStock" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 items" android:textSize="18sp" android:textStyle="bold" android:textColor="#F44336" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
@@ -74,8 +74,8 @@
                 android:padding="16dp">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/reports_stock_indicators" android:textStyle="bold" android:textColor="#333333" />
 
-                <TextView android:id="@+id/reportTotalItems" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Articles en stock: -" />
-                <TextView android:id="@+id/reportLowStockCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Alertes niveau faible: -" android:textColor="#FF9800" />
+                <TextView android:id="@+id/reportTotalItems" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Items in stock: -" />
+                <TextView android:id="@+id/reportLowStockCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Low stock alerts: -" android:textColor="#FF9800" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -200,7 +200,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="GÉNÉRER RAPPORT PDF (IA)"
+            android:text="GENERATE AI PDF REPORT"
             app:icon="@android:drawable/ic_menu_edit"
             android:backgroundTint="@color/colorPrimary" />
 

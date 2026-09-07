@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -15,6 +16,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
+        android:name=".StockItApp"
         android:allowBackup="true"
         android:testOnly="false"
         android:icon="@mipmap/ic_launcher"
@@ -48,10 +50,21 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
-        <!-- NOTE Auth0 : la RedirectActivity qui reçoit le callback SSO Vista
-             est déclarée automatiquement par le SDK Auth0 via manifest merging,
-             en utilisant les placeholders auth0Domain / auth0Scheme définis
-             dans app/build.gradle.kts. Aucune activité à ajouter ici. -->
+        <!-- Callback OAuth2 PKCE : le navigateur renvoie ici via deep link
+             com.example.stockit://cimpress.auth0.com/android/com.example.stockit/callback -->
+        <activity
+            android:name="com.auth0.android.provider.RedirectActivity"
+            android:exported="true"
+            tools:node="replace">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="${auth0Scheme}"
+                    android:host="${auth0Domain}" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".BatchScanActivity"
@@ -65,22 +78,22 @@
         <activity
             android:name=".ReceivePackageActivity"
             android:exported="false"
-            android:label="Réception Colis" />
+            android:label="Package Receiving" />
 
         <activity
             android:name=".POSelectionActivity"
             android:exported="false"
-            android:label="Sélection PO" />
+            android:label="PO Selection" />
 
         <activity
             android:name=".PackageLabelActivity"
             android:exported="false"
-            android:label="Étiquette Carton" />
+            android:label="Package Label" />
 
         <activity
             android:name=".ScanOutActivity"
             android:exported="false"
-            android:label="Sortie Équipement" />
+            android:label="Equipment Outbound" />
 
         <activity
             android:name=".TicketListActivity"
@@ -96,12 +109,15 @@
             android:exported="false" />
 
         <activity
+            android:name=".AlertHistoryActivity"
+            android:exported="false"
+            android:label="Alert History" />
+
+        <activity
             android:name=".ChatActivity"
             android:exported="false" />
 
-        <activity
-            android:name=".ClaimActivity"
-            android:exported="false" />
+        <!-- ClaimActivity retirée (feedback manager 2026-07-23 — hors périmètre) -->
 
         <receiver
             android:name=".StockWidget"

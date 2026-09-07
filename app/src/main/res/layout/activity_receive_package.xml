@@ -22,7 +22,7 @@
             android:id="@+id/rpStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="� Cadrez le bon de livraison puis capturez."
+            android:text="📄 Frame the delivery note, then capture."
             android:textColor="#FFFFFF"
             android:textSize="15sp"
             android:paddingBottom="8dp" />
@@ -47,7 +47,7 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="4dp"
-                android:text="📷 Capturer" />
+                android:text="📷 Capture" />
 
             <Button
                 android:id="@+id/rpBtnCancel"
@@ -55,7 +55,7 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
-                android:text="Annuler" />
+                android:text="Cancel" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

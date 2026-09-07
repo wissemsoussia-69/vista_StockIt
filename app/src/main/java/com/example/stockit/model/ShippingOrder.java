@@ -8,7 +8,7 @@ public class ShippingOrder {
     @PrimaryKey(autoGenerate = true)
     private int id;
     private String customerName;
-    private String itemsSummary; // Liste des produits (ex: "Laptop x2, Mouse x1")
+    private String itemsSummary; // Product list (e.g. "Laptop x2, Mouse x1")
     private String shippingAddress;
     private String trackingNumber;
     private String ticketNumber; // Nouveau champ

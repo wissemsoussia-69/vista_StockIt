@@ -33,19 +33,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
 
-/**
- * StockIT PFE — Scan de l'étiquette du carton.
- *
- * Entrée (Intent extras, optionnels) :
- *   - EXTRA_EXPECTED_PO (String) : le PO déjà sélectionné via la facture (pour cross-check).
- *
- * Sortie (setResult) :
- *   - EXTRA_PRODUCT_NAME    (String)
- *   - EXTRA_QUANTITY        (int)
- *   - EXTRA_ARTICLE_NUMBER  (String)
- *   - EXTRA_BRAND           (String)
- *   - EXTRA_PO_ON_LABEL     (String)
- */
 public class PackageLabelActivity extends AppCompatActivity {
 
     private static final String TAG = "PackageLabel";
@@ -57,6 +44,8 @@ public class PackageLabelActivity extends AppCompatActivity {
     public static final String EXTRA_ARTICLE_NUMBER   = "article_number";
     public static final String EXTRA_BRAND            = "brand";
     public static final String EXTRA_PO_ON_LABEL      = "po_on_label";
+    public static final String EXTRA_SERIAL_ON_LABEL  = "serial_on_label";
+    public static final String EXTRA_UPC              = "upc";
 
     private PreviewView preview;
     private TextView    status;
@@ -79,7 +68,7 @@ public class PackageLabelActivity extends AppCompatActivity {
 
         expectedPo = getIntent().getStringExtra(EXTRA_EXPECTED_PO);
         if (expectedPo != null) {
-            status.setText("🏷️ Étiquette du carton (PO attendu : " + expectedPo + ")");
+            status.setText("Package label (expected PO: " + expectedPo + ")");
         }
 
         btnCapture.setOnClickListener(v -> capture());
@@ -98,7 +87,7 @@ public class PackageLabelActivity extends AppCompatActivity {
         if (code == REQ_CAMERA && r.length > 0 && r[0] == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
-            Toast.makeText(this, "Permission caméra refusée", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.toast_camera_permission_denied, Toast.LENGTH_SHORT).show();
             finish();
         }
     }
@@ -118,30 +107,30 @@ public class PackageLabelActivity extends AppCompatActivity {
                 provider.unbindAll();
                 provider.bindToLifecycle(this, sel, p, imageCapture);
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Erreur caméra : " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.toast_camera_error_ex, e.getMessage()), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
     private void capture() {
         if (imageCapture == null) return;
-        setBusy(true, "📸 Capture…");
+        setBusy(true, "Capturing...");
         imageCapture.takePicture(ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageCapturedCallback() {
                     @Override public void onCaptureSuccess(@NonNull ImageProxy image) {
                         Bitmap bmp = toBitmap(image);
                         image.close();
-                        if (bmp == null) { setBusy(false, "❌ Décodage image échoué"); return; }
+                        if (bmp == null) { setBusy(false, "Image decode failed"); return; }
                         parse(bmp);
                     }
                     @Override public void onError(@NonNull ImageCaptureException e) {
-                        setBusy(false, "❌ Capture : " + e.getMessage());
+                        setBusy(false, "Capture: " + e.getMessage());
                     }
                 });
     }
 
     private void parse(Bitmap bmp) {
-        setBusy(true, "🧠 OCR MLKit sur l'étiquette…");
+        setBusy(true, "Running MLKit OCR on label...");
         try {
             PackageLabelParser.parse(bmp,
                     lbl -> runOnUiThread(() -> {
@@ -150,33 +139,33 @@ public class PackageLabelActivity extends AppCompatActivity {
                             if (lbl == null) { showError("Callback null"); return; }
                             if (lbl.error != null) {
                                 String extra = lbl.rawOcr != null && !lbl.rawOcr.isEmpty()
-                                        ? "\n\n— OCR extrait —\n" + trim(lbl.rawOcr, 500) : "";
-                                showError("Extraction IA impossible.\nErreur : " + lbl.error + extra);
+                                        ? "\n\n- Extracted OCR -\n" + trim(lbl.rawOcr, 500) : "";
+                                showError("AI extraction failed.\nError: " + lbl.error + extra);
                                 return;
                             }
                             confirmAndReturn(lbl);
                         } catch (Throwable t) {
                             Log.e(TAG, "post-parse crash", t);
-                            showError("Crash post-parse : " + t.getClass().getSimpleName() + " — " + t.getMessage());
+                            showError("Post-parse crash: " + t.getClass().getSimpleName() + " - " + t.getMessage());
                         }
                     }),
-                    step -> runOnUiThread(() -> setBusy(true, "⏳ " + step))
+                    step -> runOnUiThread(() -> setBusy(true, "... " + step))
             );
         } catch (Throwable t) {
             Log.e(TAG, "parse crash", t);
             setBusy(false, null);
-            showError("Crash parse : " + t.getMessage());
+            showError("Parse crash: " + t.getMessage());
         }
     }
 
     private void confirmAndReturn(final PackageLabelParser.Label lbl) {
-        // Récap dialog
         StringBuilder msg = new StringBuilder();
-        msg.append("• Produit : ").append(lbl.productName == null ? "?" : lbl.productName).append("\n");
-        msg.append("• Quantité : ").append(lbl.quantity).append("\n");
-        if (lbl.brand != null)         msg.append("• Marque : ").append(lbl.brand).append("\n");
-        if (lbl.articleNumber != null) msg.append("• Art.-No. : ").append(lbl.articleNumber).append("\n");
-        if (lbl.poOnLabel != null)     msg.append("• PO étiquette : ").append(lbl.poOnLabel).append("\n");
+        msg.append("- Product: ").append(lbl.productName == null ? "?" : lbl.productName).append("\n");
+        msg.append("- Quantity: ").append(lbl.quantity).append("\n");
+        if (lbl.brand != null)         msg.append("- Brand: ").append(lbl.brand).append("\n");
+        if (lbl.articleNumber != null) msg.append("- Art.-No. : ").append(lbl.articleNumber).append("\n");
+        if (lbl.poOnLabel != null)     msg.append("- Label PO: ").append(lbl.poOnLabel).append("\n");
+        if (lbl.serialNumber != null)  msg.append("- Serial : ").append(lbl.serialNumber).append("\n");
 
         boolean mismatch = expectedPo != null && lbl.poOnLabel != null
                 && !normalize(expectedPo).equals(normalize(lbl.poOnLabel))
@@ -185,19 +174,19 @@ public class PackageLabelActivity extends AppCompatActivity {
 
         if (mismatch) {
             new AlertDialog.Builder(this)
-                    .setTitle("⚠️ PO facture ≠ PO étiquette")
-                    .setMessage(msg + "\n\nAttendu (facture) : " + expectedPo
-                            + "\nDétecté (étiquette) : " + lbl.poOnLabel
-                            + "\n\nContinuer quand même ?")
-                    .setPositiveButton("Oui, valider", (d, w) -> returnResult(lbl))
-                    .setNegativeButton("Non, re-scanner", null)
+                    .setTitle(R.string.dlg_title_po_mismatch)
+                        .setMessage(msg + "\n\nExpected (invoice): " + expectedPo
+                            + "\nDetected (label): " + lbl.poOnLabel
+                            + "\n\nContinue anyway?")
+                    .setPositiveButton(R.string.action_yes_confirm, (d, w) -> returnResult(lbl))
+                    .setNegativeButton(R.string.action_no_rescan, null)
                     .show();
         } else {
             new AlertDialog.Builder(this)
-                    .setTitle("🏷️ Étiquette lue")
+                    .setTitle(R.string.dlg_title_label_read)
                     .setMessage(msg)
-                    .setPositiveButton("✅ Utiliser", (d, w) -> returnResult(lbl))
-                    .setNegativeButton("Re-scanner", null)
+                        .setPositiveButton("Use", (d, w) -> returnResult(lbl))
+                    .setNegativeButton(R.string.action_rescan, null)
                     .show();
         }
     }
@@ -216,15 +205,17 @@ public class PackageLabelActivity extends AppCompatActivity {
         data.putExtra(EXTRA_ARTICLE_NUMBER, lbl.articleNumber);
         data.putExtra(EXTRA_BRAND,          lbl.brand);
         data.putExtra(EXTRA_PO_ON_LABEL,    lbl.poOnLabel);
+        data.putExtra(EXTRA_SERIAL_ON_LABEL,lbl.serialNumber);
+        data.putExtra(EXTRA_UPC,            lbl.upc);
         setResult(RESULT_OK, data);
         finish();
     }
 
     private void showError(String msg) {
         new AlertDialog.Builder(this)
-                .setTitle("❌ Étiquette carton")
+                .setTitle(R.string.dlg_title_label_error)
                 .setMessage(msg)
-                .setPositiveButton("OK", null)
+                .setPositiveButton(R.string.action_ok, null)
                 .show();
     }
 
@@ -236,7 +227,7 @@ public class PackageLabelActivity extends AppCompatActivity {
 
     private static String trim(String s, int max) {
         if (s == null) return "";
-        return s.length() > max ? s.substring(0, max) + "…" : s;
+        return s.length() > max ? s.substring(0, max) + "..." : s;
     }
 
     private static Bitmap toBitmap(ImageProxy image) {

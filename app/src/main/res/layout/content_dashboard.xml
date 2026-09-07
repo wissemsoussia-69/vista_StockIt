@@ -41,7 +41,7 @@
                     android:layout_height="52dp"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_avatar_hero"
-                    android:contentDescription="Avatar utilisateur"
+                    android:contentDescription="User avatar"
                     android:gravity="center"
                     android:text="D"
                     android:textColor="@color/white"
@@ -60,7 +60,7 @@
                     android:id="@+id/dashHeroGreeting"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Bonjour 👋"
+                    android:text="Hello 👋"
                     android:textColor="@color/white"
                     android:textSize="20sp"
                     android:textStyle="bold" />
@@ -70,7 +70,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Bienvenue sur StockIT"
+                    android:text="Welcome to StockIT"
                     android:textColor="#E6FFFFFF"
                     android:textSize="12sp" />
 
@@ -195,7 +195,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="12dp"
-            android:text="Quêtes de la semaine"
+            android:text="Weekly quests"
             android:textAppearance="@style/TextAppearance.Vista.SectionTitle" />
 
         <androidx.cardview.widget.CardView
@@ -215,7 +215,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFamily="sans-serif-medium"
-                    android:text="Pionnier du Stock"
+                    android:text="Stock Pioneer"
                     android:textColor="@color/vista_blue" />
                 <ProgressBar
                     android:id="@+id/dashQuestProgress"
@@ -231,7 +231,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Ajoutez 5 produits pour gagner 50 points"
+                    android:text="Add 5 products to earn 50 points"
                     android:textAppearance="@style/TextAppearance.Vista.Meta" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -319,7 +319,7 @@
                     <ImageView
                         android:layout_width="28dp"
                         android:layout_height="28dp"
-                        android:contentDescription="Nouvel article"
+                        android:contentDescription="New item"
                         android:src="@android:drawable/ic_menu_add"
                         app:tint="@color/white" />
 
@@ -328,7 +328,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:fontFamily="sans-serif-medium"
-                        android:text="Article"
+                        android:text="Item"
                         android:textColor="@color/white"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -359,7 +359,7 @@
                     <ImageView
                         android:layout_width="28dp"
                         android:layout_height="28dp"
-                        android:contentDescription="Assistant IA"
+                        android:contentDescription="AI assistant"
                         android:src="@android:drawable/ic_menu_info_details"
                         app:tint="@color/vista_turquoise" />
 
@@ -368,12 +368,153 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:fontFamily="sans-serif-medium"
-                        android:text="Assistant IA"
+                        android:text="AI Assistant 🤖"
                         android:textColor="@color/vista_navy"
                         android:textSize="12sp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
+
+        <!-- Kanban compact : compteurs "aujourd'hui" pour visualiser l'activité.
+             Alimenté par MainActivity.refreshKanban() à partir des StockMovement
+             (créations = IN, sorties = OUT) et du stock disponible. -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp"
+            android:text="📊 Today"
+            android:textAppearance="@style/TextAppearance.Vista.SectionTitle" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="3"
+            android:layout_marginBottom="4dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/kanbanCreated"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/kanban_created_bg">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp"
+                    android:gravity="center">
+                    <TextView
+                        android:id="@+id/kanbanCreatedValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="@color/kanban_created_fg"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🆕 Created"
+                        android:textColor="@color/kanban_created_fg"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/kanbanPending"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/kanban_pending_bg">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp"
+                    android:gravity="center">
+                    <TextView
+                        android:id="@+id/kanbanPendingValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="@color/kanban_pending_fg"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📦 To assign"
+                        android:textColor="@color/kanban_pending_fg"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/kanbanAssigned"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/kanban_assigned_bg">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp"
+                    android:gravity="center">
+                    <TextView
+                        android:id="@+id/kanbanAssignedValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="@color/kanban_assigned_fg"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="✅ Assigned"
+                        android:textColor="@color/kanban_assigned_fg"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <!-- Historique local : 5 derniers assets créés dans Jira Assets.
+             Alimenté par MainActivity.refreshRecentAssets() depuis RecentAssetsStore.
+             Chaque item ouvre l'objet Jira dans le navigateur. -->
+        <LinearLayout
+            android:id="@+id/recentAssetsHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🕐 Latest created assets"
+                android:textAppearance="@style/TextAppearance.Vista.SectionTitle" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/recentAssetsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="8dp" />
 
         <!-- 5. Derniers Mouvements -->
         <LinearLayout
@@ -405,6 +546,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:id="@+id/dashRecentMovementsEmpty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_glass_card"
+            android:padding="14dp"
+            android:text="No recent movements yet."
+            android:textAppearance="@style/TextAppearance.Vista.Meta"
+            android:visibility="gone" />
 
         </LinearLayout>
     </LinearLayout>

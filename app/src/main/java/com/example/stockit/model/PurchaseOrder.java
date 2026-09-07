@@ -11,7 +11,7 @@ public class PurchaseOrder {
     private int quantity;
     private String supplier;
     private String date;
-    private String status; // "En attente", "Reçu"
+    private String status; // "Pending", "Received"
 
     public PurchaseOrder(String productName, int quantity, String supplier, String date, String status) {
         this.productName = productName;
@@ -21,7 +21,6 @@ public class PurchaseOrder {
         this.status = status;
     }
 
-    // Getters and Setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
     public String getProductName() { return productName; }

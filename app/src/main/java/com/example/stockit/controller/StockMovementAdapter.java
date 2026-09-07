@@ -44,7 +44,8 @@ public class StockMovementAdapter extends RecyclerView.Adapter<StockMovementAdap
         }
         
         holder.typeIcon.setText(icon);
-        holder.productName.setText(movement.getProductName());
+        holder.productName.setText(
+            com.example.stockit.util.LegacyTextNormalizer.toEnglishProductName(movement.getProductName()));
         holder.dateTime.setText(movement.getDate());
         holder.quantity.setText(ctx.getString(R.string.mov_label_qty, movement.getQuantity()));
         holder.userName.setText(ctx.getString(R.string.mov_label_user, movement.getUserName()));

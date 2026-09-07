@@ -7,17 +7,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Classe de Coordination PFE : StockIT (Logistique) <-> Module Support
- * Gère l'attribution automatique du matériel reçu aux tickets prioritaires.
- */
 public class AssetTicketCoordinator {
 
-    // --- MODÈLES DE DONNÉES DE BASE (DEMANDÉS) ---
     
     public static class ITAsset {
         public String id;
-        public String type; // ex: "Ecran", "Laptop"
+        public String type; // e.g. "Screen", "Laptop"
         public String model;
         public String serialNumber;
 
@@ -30,8 +25,8 @@ public class AssetTicketCoordinator {
         public String id;
         public String subject;
         public String neededAssetType;
-        public String priority; // CRITIQUE, HAUTE, BASSE
-        public long slaTimestamp; // Date limite de résolution
+        public String priority; // CRITICAL, HIGH, LOW
+        public long slaTimestamp; // Resolution deadline
         public String status; // OPEN, ASSOCIATED
 
         public Ticket(String id, String subject, String neededAssetType, String priority, long sla) {
@@ -52,45 +47,37 @@ public class AssetTicketCoordinator {
         this.context = context;
     }
 
-    /**
-     * Méthode Principale : Coordonne la réception d'un asset avec les tickets ouverts.
-     */
-    public void coordinateAssetReceipt(ITAsset scannedAsset, List<Ticket> activeTickets, Technician currentTech) {
-        Log.i("AssetCoordinator", "--- Début Coordination pour : " + scannedAsset.type + " ---");
+    public void coordinateAssetReceipt(ITAsset scanneddAsset, List<Ticket> activeTickets, Technician currentTech) {
+        Log.i("AssetCoordinator", "--- Coordination started for: " + scanneddAsset.type + " ---");
 
-        // 1. Filtrage : On ne garde que les tickets qui ont besoin de ce type de matériel
         List<Ticket> matchingTickets = activeTickets.stream()
-                .filter(t -> t.neededAssetType.equalsIgnoreCase(scannedAsset.type))
+                .filter(t -> t.neededAssetType.equalsIgnoreCase(scanneddAsset.type))
                 .filter(t -> t.status.equals("OPEN"))
                 .collect(Collectors.toList());
 
         if (matchingTickets.isEmpty()) {
-            Log.d("AssetCoordinator", "Aucun ticket en attente pour ce type de matériel.");
+            Log.d("AssetCoordinator", "No pending ticket for this asset type.");
             return;
         }
 
-        // 2. Triage intelligent : Priorité d'abord, puis SLA le plus proche (plus ancien timestamp)
         Collections.sort(matchingTickets, new Comparator<Ticket>() {
             @Override
             public int compare(Ticket t1, Ticket t2) {
                 int p1 = getPriorityWeight(t1.priority);
                 int p2 = getPriorityWeight(t2.priority);
-                if (p1 != p2) return Integer.compare(p2, p1); // Plus haut poids d'abord
-                return Long.compare(t1.slaTimestamp, t2.slaTimestamp); // Plus ancien SLA d'abord
+                if (p1 != p2) return Integer.compare(p2, p1); // Higher weight first
+                return Long.compare(t1.slaTimestamp, t2.slaTimestamp); // Older SLA first
             }
         });
 
-        // 3. Association : On prend le ticket le plus urgent
         Ticket topTicket = matchingTickets.get(0);
         topTicket.status = "ASSOCIATED";
         
-        Log.i("AssetCoordinator", "✅ CORRESPONDANCE TROUVÉE ! Ticket: " + topTicket.id + " (" + topTicket.priority + ")");
+        Log.i("AssetCoordinator", "Match found! Ticket: " + topTicket.id + " (" + topTicket.priority + ")");
 
-        // 4. Simulation d'envoi d'e-mail au manager
-        sendConfirmationEmail(topTicket, scannedAsset, currentTech);
+        sendConfirmationEmail(topTicket, scanneddAsset, currentTech);
 
-        // 5. Notification d'action urgente pour le technicien
-        triggerUrgentNotification(topTicket, scannedAsset);
+        triggerUrgentNotification(topTicket, scanneddAsset);
     }
 
     private int getPriorityWeight(String priority) {
@@ -103,38 +90,36 @@ public class AssetTicketCoordinator {
     }
 
     private void sendConfirmationEmail(Ticket ticket, ITAsset asset, Technician tech) {
-        String subject = "[StockIT] Attribution Prioritaire : Ticket #" + ticket.id;
-        String body = "Bonjour Manager,\n\nLe matériel " + asset.type + " (" + asset.model + ") " +
-                "réceptionné par " + tech.name + " a été automatiquement réservé pour le ticket " +
-                "CRITIQUE : '" + ticket.subject + "'.\n\nStatut : Prêt pour déploiement.";
+        String subject = "[StockIT] Priority assignment: Ticket #" + ticket.id;
+        String body = "Hello Manager,\n\nThe asset " + asset.type + " (" + asset.model + ") " +
+            "received by " + tech.name + " was automatically reserved for CRITICAL ticket " +
+            "'" + ticket.subject + "'.\n\nStatus: Ready for deployment.";
 
-        Log.d("AssetCoordinator_Email", ">>> ENVOI EMAIL MANAGER <<<\nObjet: " + subject + "\nCorps: " + body);
+        Log.d("AssetCoordinator_Email", ">>> MANAGER EMAIL SEND <<<\nSubject: " + subject + "\nBody: " + body);
 
-        // Envoi réel via workflow n8n — destinataire dédié "manager support".
         com.example.stockit.util.StockItReporter.sendEvent(context,
-                "Ticket CRITIQUE : matériel réservé (#" + ticket.id + ")",
-                "🎯 Matériel prioritaire attribué automatiquement à un ticket CRITIQUE.\n\n"
-                        + "• Ticket           : #" + ticket.id + "\n"
-                        + "• Sujet du ticket  : " + ticket.subject + "\n"
-                        + "• Équipement       : " + asset.type + " (" + asset.model + ")\n"
-                        + "• Réceptionné par  : " + tech.name + "\n\n"
-                        + "Statut : prêt pour déploiement.",
+                "CRITICAL ticket: asset reserved (#" + ticket.id + ")",
+                "Priority asset automatically assigned to a CRITICAL ticket.\n\n"
+                    + "- Ticket        : #" + ticket.id + "\n"
+                    + "- Subject       : " + ticket.subject + "\n"
+                    + "- Asset         : " + asset.type + " (" + asset.model + ")\n"
+                    + "- Received by   : " + tech.name + "\n\n"
+                    + "Status: Ready for deployment.",
                 "wissem.soussia@vista.com");
     }
 
     private void triggerUrgentNotification(Ticket ticket, ITAsset asset) {
-        String msg = "🚨 URGENT : Le matériel pour le ticket #" + ticket.id + " (" + ticket.priority + ") est arrivé !";
+        String msg = "URGENT: Asset for ticket #" + ticket.id + " (" + ticket.priority + ") has arrived!";
 
-        NotificationHelper.showNotification(context, "Action Requise - Support", msg, (int)System.currentTimeMillis());
-        Log.w("AssetCoordinator_Push", "Notification envoyée au technicien.");
+        NotificationHelper.showNotification(context, "Action Required - Support", msg, (int)System.currentTimeMillis());
+        Log.w("AssetCoordinator_Push", "Notification sent to technician.");
 
-        // Email de synthèse à l'équipe support pour tracer l'événement urgent.
         com.example.stockit.util.StockItReporter.sendEvent(context,
-                "URGENT : action support requise (#" + ticket.id + ")",
-                "🚨 Le matériel demandé pour un ticket urgent est arrivé.\n\n"
-                        + "• Ticket     : #" + ticket.id + " (" + ticket.priority + ")\n"
-                        + "• Équipement : " + asset.type + " (" + asset.model + ")\n\n"
-                        + "👉 Action support requise sans délai.",
+                "URGENT: support action required (#" + ticket.id + ")",
+                "The requested asset for an urgent ticket has arrived.\n\n"
+                    + "- Ticket : #" + ticket.id + " (" + ticket.priority + ")\n"
+                    + "- Asset  : " + asset.type + " (" + asset.model + ")\n\n"
+                    + "Support action required immediately.",
                 "wissem.soussia@vista.com");
     }
 }

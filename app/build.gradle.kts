@@ -3,9 +3,45 @@ plugins {
     // alias(libs.plugins.google.services) // Nécessite google-services.json
 }
 
+val localEnvFiles = listOf(
+    rootProject.file("set_env.ps1"),
+    rootProject.file(".env.sh")
+)
+
+fun parseLocalEnvValue(raw: String): String {
+    val trimmed = raw.trim()
+    val unquoted = if ((trimmed.startsWith('"') && trimmed.endsWith('"'))
+        || (trimmed.startsWith('\'') && trimmed.endsWith('\''))) {
+        trimmed.substring(1, trimmed.length - 1)
+    } else {
+        trimmed
+    }
+    return unquoted
+        .replace("`\"", "\"")
+        .replace("\\\"", "\"")
+}
+
+val localEnv: Map<String, String> by lazy {
+    val shellPattern = Regex("""^\s*export\s+([A-Z0-9_]+)\s*=\s*(.+?)\s*$""")
+    val psPattern = Regex("""^\s*${'$'}env:([A-Z0-9_]+)\s*=\s*(.+?)\s*$""")
+    buildMap {
+        for (file in localEnvFiles) {
+            if (!file.exists()) continue
+            file.forEachLine { line ->
+                val match = shellPattern.matchEntire(line) ?: psPattern.matchEntire(line)
+                if (match != null) {
+                    put(match.groupValues[1], parseLocalEnvValue(match.groupValues[2]))
+                }
+            }
+        }
+    }
+}
+
 // StockIT PFE — Lit une variable d'environnement, sinon retourne fallback.
 fun env(name: String, fallback: String): String =
-    (System.getenv(name)?.takeIf { it.isNotBlank() } ?: fallback).replace("\"", "\\\"")
+    (System.getenv(name)?.takeIf { it.isNotBlank() }
+        ?: localEnv[name]?.takeIf { it.isNotBlank() }
+        ?: fallback).replace("\"", "\\\"")
 
 android {
     namespace = "com.example.stockit"
@@ -27,9 +63,7 @@ android {
         // --- Clés lues UNIQUEMENT depuis l'environnement (.env.sh / set_env.ps1, non commités).
         //     Les fallbacks sont volontairement vides / placeholders : AUCUN vrai secret ici. ---
         buildConfigField("String", "PORTKEY_API_KEY",   "\"${env("PORTKEY_API_KEY",   "")}\"")
-        buildConfigField("String", "GEMINI_API_KEY",    "\"${env("GEMINI_API_KEY",    "")}\"")
         buildConfigField("String", "SLACK_BOT_TOKEN",   "\"${env("SLACK_BOT_TOKEN",   "")}\"")
-        buildConfigField("String", "SENDGRID_API_KEY",  "\"${env("SENDGRID_API_KEY",  "")}\"")
         buildConfigField("String", "JIRA_API_TOKEN",    "\"${env("JIRA_API_TOKEN",    "")}\"")
         buildConfigField("String", "JIRA_USER_EMAIL",   "\"${env("JIRA_USER_EMAIL",   "")}\"")
         buildConfigField("String", "JIRA_BASE_URL",     "\"${env("JIRA_BASE_URL",     "")}\"")
@@ -37,25 +71,39 @@ android {
         buildConfigField("String", "JIRA_ISSUE_TYPE",   "\"${env("JIRA_ISSUE_TYPE",   "")}\"")
         buildConfigField("String", "JIRA_COST_CENTER",  "\"${env("JIRA_COST_CENTER",  "")}\"")
         buildConfigField("String", "JIRA_COMPONENT",    "\"${env("JIRA_COMPONENT",    "")}\"")
-        buildConfigField("String", "HUGGING_FACE_TOKEN","\"${env("HUGGING_FACE_TOKEN","")}\"")
+        // NB : HUGGING_FACE_TOKEN / SENDGRID_API_KEY / GEMINI_API_KEY retirés
+        // (feedback manager 2026-07-23) — tous les appels IA passent désormais
+        // par la Cimpress Gateway (passerelle Vista approuvée).
 
         // --- Passerelle IA principale : Cimpress Gateway (Vistaprint) ---
         buildConfigField("String", "GATEWAY_URL",             "\"${env("GATEWAY_URL",             "")}\"")
         buildConfigField("String", "CIMPRESS_GATEWAY_KEY",    "\"${env("CIMPRESS_GATEWAY_KEY",    "")}\"")
         buildConfigField("String", "CIMPRESS_VISION_MODEL",   "\"${env("CIMPRESS_VISION_MODEL",   "")}\"")
         buildConfigField("String", "SLACK_WEBHOOK_URL",       "\"${env("SLACK_WEBHOOK_URL",       "")}\"")
+        // Canal cible pour SlackNotifier — le bot doit y être invité
+        // (dans Slack : `/invite @alerts2` depuis le canal). Défaut vide →
+        // SlackNotifier retombe sur DEFAULT_CHANNEL "#stockit-etx-tunis".
+        buildConfigField("String", "SLACK_CHANNEL",           "\"${env("SLACK_CHANNEL",           "")}\"")
 
         // --- Webhook interne StockIT (n8n / automation.vista.io) : envoi de
         // rapports, notifications e-mail et alertes vers le workflow central. ---
         buildConfigField("String", "STOCKIT_WEBHOOK_URL",     "\"${env("STOCKIT_WEBHOOK_URL",     "")}\"")
         buildConfigField("String", "STOCKIT_WEBHOOK_SECRET",  "\"${env("STOCKIT_WEBHOOK_SECRET",  "")}\"")
+        // Webhook stock-event (workflow stockit-webhook-v5-clean) : ScanAssetActivity
+        // envoie un événement structuré (product/qty/user_email/timestamp) juste
+        // après chaque enregistrement réussi, ce qui déclenche Cimpress + Slack.
+        buildConfigField("String", "STOCKIT_STOCK_EVENT_URL", "\"${env("STOCKIT_STOCK_EVENT_URL", "")}\"")
+        // Webhook dédié aux batchs analytics (workflow stockit-webhook-v5-clean).
+        // AnalyticsSyncWorker s'en sert au lieu du webhook e-mail pour ne pas
+        // interférer avec la chaîne Gmail existante.
+        buildConfigField("String", "STOCKIT_ANALYTICS_WEBHOOK_URL", "\"${env("STOCKIT_ANALYTICS_WEBHOOK_URL", "")}\"")
 
         // --- Auth0 (Vista SSO) ---
-        // Le SDK Auth0 lit ces placeholders dans le manifeste pour enregistrer
-        // automatiquement sa RedirectActivity (aucune activité à déclarer
-        // manuellement dans AndroidManifest.xml).
-        manifestPlaceholders["auth0Domain"] = "@string/com_auth0_domain"
-        manifestPlaceholders["auth0Scheme"] = "@string/com_auth0_scheme"
+        // IMPORTANT: les placeholders du manifeste doivent être des littéraux,
+        // pas des références @string, sinon l'intent-filter reçoit "@string/..."
+        // et le callback deep-link ne matche jamais.
+        manifestPlaceholders["auth0Domain"] = "cimpress.auth0.com"
+        manifestPlaceholders["auth0Scheme"] = "com.example.stockit"
 
         // Opt-in : exiger biométrie (Face/Empreinte) pour déchiffrer les tokens
         // Auth0 stockés par SecureCredentialsManager. Off par défaut pour ne
@@ -74,6 +122,20 @@ android {
             "String",
             "AUTH0_AUDIENCE",
             "\"${env("AUTH0_AUDIENCE", "")}\""
+        )
+
+        // Connexion Enterprise Auth0 à utiliser pour forcer le passage par Okta.
+        buildConfigField(
+            "String",
+            "AUTH0_CONNECTION_NAME",
+            "\"${env("AUTH0_CONNECTION_NAME", "vista-okta")}\""
+        )
+
+        // Code secret 2e facteur (fallback après SSO).
+        buildConfigField(
+            "String",
+            "SSO_SECRET_CODE",
+            "\"${env("SSO_SECRET_CODE", "")}\""
         )
     }
 
@@ -126,17 +188,18 @@ dependencies {
     implementation(libs.androidx.work.runtime)
     implementation(libs.google.material)
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
-    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+    // Gemini SDK direct retiré (feedback manager 2026-07-23) : le chat IA
+    // passe maintenant par la Cimpress Gateway (voir MainController.askAssistant).
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.cardview)
-    implementation(libs.sendgrid.java)
+    // SendGrid retiré (feedback manager 2026-07-23) : e-mails via n8n → Gmail natif.
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.androidx.room.runtime)
     annotationProcessor(libs.androidx.room.compiler)
     // Auth0 Android SDK — Vista SSO (Universal Login via Chrome Custom Tabs)
-    implementation("com.auth0.android:auth0:3.+")
+    implementation("com.auth0.android:auth0:2.+")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)

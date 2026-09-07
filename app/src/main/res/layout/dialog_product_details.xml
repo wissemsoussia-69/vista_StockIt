@@ -9,7 +9,7 @@
         android:id="@+id/detailName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Nom du Produit"
+        android:text="Product Name"
         android:textSize="22sp"
         android:textStyle="bold"
         android:textColor="#000000" />
@@ -18,7 +18,7 @@
         android:id="@+id/detailStock"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Stock actuel"
+        android:text="Current stock"
         android:textSize="16sp"
         android:layout_marginTop="8dp" />
 
@@ -26,7 +26,7 @@
         android:id="@+id/detailKit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="⚠️ KIT SANS OUBLI"
+        android:text="⚠️ REQUIRED KIT CHECK"
         android:textColor="#D35400"
         android:background="#FEF5E7"
         android:padding="8dp"
@@ -44,20 +44,20 @@
         android:id="@+id/btnDetailChrono"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="FRISE CHRONOLOGIQUE" />
+        android:text="TIMELINE" />
 
     <Button
         android:id="@+id/btnDetailZycus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="COMMANDE ZYCUS" />
+        android:text="CREATE ZYCUS ORDER" />
 
     <Button
         android:id="@+id/btnDetailAlert"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="ALERTE N8N / SLACK" />
+        android:text="SEND N8N / SLACK ALERT" />
 
 </LinearLayout>

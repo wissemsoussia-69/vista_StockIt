@@ -10,7 +10,9 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.GestureDetector;
 import android.view.HapticFeedbackConstants;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -27,25 +29,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.stockit.controller.TicketAdapter;
 import com.example.stockit.model.JiraTicket;
 import com.example.stockit.util.JiraReader;
-import com.example.stockit.util.SessionManager;
 import com.example.stockit.util.VistaSnackbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.ChipGroup;
 
-/**
- * StockIT PFE — Liste des tickets Jira ouverts, style Vista v2.
- *
- * Améliorations UX :
- *  - Chips filtres (Tous / Highest / En retard / Assignés à moi)
- *  - Swipe droit  = "Assigné à moi" (fond mint)
- *  - Swipe gauche = "Reporter"       (fond ambre)
- *  - Skeleton shimmer pendant le chargement
- *  - Empty state illustré si aucun ticket
- *
- * Sortie (setResult) :
- *   EXTRA_TICKET_ID (String) — clé du ticket sélectionné
- *   EXTRA_TICKET_SUMMARY (String) — résumé pour affichage
- */
 public class TicketListActivity extends AppCompatActivity {
 
     public static final String EXTRA_TICKET_ID = "ticket_id";
@@ -82,11 +69,13 @@ public class TicketListActivity extends AppCompatActivity {
             setResult(RESULT_OK, data);
             finish();
         });
-        // Utilisé pour le chip "Assignés à moi" — basé sur la session utilisateur.
-        String currentAssignee = SessionManager.get(this).getUsername();
-        adapter.setCurrentUserAssignee(currentAssignee == null ? "" : currentAssignee.trim());
+        String currentUsername = com.example.stockit.util.SessionManager.get(this).getUsername();
+        if (currentUsername != null && !currentUsername.isEmpty()) {
+            adapter.setCurrentUserAssignee(currentUsername);
+        }
         recycler.setLayoutManager(new LinearLayoutManager(this));
         recycler.setAdapter(adapter);
+        attachTapSelectionFallback();
 
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
@@ -97,7 +86,6 @@ public class TicketListActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        // Chips filtres
         if (chipGroup != null) {
             chipGroup.setOnCheckedStateChangeListener((group, ids) -> {
                 if (ids.isEmpty()) return;
@@ -120,11 +108,6 @@ public class TicketListActivity extends AppCompatActivity {
         loadTickets();
     }
 
-    /**
-     * Swipe droit  = "Assigné à moi" (mint)
-     * Swipe gauche = "Reporter"      (amber)
-     * Fond coloré + icône qui apparaissent progressivement pendant le swipe.
-     */
     private void setupSwipeActions() {
         final int mint  = ContextCompat.getColor(this, R.color.vista_mint);
         final int amber = ContextCompat.getColor(this, R.color.vista_amber);
@@ -147,10 +130,10 @@ public class TicketListActivity extends AppCompatActivity {
                 JiraTicket t = adapter.removeAt(pos);
                 if (t == null) return;
                 if (dir == ItemTouchHelper.RIGHT) {
-                    VistaSnackbar.show(recycler, "Assigné à moi : " + t.key,
+                    VistaSnackbar.show(recycler, "Assigned to me: " + t.key,
                             VistaSnackbar.Level.SUCCESS);
                 } else {
-                    VistaSnackbar.show(recycler, "Reporté : " + t.key,
+                    VistaSnackbar.show(recycler, "Deferred: " + t.key,
                             VistaSnackbar.Level.INFO);
                 }
                 updateEmptyState();
@@ -189,23 +172,52 @@ public class TicketListActivity extends AppCompatActivity {
         new ItemTouchHelper(cb).attachToRecyclerView(recycler);
     }
 
+    private void attachTapSelectionFallback() {
+        final GestureDetector detector = new GestureDetector(this,
+                new GestureDetector.SimpleOnGestureListener() {
+                    @Override
+                    public boolean onSingleTapUp(@NonNull MotionEvent e) {
+                        return true;
+                    }
+                });
+
+        recycler.addOnItemTouchListener(new RecyclerView.SimpleOnItemTouchListener() {
+            @Override
+            public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
+                if (!detector.onTouchEvent(e)) return false;
+                View child = rv.findChildViewUnder(e.getX(), e.getY());
+                if (child == null) return false;
+                int pos = rv.getChildAdapterPosition(child);
+                JiraTicket t = adapter.getVisibleAt(pos);
+                if (t == null) return false;
+
+                Intent data = new Intent();
+                data.putExtra(EXTRA_TICKET_ID, t.key);
+                data.putExtra(EXTRA_TICKET_SUMMARY, t.summary);
+                setResult(RESULT_OK, data);
+                finish();
+                return true;
+            }
+        });
+    }
+
     private void loadTickets() {
         showSkeleton(true);
-        setBusy(true, "⏳ Chargement des tickets Jira…");
+        setBusy(true, "Loading Jira tickets...");
         JiraReader.loadOpenTickets(50, (tickets, error) -> runOnUiThread(() -> {
             setBusy(false, null);
             showSkeleton(false);
             if (error != null) {
-                status.setText("❌ " + error);
-                showEmpty("Impossible de charger", error);
+                status.setText("Error: " + error);
+                showEmpty("Unable to load", error);
                 return;
             }
             if (tickets == null || tickets.isEmpty()) {
-                status.setText("Aucun ticket ouvert.");
-                showEmpty("Aucun ticket ouvert", "Rien à traiter — 🎉 profitez d'une pause.");
+                status.setText(R.string.txt_no_open_ticket);
+                showEmpty("No open tickets", "Nothing to process - enjoy a short break.");
                 return;
             }
-            status.setText(tickets.size() + " ticket(s) ouvert(s)");
+            status.setText(tickets.size() + " open ticket(s) - tap a ticket to assign");
             adapter.setData(tickets);
             updateEmptyState();
         }));
@@ -213,7 +225,7 @@ public class TicketListActivity extends AppCompatActivity {
 
     private void updateEmptyState() {
         if (adapter.visibleCount() == 0 && !isSkeletonVisible()) {
-            showEmpty("Aucun résultat", "Essayez un autre filtre ou une autre recherche.");
+            showEmpty("No results", "Try another filter or another search.");
         } else {
             hideEmpty();
         }
@@ -236,7 +248,6 @@ public class TicketListActivity extends AppCompatActivity {
         return skeletonContainer != null && skeletonContainer.getVisibility() == View.VISIBLE;
     }
 
-    /** Affiche/masque les skeletons + fait pulser leur opacité pour un effet shimmer. */
     private void showSkeleton(boolean show) {
         if (skeletonContainer == null) return;
         if (show) {

@@ -23,9 +23,9 @@ public class AIChatActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_chat); // On réutilise le layout existant
+        setContentView(R.layout.activity_chat); // On reutilise le layout existant
 
-        controller = new MainController(this);
+        controller = MainController.getInstance(this);
         
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.chatToolbar);
         toolbar.setTitle(getString(R.string.ai_chat_title));
@@ -35,13 +35,11 @@ public class AIChatActivity extends AppCompatActivity {
         EditText input = findViewById(R.id.chatInput);
         ImageButton btnSend = findViewById(R.id.btnSendMessage);
         progressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleSmall);
-        // Note: On pourrait ajouter la progressbar dynamiquement ou modifier le XML
 
         adapter = new ChatAdapter(messages);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
-        // Message de bienvenue
         addMessage(getString(R.string.ai_name), getString(R.string.ai_welcome_msg));
 
         btnSend.setOnClickListener(v -> {

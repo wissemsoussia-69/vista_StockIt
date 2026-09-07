@@ -25,7 +25,6 @@ public class Quest {
         this.isCompleted = false;
     }
 
-    // Getters and Setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
     public String getTitle() { return title; }
@@ -41,5 +40,5 @@ public class Quest {
     public String getBadgeReward() { return badgeReward; }
     public void setBadgeReward(String badgeReward) { this.badgeReward = badgeReward; }
     public boolean isCompleted() { return isCompleted; }
-    public void setCompleted(boolean completed) { isCompleted = completed; }
+    public void setCompleted(boolean completeed) { isCompleted = completeed; }
 }

@@ -22,7 +22,7 @@
             android:id="@+id/plStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🏷️ Cadre l'étiquette du carton puis capture."
+            android:text="🏷️ Frame the package label, then capture."
             android:textColor="#FFFFFF"
             android:textSize="15sp"
             android:paddingBottom="8dp" />
@@ -47,7 +47,7 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="4dp"
-                android:text="📷 Capturer étiquette" />
+                android:text="📷 Capture label" />
 
             <Button
                 android:id="@+id/plBtnCancel"
@@ -55,7 +55,7 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
-                android:text="Passer" />
+                android:text="Skip" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

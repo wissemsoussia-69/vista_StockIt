@@ -25,7 +25,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Nom Fournisseur"
+                android:text="Supplier Name"
                 android:textStyle="bold"
                 android:textSize="16sp"
                 android:textColor="#333333" />
@@ -52,7 +52,7 @@
             android:id="@+id/supplierAddress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="123 Rue de la Logistique, Paris"
+            android:text="123 Logistics Street, Paris"
             android:textSize="13sp"
             android:textColor="#666666" />
 
@@ -68,7 +68,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Délai: 5 jours"
+                android:text="Lead time: 5 days"
                 android:textSize="12sp"
                 android:textColor="#888888" />
 

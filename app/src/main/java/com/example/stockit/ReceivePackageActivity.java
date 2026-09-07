@@ -38,23 +38,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
 
-/**
- * StockIT PFE — Réception d'une facture / bon de livraison via capture photo + OCR IA.
- *
- * Dual-mode :
- *  A) MODE_CLASSIC (par défaut) : lancement depuis Dashboard → valide un PO en base (statut Reçu).
- *  B) MODE_SELECT_FOR_EQUIPMENT (Intent extra {@link #EXTRA_EQUIPMENT_NAME} présent) :
- *     lancement depuis ScanAssetActivity — la facture est parsée, la liste des POs est
- *     transmise à {@link POSelectionActivity} pour laisser l'utilisateur choisir.
- *     Renvoie via setResult() le PO choisi (numéro, description, fournisseur).
- */
 public class ReceivePackageActivity extends AppCompatActivity {
 
     private static final String TAG = "ReceivePackage";
     private static final int REQ_CAMERA = 5151;
     private static final int REQ_PO_SELECT = 5152;
 
-    /** Si présent, active le mode "sélection pour équipement" (renvoie via setResult). */
     public static final String EXTRA_EQUIPMENT_NAME = "equipment_name";
 
     private PreviewView preview;
@@ -65,7 +54,6 @@ public class ReceivePackageActivity extends AppCompatActivity {
     private ImageCapture imageCapture;
     private MainController controller;
 
-    /** Nom de l'équipement passé par l'appelant (mode B). null en mode A. */
     private String equipmentName;
 
     @Override
@@ -79,13 +67,13 @@ public class ReceivePackageActivity extends AppCompatActivity {
         btnCapture= findViewById(R.id.rpBtnCapture);
         Button btnCancel = findViewById(R.id.rpBtnCancel);
 
-        controller = new MainController(this);
+        controller = MainController.getInstance(this);
         equipmentName = getIntent().getStringExtra(EXTRA_EQUIPMENT_NAME);
 
         if (equipmentName != null) {
-            status.setText("📄 Facture pour \"" + equipmentName + "\" — cadre puis capture.");
+            status.setText("Invoice for \"" + equipmentName + "\" - frame then capture.");
         } else {
-            status.setText("📄 Cadre le bon de livraison puis capture.");
+            status.setText("Frame the delivery note and capture.");
         }
 
         btnCapture.setOnClickListener(v -> capture());
@@ -107,7 +95,7 @@ public class ReceivePackageActivity extends AppCompatActivity {
         if (code == REQ_CAMERA && r.length > 0 && r[0] == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
-            Toast.makeText(this, "Permission caméra refusée", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.toast_camera_permission_denied, Toast.LENGTH_SHORT).show();
             finish();
         }
     }
@@ -130,32 +118,32 @@ public class ReceivePackageActivity extends AppCompatActivity {
                 provider.unbindAll();
                 provider.bindToLifecycle(this, sel, p, imageCapture);
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Erreur caméra : " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.toast_camera_error_ex, e.getMessage()), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
     private void capture() {
         if (imageCapture == null) return;
-        setBusy(true, "📸 Capture…");
+        setBusy(true, "Capturing...");
         imageCapture.takePicture(ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageCapturedCallback() {
                     @Override public void onCaptureSuccess(@NonNull ImageProxy image) {
                         Bitmap bmp = toBitmap(image);
                         image.close();
                         if (bmp == null) {
-                            setBusy(false, "❌ Décodage image échoué"); return;
+                            setBusy(false, "Image decode failed"); return;
                         }
                         parse(bmp);
                     }
                     @Override public void onError(@NonNull ImageCaptureException e) {
-                        setBusy(false, "❌ Capture : " + e.getMessage());
+                        setBusy(false, "Capture: " + e.getMessage());
                     }
                 });
     }
 
     private void parse(Bitmap bmp) {
-        setBusy(true, "🧠 [1/3] OCR MLKit local en cours…");
+        setBusy(true, "[1/3] Local MLKit OCR in progress...");
         try {
             DeliveryNoteParser.parse(bmp,
                     note -> runOnUiThread(() -> {
@@ -164,12 +152,12 @@ public class ReceivePackageActivity extends AppCompatActivity {
                             if (note == null) { showError("Callback null (parser silencieux)"); return; }
                             if (note.error != null) {
                                 String extra = note.rawOcr != null && !note.rawOcr.isEmpty()
-                                        ? "\n\n— Texte OCR extrait —\n" + trim(note.rawOcr, 600)
+                                        ? "\n\n- Extracted OCR text -\n" + trim(note.rawOcr, 600)
                                         : "";
-                                showError("Extraction IA impossible.\nErreur : " + note.error + extra);
+                                    showError("AI extraction failed.\nError: " + note.error + extra);
                                 return;
                             }
-                            Log.i(TAG, "Extraction OK — supplier=" + note.supplier
+                            Log.i(TAG, "Extraction OK - supplier=" + note.supplier
                                     + " purchaseOrders=" + note.purchaseOrders.size());
                             if (equipmentName != null) {
                                 launchPOSelection(note);
@@ -178,19 +166,18 @@ public class ReceivePackageActivity extends AppCompatActivity {
                             }
                         } catch (Throwable t) {
                             Log.e(TAG, "Post-parse crash", t);
-                            showError("Crash post-parse : " + t.getClass().getSimpleName() + " — " + t.getMessage());
+                            showError("Post-parse crash: " + t.getClass().getSimpleName() + " - " + t.getMessage());
                         }
                     }),
-                    step -> runOnUiThread(() -> setBusy(true, "⏳ " + step))
+                    step -> runOnUiThread(() -> setBusy(true, "... " + step))
             );
         } catch (Throwable t) {
             Log.e(TAG, "parse() crash", t);
             setBusy(false, null);
-            showError("Crash parse() : " + t.getClass().getSimpleName() + " — " + t.getMessage());
+            showError("parse() crash: " + t.getClass().getSimpleName() + " - " + t.getMessage());
         }
     }
 
-    // ---------- MODE B : sélection pour équipement ----------
     private void launchPOSelection(DeliveryNoteParser.ParsedNote note) {
         Intent i = new Intent(this, POSelectionActivity.class);
         i.putExtra(POSelectionActivity.EXTRA_EQUIPMENT_NAME, equipmentName);
@@ -202,43 +189,40 @@ public class ReceivePackageActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != REQ_PO_SELECT) return;
-        // On propage le résultat au parent (ScanAssetActivity)
         setResult(resultCode, data);
         finish();
     }
 
-    // ---------- MODE A : validation d'un PO en base ----------
     private void showClassicResult(final DeliveryNoteParser.ParsedNote note) {
         if (note.purchaseOrders.isEmpty()) {
             new AlertDialog.Builder(this)
-                    .setTitle("❌ Aucun PO détecté")
-                    .setMessage("La facture ne contient pas de numéro de PO exploitable.\n\n"
-                            + "— OCR —\n" + trim(note.rawOcr, 500))
-                    .setPositiveButton("OK", null)
+                    .setTitle(R.string.dlg_title_no_po)
+                    .setMessage(getString(R.string.dlg_msg_invoice_no_po)
+                            + "\n\n- OCR -\n" + trim(note.rawOcr, 500))
+                    .setPositiveButton(R.string.action_ok, null)
                     .show();
             return;
         }
-        // On matche chaque PO extrait contre la base et affiche un résumé
         controller.getPurchaseOrders(orders -> {
             StringBuilder msg = new StringBuilder();
-            msg.append("Fournisseur : ").append(note.supplier == null ? "?" : note.supplier).append("\n\n");
-            msg.append(note.purchaseOrders.size()).append(" PO détectés :\n\n");
+            msg.append("Supplier: ").append(note.supplier == null ? "?" : note.supplier).append("\n\n");
+            msg.append(note.purchaseOrders.size()).append(" PO detected:\n\n");
             PurchaseOrder firstMatch = null;
             for (DeliveryNoteParser.POBlock po : note.purchaseOrders) {
                 PurchaseOrder matched = matchDb(orders, po);
-                msg.append("• ").append(po.number)
-                   .append(matched != null ? " ✅ en base" : " ❓ inconnu")
-                   .append("\n    ").append(po.description == null ? "(pas de desc)" : po.description).append("\n");
+                     msg.append("- ").append(po.number)
+                         .append(matched != null ? " [OK] found in database" : " [?] unknown")
+                   .append("\n    ").append(po.description == null ? "(no description)" : po.description).append("\n");
                 if (firstMatch == null) firstMatch = matched;
             }
             final PurchaseOrder toValidate = firstMatch;
             AlertDialog.Builder b = new AlertDialog.Builder(this)
-                    .setTitle("📄 Résultat facture")
+                    .setTitle(R.string.dlg_title_invoice_result)
                     .setMessage(msg.toString());
-            if (toValidate != null && !"Reçu".equalsIgnoreCase(toValidate.getStatus())) {
-                b.setPositiveButton("✅ Valider PO#" + toValidate.getId(), (d, w) -> validate(toValidate, note));
+            if (toValidate != null && !"Received".equalsIgnoreCase(toValidate.getStatus())) {
+                b.setPositiveButton("Validate PO#" + toValidate.getId(), (d, w) -> validate(toValidate, note));
             }
-            b.setNegativeButton("Fermer", null);
+            b.setNegativeButton(R.string.action_close, null);
             b.show();
         });
     }
@@ -253,44 +237,44 @@ public class ReceivePackageActivity extends AppCompatActivity {
     }
 
     private void validate(final PurchaseOrder po, final DeliveryNoteParser.ParsedNote note) {
-        po.setStatus("Reçu");
+        po.setStatus("Received");
         controller.updatePurchaseOrder(po, () -> runOnUiThread(() -> {
-            String label = "PO#" + po.getId() + " — " + po.getProductName() + " x" + po.getQuantity();
-            SlackNotifier.send(":white_check_mark: [StockIT] Reception validee par OCR : " + label
-                    + " (fournisseur " + po.getSupplier() + ")");
-            NotificationHelper.showNotification(this, "StockIT — Reception validee",
+            String label = "PO#" + po.getId() + " - " + po.getProductName() + " x" + po.getQuantity();
+                SlackNotifier.send(":white_check_mark: [StockIT] Receipt validated via OCR: " + label
+                    + " (supplier " + po.getSupplier() + ")");
+                NotificationHelper.showNotification(this, "StockIT - Receipt validated",
                     label, (int) System.currentTimeMillis());
             com.example.stockit.util.StockItReporter.sendEvent(this,
-                    "Réception PO#" + po.getId() + " validée",
-                    "📦 Un bon de commande vient d'être réceptionné et validé par OCR mobile.\n\n"
-                            + "• PO          : #" + po.getId() + "\n"
-                            + "• Produit     : " + po.getProductName() + "\n"
-                            + "• Quantité    : " + po.getQuantity() + "\n"
-                            + "• Fournisseur : " + po.getSupplier() + "\n\n"
-                            + "Statut du PO passé à \"Reçu\".",
+                    "PO#" + po.getId() + " receipt validated",
+                    "A purchase order was received and validated via mobile OCR.\n\n"
+                            + "- PO          : #" + po.getId() + "\n"
+                        + "- Product     : " + po.getProductName() + "\n"
+                        + "- Quantity    : " + po.getQuantity() + "\n"
+                        + "- Supplier    : " + po.getSupplier() + "\n\n"
+                        + "PO status set to \"Received\".",
                     "wissem.soussia@vista.com");
             JiraClient.createTask(
                     com.example.stockit.BuildConfig.JIRA_PROJECT_KEY,
-                    "[StockIT] Reception PO#" + po.getId() + " - " + po.getProductName(),
-                    "Colis recu et valide via OCR mobile.\nFournisseur DB: " + po.getSupplier()
-                            + ", quantite: " + po.getQuantity()
-                            + ".\nSupplier facture: " + note.supplier
-                            + ".\n" + note.purchaseOrders.size() + " PO detecte(s) au total.",
+                    "[StockIT] Receipt PO#" + po.getId() + " - " + po.getProductName(),
+                    "Package received and validated via mobile OCR.\nDB supplier: " + po.getSupplier()
+                        + ", quantity: " + po.getQuantity()
+                        + ".\nInvoice supplier: " + note.supplier
+                        + ".\n" + note.purchaseOrders.size() + " PO(s) detected in total.",
                     (ok, res) -> Log.i(TAG, "Jira log ticket -> ok=" + ok + " res=" + res));
 
             new AlertDialog.Builder(this)
-                    .setTitle("🟢 Réception enregistrée")
-                    .setMessage(label + "\n\nStatut passé à \"Reçu\".")
-                    .setPositiveButton("OK", (d, w) -> { d.dismiss(); finish(); })
+                    .setTitle(R.string.dlg_title_receive_ok)
+                    .setMessage(label + "\n\nStatus updated to \"Received\".")
+                    .setPositiveButton(R.string.action_ok, (d, w) -> { d.dismiss(); finish(); })
                     .show();
         }));
     }
 
     private void showError(String msg) {
         new AlertDialog.Builder(this)
-                .setTitle("❌ Réception colis")
+                .setTitle(R.string.dlg_title_receive_error)
                 .setMessage(msg)
-                .setPositiveButton("OK", null)
+                .setPositiveButton(R.string.action_ok, null)
                 .show();
     }
 
@@ -302,7 +286,7 @@ public class ReceivePackageActivity extends AppCompatActivity {
 
     private static String trim(String s, int max) {
         if (s == null) return "";
-        return s.length() > max ? s.substring(0, max) + "…" : s;
+        return s.length() > max ? s.substring(0, max) + "..." : s;
     }
 
     private static Bitmap toBitmap(ImageProxy image) {

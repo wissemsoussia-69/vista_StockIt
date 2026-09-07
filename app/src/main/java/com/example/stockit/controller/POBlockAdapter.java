@@ -16,18 +16,12 @@ import com.example.stockit.util.DeliveryNoteParser.POBlock;
 import java.util.List;
 import java.util.Set;
 
-/**
- * StockIT PFE — Liste des Purchase Orders extraits d'une facture.
- * Sélection unique via RadioButton.
- */
 public class POBlockAdapter extends RecyclerView.Adapter<POBlockAdapter.VH> {
 
     public interface OnSelected { void onSelected(POBlock po, int position); }
 
     private final List<POBlock> items;
-    /** PO trouvés en base (par leur id numérique extrait) — pour badge "✅ en DB". */
     private final Set<Integer> knownIds;
-    /** Description de l'équipement scanné (pour highlight visuel des matchs sémantiques). */
     private final String equipmentHint;
     private final OnSelected callback;
     private int selectedIndex = -1;
@@ -56,20 +50,18 @@ public class POBlockAdapter extends RecyclerView.Adapter<POBlockAdapter.VH> {
         POBlock po = items.get(position);
         h.number.setText(po.number);
         h.desc.setText(po.description == null || po.description.isEmpty()
-                ? "(pas de description)" : po.description);
+            ? "(no description)" : po.description);
         h.radio.setChecked(position == selectedIndex);
 
-        // Badge : trouvé en DB ?
         Integer id = com.example.stockit.util.DeliveryNoteParser.extractIntFromPoNumber(po.number);
         boolean inDb = id != null && knownIds != null && knownIds.contains(id);
 
-        // Match sémantique équipement ↔ description ?
         boolean semanticMatch = !equipmentHint.isEmpty() && po.description != null
                 && po.description.toLowerCase().contains(equipmentHint);
 
         StringBuilder badge = new StringBuilder();
-        if (inDb)           badge.append("✅ En base");
-        if (semanticMatch)  badge.append(inDb ? "  •  " : "").append("🎯 Correspond au scan");
+        if (inDb)           badge.append("In database");
+        if (semanticMatch)  badge.append(inDb ? "  |  " : "").append("Matches scan");
         h.badge.setText(badge.toString());
         h.badge.setTextColor(semanticMatch ? Color.parseColor("#2E7D32")
                 : inDb ? Color.parseColor("#1565C0")

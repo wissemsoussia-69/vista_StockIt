@@ -9,8 +9,8 @@ import com.example.stockit.R;
 
 public class NotificationHelper {
     private static final String CHANNEL_ID = "stock_alerts";
-    private static final String CHANNEL_NAME = "Alertes de Stock";
-    private static final String CHANNEL_DESC = "Notifications pour les seuils bas et ruptures de stock";
+    private static final String CHANNEL_NAME = "Stock Alerts";
+    private static final String CHANNEL_DESC = "Notifications for low stock and out-of-stock thresholds";
 
     public static void showNotification(Context context, String title, String message, int notificationId) {
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);

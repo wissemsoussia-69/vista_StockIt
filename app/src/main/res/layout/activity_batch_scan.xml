@@ -25,7 +25,7 @@
             android:id="@+id/txtCount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Codes détectés : 0"
+            android:text="Codes detected: 0"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -35,7 +35,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="VALIDER LE SCAN EN RAFALE" />
+            android:text="CONFIRM BATCH SCAN" />
     </LinearLayout>
 
 </FrameLayout>

@@ -2,6 +2,7 @@ package com.example.stockit;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -10,6 +11,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
@@ -17,20 +19,15 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.stockit.controller.MainController;
+import com.example.stockit.controller.NotificationHelper;
 import com.example.stockit.controller.ProfileAdapter;
 import com.example.stockit.model.User;
 import com.example.stockit.util.Auth0Manager;
 import com.example.stockit.util.SessionManager;
 import com.google.android.material.button.MaterialButton;
+import java.util.Locale;
 import java.util.concurrent.Executor;
 
-/**
- * StockIT — Écran de connexion.
- *
- * Le parcours nominal passe par le SSO Okta (bouton principal en tête d'écran).
- * Le formulaire classique + biométrique est conservé UNIQUEMENT comme repli
- * de démonstration lorsque Okta n'est pas configuré ou en environnement hors ligne.
- */
 public class LoginActivity extends AppCompatActivity {
 
     private MainController controller;
@@ -43,15 +40,15 @@ public class LoginActivity extends AppCompatActivity {
     private MaterialButton oktaSignInButton;
     private TextView oktaStatusText;
     private RecyclerView profileRecyclerView;
+    private final java.util.Random random = new java.util.Random();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Bascule du Splash Vista vers le thème normal juste avant l'inflation.
         setTheme(R.style.Theme_StockIT);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        controller = new MainController(this);
+        controller = MainController.getInstance(this);
         oktaAuth = Auth0Manager.get(getApplicationContext());
 
         usernameEditText     = findViewById(R.id.usernameEditText);
@@ -65,9 +62,6 @@ public class LoginActivity extends AppCompatActivity {
 
         setupOktaSso();
 
-        // Le fallback local (profil picker + user/password + biométrie liée à un
-        // profil Room) contourne Auth0 : on ne l'expose qu'en build debug pour
-        // faciliter les démos hors ligne. En release, seul le SSO est disponible.
         if (BuildConfig.DEBUG) {
             enableLocalFallbackUi();
         } else {
@@ -85,7 +79,6 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         biometricButton.setOnClickListener(v -> {
-            // Démo biométrique : profil admin local (fallback hors ligne).
             User admin = new User("admin", "admin123", "ADMIN");
             showBiometricPromptForUser(admin);
         });
@@ -105,9 +98,6 @@ public class LoginActivity extends AppCompatActivity {
         if (biometricButton != null)    biometricButton.setVisibility(View.GONE);
     }
 
-    // -----------------------------------------------------------------
-    // Auth0 SSO (Vista)
-    // -----------------------------------------------------------------
 
     private void setupOktaSso() {
         if (!oktaAuth.isConfigured()) {
@@ -123,19 +113,16 @@ public class LoginActivity extends AppCompatActivity {
         setLoading(true);
         oktaStatusText.setVisibility(View.GONE);
 
+        runOktaSignIn();
+    }
+
+    private void runOktaSignIn() {
+        setLoading(true);
         oktaAuth.signIn(this, new Auth0Manager.SignInCallback() {
             @Override
             public void onSuccess(String username, @Nullable String email, String role) {
                 setLoading(false);
-                // Persiste l'utilisateur SSO dans Room afin que MainController.currentUser
-                // soit rempli et que les vérifications role-based (isAdmin, canEditStock)
-                // fonctionnent normalement pendant toute la session.
-                controller.loginSso(username, role, (success, dbUser) -> {
-                    Intent i = new Intent(LoginActivity.this, MainActivity.class);
-                    i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    startActivity(i);
-                    finish();
-                });
+                completeeSsoLogin(username, role);
             }
 
             @Override
@@ -147,16 +134,117 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    // -----------------------------------------------------------------
-    // Fallback local (démo hors ligne)
-    // -----------------------------------------------------------------
+    private void startPostSsoVerification(String username, @Nullable String email, String role) {
+        final int otp = 100000 + random.nextInt(900000);
+        showPostSsoMethodDialog(username, email, role, otp);
+    }
+
+    private void showPostSsoMethodDialog(String username, @Nullable String email, String role, int otp) {
+        String[] methods = {
+                getString(R.string.sso_verify_method_notification),
+                getString(R.string.sso_verify_method_secret)
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.sso_verify_title)
+                .setMessage(R.string.sso_verify_subtitle)
+                .setCancelable(false)
+                .setItems(methods, (d, which) -> {
+                    if (which == 0) {
+                        launchNotificationOtpVerification(username, email, role, otp);
+                    } else {
+                        launchSecretCodeVerification(username, email, role);
+                    }
+                })
+                .setNegativeButton(R.string.action_cancel, (d, w) -> {
+                    oktaStatusText.setVisibility(View.VISIBLE);
+                    oktaStatusText.setText(R.string.sso_verify_cancelled);
+                })
+                .show();
+    }
+
+    private void launchNotificationOtpVerification(String username, @Nullable String email, String role, int otp) {
+        String msg = getString(R.string.sso_verify_notification_message, otp);
+        NotificationHelper.showNotification(this,
+                getString(R.string.sso_verify_notification_title),
+                msg,
+                (int) (System.currentTimeMillis() % Integer.MAX_VALUE));
+        showCodePrompt(
+                getString(R.string.sso_verify_otp_prompt_title),
+                getString(R.string.sso_verify_otp_prompt_hint),
+                input -> {
+                    String expected = String.format(Locale.US, "%06d", otp);
+                    return expected.equals(input.trim());
+                },
+                () -> completeeSsoLogin(username, role));
+    }
+
+    private void launchSecretCodeVerification(String username, @Nullable String email, String role) {
+        final String expected = BuildConfig.SSO_SECRET_CODE == null ? "" : BuildConfig.SSO_SECRET_CODE.trim();
+        if (expected.isEmpty()) {
+            oktaStatusText.setVisibility(View.VISIBLE);
+            oktaStatusText.setText(R.string.sso_verify_secret_not_configured);
+            return;
+        }
+        showCodePrompt(
+                getString(R.string.sso_verify_secret_prompt_title),
+                getString(R.string.sso_verify_secret_prompt_hint),
+                input -> expected.equals(input.trim()),
+                () -> completeeSsoLogin(username, role));
+    }
+
+    private interface InputValidator {
+        boolean isValid(String input);
+    }
+
+    private void showCodePrompt(String title,
+                                String hint,
+                                InputValidator validator,
+                                Runnable onVerified) {
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setHint(hint);
+
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(input)
+                .setCancelable(false)
+                .setPositiveButton(R.string.action_verify, (d, w) -> {
+                    String val = input.getText() == null ? "" : input.getText().toString();
+                    if (!validator.isValid(val)) {
+                        oktaStatusText.setVisibility(View.VISIBLE);
+                        oktaStatusText.setText(R.string.sso_verify_invalid_code);
+                        Toast.makeText(this, R.string.sso_verify_invalid_code, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    oktaStatusText.setVisibility(View.GONE);
+                    onVerified.run();
+                })
+                .setNegativeButton(R.string.action_cancel, (d, w) -> {
+                    oktaStatusText.setVisibility(View.VISIBLE);
+                    oktaStatusText.setText(R.string.sso_verify_cancelled);
+                })
+                .show();
+    }
+
+    private void completeeSsoLogin(String username, String role) {
+        com.example.stockit.util.AnalyticsHelper.logLogin(
+                LoginActivity.this, "sso", role);
+        controller.loginSso(username, role, (success, dbUser) -> {
+            Intent i = new Intent(LoginActivity.this, MainActivity.class);
+            i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(i);
+            finish();
+        });
+    }
+
 
     private void loadProfiles() {
         controller.getUsers(users -> {
-            if (users.size() < 5) { // Si l'équipe n'est pas là au complet
-                android.util.Log.d("LoginActivity", "Team incomplete, triggering seed...");
+            if (users.size() < 5) { // If the team seed is incompletee
+                android.util.Log.d("LoginActivity", "Team incompletee, triggering seed...");
                 controller.login("admin", "admin123", (success, user) -> {
-                    loadProfiles(); // On recharge pour voir tout le monde
+                    loadProfiles(); // Reload to display the completee team
                 });
                 return;
             }
@@ -175,19 +263,22 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                 super.onAuthenticationSucceeded(result);
+                com.example.stockit.util.AnalyticsHelper.logLogin(
+                        LoginActivity.this, "biometric",
+                        user != null ? user.getRole() : null);
                 performLocalLogin(user.getUsername(), user.getPassword());
             }
 
             @Override
             public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
                 super.onAuthenticationError(errorCode, errString);
-                Toast.makeText(LoginActivity.this, "Erreur empreinte : " + errString, Toast.LENGTH_SHORT).show();
+                Toast.makeText(LoginActivity.this, getString(R.string.toast_biometric_error, errString), Toast.LENGTH_SHORT).show();
             }
         });
 
         BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Connexion pour " + user.getUsername())
-                .setSubtitle("Posez votre doigt pour valider votre identité")
+                .setTitle(getString(R.string.dlg_title_login_for, user.getUsername()))
+            .setSubtitle("Place your finger to verify your identity")
                 .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL)
                 .build();
 
@@ -205,7 +296,7 @@ public class LoginActivity extends AppCompatActivity {
                 startActivity(new Intent(this, MainActivity.class));
                 finish();
             } else {
-                Toast.makeText(this, "Identifiants incorrects", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.toast_wrong_credentials, Toast.LENGTH_SHORT).show();
             }
         });
     }

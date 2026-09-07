@@ -8,8 +8,8 @@ public class Category {
     @PrimaryKey(autoGenerate = true)
     private int id;
     private String name;
-    private Integer parentId; // Pour les sous-catégories imbriquées
-    private String labelColor; // Étiquettes personnalisables (Ex: #00AEEF)
+    private Integer parentId; // For nested subcategories
+    private String labelColor; // Customizable labels (e.g. #00AEEF)
 
     public Category(String name, Integer parentId, String labelColor) {
         this.name = name;
@@ -28,6 +28,6 @@ public class Category {
 
     @Override
     public String toString() {
-        return name; // Utilisé par les Adapters de Spinner
+        return name; // Used by spinner adapters
     }
 }

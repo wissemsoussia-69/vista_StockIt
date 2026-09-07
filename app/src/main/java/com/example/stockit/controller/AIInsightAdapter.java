@@ -50,7 +50,6 @@ public class AIInsightAdapter extends RecyclerView.Adapter<AIInsightAdapter.View
         }
         holder.type.setText(localizedType);
 
-        // Color based on priority
         String priorityStr = insight.getPriority();
         String localizedPriority = priorityStr;
         if ("HIGH".equals(priorityStr)) {

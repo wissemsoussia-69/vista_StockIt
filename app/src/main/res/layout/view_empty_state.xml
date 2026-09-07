@@ -17,7 +17,7 @@
         android:id="@+id/emptyIcon"
         android:layout_width="140dp"
         android:layout_height="140dp"
-        android:contentDescription="État vide"
+        android:contentDescription="Empty state"
         android:src="@drawable/ic_empty_tickets" />
 
     <TextView
@@ -25,7 +25,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        android:text="Rien à afficher"
+        android:text="Nothing to display"
         android:textAppearance="@style/TextAppearance.Vista.SectionTitle" />
 
     <TextView
@@ -34,6 +34,6 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:gravity="center"
-        android:text="Aucun élément trouvé pour le moment."
+        android:text="No items found at the moment."
         android:textAppearance="@style/TextAppearance.Vista.Meta" />
 </LinearLayout>

@@ -22,7 +22,7 @@
             android:id="@+id/soStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="📤 Cadre l'équipement à sortir puis capture."
+            android:text="📤 Frame the equipment to release, then capture."
             android:textColor="#FFFFFF"
             android:textSize="15sp"
             android:paddingBottom="8dp" />
@@ -47,7 +47,7 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="4dp"
-                android:text="📷 Capturer" />
+                android:text="📷 Capture" />
 
             <Button
                 android:id="@+id/soBtnCancel"
@@ -55,7 +55,7 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
-                android:text="Annuler" />
+                android:text="Cancel" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

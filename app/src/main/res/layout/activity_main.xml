@@ -203,7 +203,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Gestion des Catégories"
+                    android:text="Category Management"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -224,13 +224,13 @@
                             android:id="@+id/inputCatName"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:hint="Nom de la catégorie" />
+                            android:hint="Category name" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="Catégorie parente (Optionnel)"
+                            android:text="Parent category (optional)"
                             android:textSize="12sp" />
 
                         <Spinner
@@ -242,7 +242,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="Couleur de l'étiquette (Hex: #RRGGBB)"
+                            android:text="Label color (Hex: #RRGGBB)"
                             android:textSize="12sp" />
 
                         <EditText
@@ -258,7 +258,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
                             android:backgroundTint="#00AEEF"
-                            android:text="Créer Catégorie" />
+                            android:text="Create Category" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -283,7 +283,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Historique d'Audit"
+                    android:text="Audit History"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -385,7 +385,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Gestion des Fournisseurs"
+                    android:text="Supplier Management"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -420,7 +420,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Expéditions / Sorties"
+                    android:text="Shipments / Outbound"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -455,7 +455,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="8dp"
-                    android:text="Intelligence Artificielle"
+                    android:text="Artificial Intelligence"
                     android:textColor="#FFFFFF"
                     android:textSize="22sp"
                     android:textStyle="bold" />
@@ -464,7 +464,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Optimisation prédictive du stock"
+                    android:text="Predictive inventory optimization"
                     android:textColor="#94A3B8"
                     android:textSize="12sp" />
 
@@ -488,7 +488,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Classement des Techniciens"
+                    android:text="Technician Leaderboard"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -539,7 +539,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:contentDescription="Scanner un asset"
+            android:contentDescription="Scan an asset"
             app:srcCompat="@drawable/ic_fab_scan_asset" />
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -548,7 +548,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:contentDescription="Réception colis"
+            android:contentDescription="Receive package"
             app:srcCompat="@drawable/ic_fab_receive" />
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -556,7 +556,7 @@
             style="@style/Widget.StockIT.Fab.Vista.Mini"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:contentDescription="Sortie équipement"
+            android:contentDescription="Equipment outbound"
             app:srcCompat="@drawable/ic_fab_ship_out" />
     </LinearLayout>
 
@@ -567,7 +567,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="96dp"
-        android:contentDescription="Actions rapides"
+        android:contentDescription="Quick actions"
         app:srcCompat="@drawable/ic_fab_scan" />
 
     </FrameLayout>

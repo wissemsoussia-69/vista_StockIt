@@ -13,7 +13,6 @@ public class ZycusPR {
         this.requester = requester;
     }
 
-    // Réponse de Zycus
     public static class Response {
         private String prNumber; // ex: "PR-2024-9874"
         private String status;   // ex: "PENDING_APPROVAL"

@@ -29,10 +29,10 @@ public class ChatActivity extends AppCompatActivity {
         claimId = getIntent().getIntExtra("CLAIM_ID", -1);
         String subject = getIntent().getStringExtra("CLAIM_SUBJECT");
 
-        controller = new MainController(this);
+        controller = MainController.getInstance(this);
 
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.chatToolbar);
-        if (subject != null) toolbar.setTitle("Détails: " + subject);
+        if (subject != null) toolbar.setTitle("Details: " + subject);
 
         RecyclerView recyclerView = findViewById(R.id.chatRecyclerView);
         EditText input = findViewById(R.id.chatInput);

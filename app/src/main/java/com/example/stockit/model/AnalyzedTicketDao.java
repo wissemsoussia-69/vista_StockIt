@@ -23,10 +23,6 @@ public interface AnalyzedTicketDao {
     @Query("SELECT * FROM analyzed_tickets WHERE ticketId = :ticketId")
     List<AnalyzedTicket> getByTicket(String ticketId);
 
-    /**
-     * Tickets entièrement livrés : au moins une ligne fulfilled=1
-     * et aucune ligne non-fulfilled pour ce ticketId.
-     */
     @Query("SELECT DISTINCT ticketId FROM analyzed_tickets " +
            "WHERE fulfilled = 1 " +
            "AND ticketId NOT IN (SELECT ticketId FROM analyzed_tickets WHERE fulfilled = 0)")
