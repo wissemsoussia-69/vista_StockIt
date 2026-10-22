@@ -3,9 +3,27 @@ plugins {
     // alias(libs.plugins.google.services) // Nécessite google-services.json
 }
 
-// StockIT PFE — Lit une variable d'environnement, sinon retourne fallback.
+// StockIT PFE — Lit une variable d'environnement, sinon `.env.sh` à la racine (comme le module
+// shared / iOS), sinon retourne fallback. Évite un APK sans clés (SSO « non configuré ») quand
+// le build est lancé depuis Android Studio ou un terminal où `.env.sh` n'a pas été sourcé.
+val envFileValues: Map<String, String> = run {
+    val f = rootProject.file(".env.sh")
+    if (!f.exists()) return@run emptyMap()
+    val rx = Regex("""^\s*(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.*)\s*$""")
+    f.readLines().mapNotNull { line ->
+        if (line.trimStart().startsWith("#")) return@mapNotNull null
+        val m = rx.find(line) ?: return@mapNotNull null
+        var v = m.groupValues[2].trim()
+        val quoted = Regex("""^(["'])(.*?)\1""").find(v)
+        v = if (quoted != null) quoted.groupValues[2] else v.substringBefore(" #").trim()
+        m.groupValues[1] to v
+    }.toMap()
+}
+
 fun env(name: String, fallback: String): String =
-    (System.getenv(name)?.takeIf { it.isNotBlank() } ?: fallback).replace("\"", "\\\"")
+    (System.getenv(name)?.takeIf { it.isNotBlank() }
+        ?: envFileValues[name]?.takeIf { it.isNotBlank() }
+        ?: fallback).replace("\"", "\\\"")
 
 android {
     namespace = "com.example.stockit"

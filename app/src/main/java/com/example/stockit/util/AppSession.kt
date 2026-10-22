@@ -46,7 +46,14 @@ object AppSession : Application.ActivityLifecycleCallbacks {
     @JvmStatic
     fun allowExternal() { externalAllowed = true }
 
-    private fun isPublicScreen(a: Activity) = a is SplashActivity || a is LoginActivity
+    /**
+     * Écrans hors session : démarrage, connexion et écrans du SDK Auth0 (page Okta en cours).
+     * Les écrans Auth0 ne doivent jamais être fermés ni réinitialiser l'autorisation « app externe » :
+     * sinon l'ouverture de la page Okta (Chrome) est prise pour une sortie de l'app et la connexion échoue.
+     */
+    private fun isPublicScreen(a: Activity) = a is SplashActivity || a is LoginActivity || isAuth0Screen(a)
+
+    private fun isAuth0Screen(a: Activity) = a.javaClass.name.startsWith("com.auth0.")
 
     override fun onActivityStarted(activity: Activity) {
         started++
@@ -73,6 +80,8 @@ object AppSession : Application.ActivityLifecycleCallbacks {
         started = maxOf(0, started - 1)
         if (started != 0 || activity.isChangingConfigurations) return
         if (externalAllowed) return
+        // Pas de session ouverte (écran de connexion, page Okta en cours) : rien à verrouiller.
+        if (isPublicScreen(activity)) return
         // Passage en arrière-plan : la session est fermée immédiatement (iOS lockOnBackground).
         if (MainController.getCurrentUser() == null) return
         Auth0Manager.get(activity.applicationContext).clearLocalCredentials()
@@ -82,9 +91,9 @@ object AppSession : Application.ActivityLifecycleCallbacks {
     }
 
     override fun onActivityResumed(activity: Activity) {
-        // Retour dans l'app (ou partage / galerie annulé sans quitter l'app) : autorisation consommée.
-        externalAllowed = false
         if (isPublicScreen(activity)) return
+        // Retour dans un écran de l'app (partage / galerie annulé sans quitter l'app) : autorisation consommée.
+        externalAllowed = false
         updateTestBanner(activity)
     }
 

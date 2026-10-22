@@ -258,7 +258,14 @@ public final class Auth0Manager {
                     public void onFailure(@NonNull AuthenticationException error) {
                         String msg = error.getMessage();
                         if (TextUtils.isEmpty(msg)) msg = error.getDescription();
-                        Log.e(TAG, "Login Auth0 échoué : " + msg, error);
+                        // Code + description Auth0 (ex. access_denied, unauthorized_client) : cause exacte.
+                        String code = error.getCode();
+                        String desc = error.getDescription();
+                        Log.e(TAG, "Login Auth0 échoué : code=" + code + " description=" + desc
+                                + " status=" + error.getStatusCode() + " msg=" + msg, error);
+                        if (!TextUtils.isEmpty(code) && !"a0.sdk.internal_error.unknown".equals(code)) {
+                            msg = (TextUtils.isEmpty(desc) ? msg : desc) + " (" + code + ")";
+                        }
                         callback.onError(msg != null ? msg : AppLanguage.L("Erreur Auth0 inconnue."));
                     }
                 });
