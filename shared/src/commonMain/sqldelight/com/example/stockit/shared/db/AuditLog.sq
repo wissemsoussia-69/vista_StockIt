@@ -1,0 +1,15 @@
+CREATE TABLE audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId TEXT,
+    action TEXT NOT NULL,
+    details TEXT,
+    timestamp INTEGER NOT NULL,
+    ipAddress TEXT,
+    device TEXT
+);
+
+getAll:
+SELECT * FROM audit_logs ORDER BY timestamp DESC;
+
+insert:
+INSERT INTO audit_logs(userId, action, details, timestamp, ipAddress, device) VALUES (?, ?, ?, ?, ?, ?);

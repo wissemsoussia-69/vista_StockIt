@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget StockIT — style Vista : verre bleu, KPI dominant, action rapide. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_widget_vista"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <TextView
+        android:id="@+id/widgetTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-black"
+        android:letterSpacing="0.05"
+        android:text="STOCKIT"
+        android:textColor="#B3FFFFFF"
+        android:textSize="10sp" />
+
+    <TextView
+        android:id="@+id/widgetStockText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:fontFamily="sans-serif-black"
+        android:text="--"
+        android:textColor="@color/white"
+        android:textSize="28sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="articles en stock"
+        android:textColor="#CCFFFFFF"
+        android:textSize="10sp" />
+
+    <Button
+        android:id="@+id/widgetBtnRefresh"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="#33FFFFFF"
+        android:text="Actualiser"
+        android:textColor="@color/white"
+        android:textSize="10sp" />
+
+</LinearLayout>
+

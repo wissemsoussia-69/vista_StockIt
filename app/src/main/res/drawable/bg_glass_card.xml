@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Glassmorphism en Light Mode :
+    - Fond blanc légèrement translucide (verre dépoli)
+    - Contour très fin teinté bleu Vista
+    - Coins doux (18dp)
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Halo bleu très diffus derrière la carte (effet "flottant") -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="22dp" />
+            <solid android:color="@color/vista_glass_tint" />
+        </shape>
+    </item>
+
+    <!-- Surface principale du verre -->
+    <item
+        android:left="0dp"
+        android:top="0dp"
+        android:right="0dp"
+        android:bottom="4dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="18dp" />
+            <solid android:color="@color/vista_surface" />
+            <stroke
+                android:width="1dp"
+                android:color="@color/vista_glass_stroke" />
+        </shape>
+    </item>
+</layer-list>

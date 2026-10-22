@@ -1,0 +1,23 @@
+CREATE TABLE purchase_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    productName TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    supplier TEXT,
+    date TEXT,
+    status TEXT NOT NULL
+);
+
+getAll:
+SELECT * FROM purchase_orders ORDER BY date DESC;
+
+insert:
+INSERT INTO purchase_orders(productName, quantity, supplier, date, status) VALUES (?, ?, ?, ?, ?);
+
+update:
+UPDATE purchase_orders SET productName = ?, quantity = ?, supplier = ?, date = ?, status = ? WHERE id = ?;
+
+delete:
+DELETE FROM purchase_orders WHERE id = ?;
+
+lastInsertId:
+SELECT last_insert_rowid();

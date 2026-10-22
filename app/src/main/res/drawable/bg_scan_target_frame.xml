@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Cadre de ciblage IA : quand un objet ou un PO est détecté,
+    ce cadre bleu marine profond se dessine autour de l'élément.
+    Coins arrondis, contour épais pour bien "attraper" le regard.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="20dp" />
+    <stroke
+        android:width="3dp"
+        android:color="@color/vista_navy" />
+    <solid android:color="#100B1F44" />
+</shape>

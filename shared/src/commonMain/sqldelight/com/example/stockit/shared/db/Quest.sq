@@ -1,0 +1,25 @@
+import kotlin.Boolean;
+
+CREATE TABLE quests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    goalCount INTEGER NOT NULL,
+    currentCount INTEGER NOT NULL DEFAULT 0,
+    pointReward INTEGER NOT NULL,
+    badgeReward TEXT,
+    isCompleted INTEGER AS Boolean NOT NULL DEFAULT 0
+);
+
+getActive:
+SELECT * FROM quests WHERE isCompleted = 0;
+
+insert:
+INSERT INTO quests(title, description, goalCount, currentCount, pointReward, badgeReward, isCompleted)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE quests SET currentCount = ?, isCompleted = ? WHERE id = ?;
+
+count:
+SELECT COUNT(*) FROM quests;

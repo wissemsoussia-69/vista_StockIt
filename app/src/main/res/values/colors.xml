@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ================================================================ -->
+    <!--  Vista Design System — Clean & Crisp                              -->
+    <!--  Ref: charte Vistaprint / Cimpress                                -->
+    <!-- ================================================================ -->
+
+    <!-- Colors from logo_vistaprint.xml (kept for backward compat) -->
+    <color name="vista_logo_light">#80D8FF</color>
+    <color name="vista_logo_medium">#00B0FF</color>
+    <color name="vista_logo_deep">#0091EA</color>
+    <color name="vista_logo_dark">#01579B</color>
+
+    <!-- ==== Signature Vista Blue (royal / cobalt) ==== -->
+    <color name="vista_blue">#0F53FA</color>            <!-- Bleu Vista signature -->
+    <color name="vista_blue_deep">#0033A0</color>       <!-- Bleu deep for CTA hover -->
+    <color name="vista_blue_soft">#3D6BFF</color>       <!-- Interactive states -->
+    <color name="vista_blue_glow">#5C86FF</color>       <!-- Scan beam glow -->
+
+    <!-- ==== Dark Navy (texte, headers, contours) ==== -->
+    <color name="vista_navy">#0B1F44</color>            <!-- Corps de texte -->
+    <color name="vista_navy_muted">#4A5A78</color>      <!-- Sous-texte -->
+    <color name="vista_navy_faint">#8A96AC</color>      <!-- Placeholder / meta -->
+
+    <!-- ==== Fond clean & crisp ==== -->
+    <color name="vista_bg">#F5F7FB</color>              <!-- Perle très clair -->
+    <color name="vista_surface">#FFFFFF</color>         <!-- Cartes / verre -->
+    <color name="vista_glass_tint">#140F53FA</color>    <!-- Ombre subtile teintée bleu -->
+    <color name="vista_glass_stroke">#1F0F53FA</color>  <!-- Contour verre dépoli -->
+
+    <!-- ==== Validation (Match IA) ==== -->
+    <color name="vista_mint">#3DDC97</color>            <!-- Vert menthe -->
+    <color name="vista_turquoise">#1DE9B6</color>       <!-- Turquoise "OK" -->
+    <color name="vista_mint_soft">#E7FAF1</color>       <!-- Fond succès doux -->
+
+    <!-- ==== Alerte / Urgence (contraste chaleureux) ==== -->
+    <color name="vista_coral">#FF6B4A</color>           <!-- Orange corail vif -->
+    <color name="vista_amber">#FFB020</color>           <!-- Jaune ambré -->
+    <color name="vista_urgency_soft">#FFF0EA</color>    <!-- Fond alerte doux -->
+
+    <!-- ==== Design Roles (Material) ==== -->
+    <color name="colorPrimary">@color/vista_blue</color>
+    <color name="colorPrimaryDark">@color/vista_navy</color>
+    <color name="colorAccent">@color/vista_turquoise</color>
+
+    <!-- ==== Compat aliases pour l'existant ==== -->
+    <color name="black">@color/vista_navy</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="grey_background">@color/vista_bg</color>
+    <color name="grey_text">@color/vista_navy_muted</color>
+</resources>

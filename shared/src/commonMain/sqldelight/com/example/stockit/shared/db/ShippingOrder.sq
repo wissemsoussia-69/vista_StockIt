@@ -1,0 +1,23 @@
+CREATE TABLE shipping_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customerName TEXT NOT NULL,
+    itemsSummary TEXT,
+    shippingAddress TEXT,
+    trackingNumber TEXT,
+    ticketNumber TEXT,
+    status TEXT NOT NULL
+);
+
+getAll:
+SELECT * FROM shipping_orders ORDER BY id DESC;
+
+insert:
+INSERT INTO shipping_orders(customerName, itemsSummary, shippingAddress, trackingNumber, ticketNumber, status)
+VALUES (?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE shipping_orders SET customerName = ?, itemsSummary = ?, shippingAddress = ?, trackingNumber = ?,
+    ticketNumber = ?, status = ? WHERE id = ?;
+
+delete:
+DELETE FROM shipping_orders WHERE id = ?;

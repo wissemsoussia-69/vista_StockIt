@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Une ligne de skeleton représentant une carte ticket en attente de chargement.
+    Alterne des blocs "bg_skeleton" pour évoquer la structure de item_ticket.
+-->
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    app:cardBackgroundColor="@color/vista_surface"
+    app:cardCornerRadius="18dp"
+    app:cardElevation="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_glass_card"
+        android:orientation="horizontal"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="14dp">
+
+        <View
+            android:layout_width="4dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/bg_priority_bar"
+            android:backgroundTint="@color/vista_navy_faint" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <View
+                android:layout_width="90dp"
+                android:layout_height="14dp"
+                android:background="@drawable/bg_skeleton" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="14dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_skeleton" />
+
+            <View
+                android:layout_width="180dp"
+                android:layout_height="10dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_skeleton" />
+        </LinearLayout>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

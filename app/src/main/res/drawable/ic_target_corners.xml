@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Viseur photo pro : 4 coins en "L" bleu marine.
+    Vecteur unique carré, coins auto-positionnés dans le viewport.
+    Utilisé comme background d'une View qui remplit la zone de ciblage.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="240"
+    android:viewportHeight="240">
+
+    <!-- Coin haut-gauche -->
+    <path
+        android:strokeColor="#0B1F44"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M 10 40 L 10 10 L 40 10" />
+
+    <!-- Coin haut-droit -->
+    <path
+        android:strokeColor="#0B1F44"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M 200 10 L 230 10 L 230 40" />
+
+    <!-- Coin bas-droit -->
+    <path
+        android:strokeColor="#0B1F44"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M 230 200 L 230 230 L 200 230" />
+
+    <!-- Coin bas-gauche -->
+    <path
+        android:strokeColor="#0B1F44"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M 40 230 L 10 230 L 10 200" />
+</vector>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <EditText android:id="@+id/editSupName" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/sup_name_hint" />
+    <EditText android:id="@+id/editSupEmail" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/sup_email_hint" android:inputType="textEmailAddress" />
+    <EditText android:id="@+id/editSupPhone" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/sup_phone_hint" android:inputType="phone" />
+    <EditText android:id="@+id/editSupAddr" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/sup_address_hint" />
+    <EditText android:id="@+id/editSupLead" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/sup_lead_time_hint" android:inputType="number" />
+    <EditText android:id="@+id/editSupDisc" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/sup_discount_hint" android:inputType="numberDecimal" />
+
+</LinearLayout>

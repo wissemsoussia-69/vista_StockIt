@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="6dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="1dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical">
+
+        <RadioButton
+            android:id="@+id/itemPoRadio"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="false"
+            android:focusable="false" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginStart="8dp">
+
+            <TextView
+                android:id="@+id/itemPoNumber"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PO-1234"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="#1976D2" />
+
+            <TextView
+                android:id="@+id/itemPoDesc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Description Claude…"
+                android:textSize="13sp"
+                android:textColor="#424242"
+                android:paddingTop="2dp" />
+
+            <TextView
+                android:id="@+id/itemPoBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="11sp"
+                android:paddingTop="4dp" />
+        </LinearLayout>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

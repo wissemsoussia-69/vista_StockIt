@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "StockIT";
+"NSCameraUsageDescription" = "StockIT utilise la caméra pour scanner les équipements, factures, étiquettes et codes-barres.";
+"NSFaceIDUsageDescription" = "StockIT utilise Face ID pour sécuriser la connexion.";
+"NSPhotoLibraryAddUsageDescription" = "StockIT peut enregistrer les rapports PDF.";

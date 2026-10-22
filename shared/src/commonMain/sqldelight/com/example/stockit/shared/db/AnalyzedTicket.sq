@@ -1,0 +1,46 @@
+import kotlin.Boolean;
+
+-- Cache d'analyse des tickets Jira (cf. AnalyzedTicket.java)
+CREATE TABLE analyzed_tickets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticketId TEXT NOT NULL,
+    equipmentKey TEXT NOT NULL,
+    equipmentName TEXT,
+    suggestedQty INTEGER NOT NULL DEFAULT 0,
+    deliveredQty INTEGER NOT NULL DEFAULT 0,
+    reason TEXT,
+    fulfilled INTEGER AS Boolean NOT NULL DEFAULT 0,
+    analyzedAt INTEGER NOT NULL DEFAULT 0,
+    fulfilledAt INTEGER NOT NULL DEFAULT 0,
+    jiraUpdated TEXT,
+    ticketSummary TEXT
+);
+
+CREATE UNIQUE INDEX index_analyzed_tickets_ticket_equipment ON analyzed_tickets(ticketId, equipmentKey);
+
+getByTicketAndEquipment:
+SELECT * FROM analyzed_tickets WHERE ticketId = ? AND equipmentKey = ? LIMIT 1;
+
+getByTicket:
+SELECT * FROM analyzed_tickets WHERE ticketId = ?;
+
+fullyFulfilledTicketIds:
+SELECT DISTINCT ticketId FROM analyzed_tickets
+WHERE fulfilled = 1
+AND ticketId NOT IN (SELECT ticketId FROM analyzed_tickets WHERE fulfilled = 0);
+
+getAll:
+SELECT * FROM analyzed_tickets ORDER BY analyzedAt DESC;
+
+insert:
+INSERT OR REPLACE INTO analyzed_tickets(ticketId, equipmentKey, equipmentName, suggestedQty, deliveredQty,
+    reason, fulfilled, analyzedAt, fulfilledAt, jiraUpdated, ticketSummary)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE analyzed_tickets SET equipmentName = ?, suggestedQty = ?, deliveredQty = ?, reason = ?, fulfilled = ?,
+    analyzedAt = ?, fulfilledAt = ?, jiraUpdated = ?, ticketSummary = ?
+WHERE id = ?;
+
+deleteByTicket:
+DELETE FROM analyzed_tickets WHERE ticketId = ?;

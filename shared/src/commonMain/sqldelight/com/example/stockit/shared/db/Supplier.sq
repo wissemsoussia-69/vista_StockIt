@@ -1,0 +1,21 @@
+CREATE TABLE suppliers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    address TEXT,
+    leadTime INTEGER NOT NULL DEFAULT 0,
+    discount REAL NOT NULL DEFAULT 0
+);
+
+getAll:
+SELECT * FROM suppliers;
+
+insert:
+INSERT INTO suppliers(name, email, phone, address, leadTime, discount) VALUES (?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE suppliers SET name = ?, email = ?, phone = ?, address = ?, leadTime = ?, discount = ? WHERE id = ?;
+
+delete:
+DELETE FROM suppliers WHERE id = ?;

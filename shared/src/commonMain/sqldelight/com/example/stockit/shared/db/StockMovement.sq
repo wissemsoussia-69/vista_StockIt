@@ -1,0 +1,30 @@
+CREATE TABLE stock_movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    productId INTEGER NOT NULL,
+    productName TEXT,
+    type TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    date TEXT,
+    reason TEXT,
+    userName TEXT,
+    comment TEXT,
+    ticketId TEXT,
+    assignmentReason TEXT,
+    createdAt INTEGER NOT NULL DEFAULT 0
+);
+
+-- NB : `date` est au format "dd/MM/yyyy HH:mm" (comme Android) ; on trie sur id
+-- pour garder l'ordre chronologique réel.
+getAll:
+SELECT * FROM stock_movements ORDER BY id DESC;
+
+getByUser:
+SELECT * FROM stock_movements WHERE userName = ? ORDER BY id DESC;
+
+getByProduct:
+SELECT * FROM stock_movements WHERE productId = ? ORDER BY id DESC;
+
+insert:
+INSERT INTO stock_movements(productId, productName, type, quantity, date, reason, userName, comment,
+    ticketId, assignmentReason, createdAt)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);

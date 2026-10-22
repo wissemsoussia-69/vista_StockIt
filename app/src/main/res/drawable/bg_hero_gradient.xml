@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dégradé bleu Vista → navy pour le header "héroïque" du dashboard. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners
+        android:bottomLeftRadius="24dp"
+        android:bottomRightRadius="24dp"
+        android:topLeftRadius="0dp"
+        android:topRightRadius="0dp" />
+    <gradient
+        android:angle="315"
+        android:endColor="@color/vista_navy"
+        android:startColor="@color/vista_blue"
+        android:type="linear" />
+</shape>

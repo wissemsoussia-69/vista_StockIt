@@ -1,0 +1,32 @@
+CREATE TABLE claims (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subject TEXT NOT NULL,
+    description TEXT,
+    senderName TEXT,
+    priority TEXT,
+    status TEXT,
+    timestamp INTEGER NOT NULL
+);
+
+getAll:
+SELECT * FROM claims ORDER BY timestamp DESC;
+
+getByUser:
+SELECT * FROM claims WHERE senderName = ? ORDER BY timestamp DESC;
+
+insert:
+INSERT INTO claims(subject, description, senderName, priority, status, timestamp) VALUES (?, ?, ?, ?, ?, ?);
+
+-- Sync serveur : remplace la ligne si l'id existe déjà
+upsert:
+INSERT OR REPLACE INTO claims(id, subject, description, senderName, priority, status, timestamp)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE claims SET subject = ?, description = ?, senderName = ?, priority = ?, status = ?, timestamp = ? WHERE id = ?;
+
+delete:
+DELETE FROM claims WHERE id = ?;
+
+deleteAll:
+DELETE FROM claims;

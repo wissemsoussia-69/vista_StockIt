@@ -1,0 +1,70 @@
+-- StockIT — schéma SQLDelight (miroir des entités Room Android, AppDatabase v22).
+
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    category TEXT,
+    categoryId INTEGER,
+    description TEXT,
+    assetTag TEXT,
+    quantity INTEGER NOT NULL DEFAULT 0,
+    unitPrice REAL NOT NULL DEFAULT 0,
+    manufacturingDate TEXT,
+    expirationDate TEXT,
+    minThreshold INTEGER NOT NULL DEFAULT 5,
+    poNumber TEXT,
+    poDescription TEXT,
+    receivedFrom TEXT,
+    articleNumber TEXT,
+    brand TEXT,
+    packagePoNumber TEXT
+);
+
+getAll:
+SELECT * FROM products ORDER BY name ASC;
+
+search:
+SELECT * FROM products WHERE name LIKE :q OR category LIKE :q OR assetTag LIKE :q ORDER BY name ASC;
+
+getById:
+SELECT * FROM products WHERE id = ?;
+
+insert:
+INSERT INTO products(name, category, categoryId, description, assetTag, quantity, unitPrice,
+    manufacturingDate, expirationDate, minThreshold, poNumber, poDescription, receivedFrom,
+    articleNumber, brand, packagePoNumber)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE products SET name = ?, category = ?, categoryId = ?, description = ?, assetTag = ?,
+    quantity = ?, unitPrice = ?, manufacturingDate = ?, expirationDate = ?, minThreshold = ?,
+    poNumber = ?, poDescription = ?, receivedFrom = ?, articleNumber = ?, brand = ?,
+    packagePoNumber = ?
+WHERE id = ?;
+
+setAssetTag:
+UPDATE products SET assetTag = ? WHERE id = ?;
+
+updateQuantity:
+UPDATE products SET quantity = ? WHERE id = ?;
+
+delete:
+DELETE FROM products WHERE id = ?;
+
+totalQuantity:
+SELECT IFNULL(SUM(quantity), 0) FROM products;
+
+lowStockCount:
+SELECT COUNT(*) FROM products WHERE quantity < 5 AND quantity > 0;
+
+outOfStockCount:
+SELECT COUNT(*) FROM products WHERE quantity = 0;
+
+totalValue:
+SELECT IFNULL(SUM(quantity * unitPrice), 0.0) FROM products;
+
+countByCategory:
+SELECT category, IFNULL(SUM(quantity), 0) AS total FROM products GROUP BY category;
+
+lastInsertId:
+SELECT last_insert_rowid();

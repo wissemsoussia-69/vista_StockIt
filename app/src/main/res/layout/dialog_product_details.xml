@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/detailName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Nom du Produit"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="#000000" />
+
+    <TextView
+        android:id="@+id/detailStock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Stock actuel"
+        android:textSize="16sp"
+        android:layout_marginTop="8dp" />
+
+    <TextView
+        android:id="@+id/detailKit"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="⚠️ KIT SANS OUBLI"
+        android:textColor="#D35400"
+        android:background="#FEF5E7"
+        android:padding="8dp"
+        android:layout_marginTop="16dp"
+        android:visibility="gone" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#EEEEEE"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/btnDetailChrono"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="FRISE CHRONOLOGIQUE" />
+
+    <Button
+        android:id="@+id/btnDetailZycus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="COMMANDE ZYCUS" />
+
+    <Button
+        android:id="@+id/btnDetailAlert"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="ALERTE N8N / SLACK" />
+
+</LinearLayout>
