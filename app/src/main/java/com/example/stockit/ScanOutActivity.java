@@ -59,6 +59,8 @@ import java.util.concurrent.ExecutionException;
 public class ScanOutActivity extends AppCompatActivity {
 
     private static final String TAG = "ScanOut";
+
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
     private static final int REQ_CAMERA = 6262;
     private static final int REQ_TICKET_PICK = 6263;
 
@@ -104,7 +106,7 @@ public class ScanOutActivity extends AppCompatActivity {
         if (code == REQ_CAMERA && r.length > 0 && r[0] == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
-            Toast.makeText(this, "Permission caméra refusée", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, L("Permission caméra refusée"), Toast.LENGTH_SHORT).show();
             finish();
         }
     }
@@ -124,7 +126,7 @@ public class ScanOutActivity extends AppCompatActivity {
                 provider.unbindAll();
                 provider.bindToLifecycle(this, sel, p, imageCapture);
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Erreur caméra : " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, L("Erreur caméra : %@", e.getMessage()), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -132,7 +134,7 @@ public class ScanOutActivity extends AppCompatActivity {
     // ============ 1) Capture + Claude vision ============
     private void capture() {
         if (imageCapture == null) return;
-        setBusy(true, "🧠 Analyse par Claude…");
+        setBusy(true, L("🧠 Analyse par Claude…"));
         imageCapture.takePicture(ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageCapturedCallback() {
                     @Override public void onCaptureSuccess(@NonNull ImageProxy image) {
@@ -141,7 +143,7 @@ public class ScanOutActivity extends AppCompatActivity {
                         analyze(jpeg);
                     }
                     @Override public void onError(@NonNull ImageCaptureException e) {
-                        setBusy(false, "❌ Capture : " + e.getMessage());
+                        setBusy(false, L("❌ Capture : %@", e.getMessage()));
                     }
                 });
     }
@@ -166,8 +168,8 @@ public class ScanOutActivity extends AppCompatActivity {
 
     /** Confirmation (produit existant obligatoire), identique iOS ConfirmAssetView(requireExisting: true). */
     private void openConfirm(String name, int confidence, String error) {
-        setBusy(false, name != null ? "🧠 Détecté : " + name + (confidence >= 0 ? " (" + confidence + " %)" : "")
-                : "❌ Analyse impossible : " + (error != null ? error : "réponse vide"));
+        setBusy(false, name != null ? L("🧠 Détecté : %@", name) + (confidence >= 0 ? " (" + confidence + " %)" : "")
+                : L("❌ Analyse impossible : %@", error != null ? error : L("réponse vide")));
         Intent i = new Intent(this, ConfirmAssetActivity.class);
         i.putExtra(ConfirmAssetActivity.EXTRA_DETECTED, name);
         i.putExtra(ConfirmAssetActivity.EXTRA_ERROR, error);
@@ -188,9 +190,9 @@ public class ScanOutActivity extends AppCompatActivity {
             for (Product p : products) if (p.getId() == productId) { match = p; break; }
             if (match == null || match.getQuantity() <= 0) {
                 new AlertDialog.Builder(this)
-                        .setTitle("❌ Stock épuisé")
-                        .setMessage("Aucun \"" + finalName + "\" disponible en stock (quantité = 0).")
-                        .setPositiveButton("OK", (d, w) -> finish())
+                        .setTitle(L("❌ Stock épuisé"))
+                        .setMessage(L("Aucun \"%@\" disponible en stock (quantité = 0).", finalName))
+                        .setPositiveButton(L("OK"), (d, w) -> finish())
                         .show();
                 return;
             }
@@ -203,25 +205,25 @@ public class ScanOutActivity extends AppCompatActivity {
     private void askQuantity() {
         final EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_NUMBER);
-        input.setHint("ex: 5");
+        input.setHint(L("ex: 5"));
 
         new AlertDialog.Builder(this)
-                .setTitle("Combien de \"" + pendingProduct.getName() + "\" sortir ?")
-                .setMessage("Stock disponible : " + pendingProduct.getQuantity())
+                .setTitle(L("Combien de \"%@\" sortir ?", pendingProduct.getName()))
+                .setMessage(L("Stock disponible : %@", pendingProduct.getQuantity()))
                 .setView(input)
                 .setCancelable(false)
-                .setPositiveButton("Continuer", (d, w) -> {
+                .setPositiveButton(L("Continuer"), (d, w) -> {
                     int q;
                     try { q = Integer.parseInt(input.getText().toString().trim()); }
                     catch (NumberFormatException e) { q = 0; }
                     if (q <= 0) {
-                        Toast.makeText(this, "Quantité invalide", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, L("Quantité invalide"), Toast.LENGTH_SHORT).show();
                         askQuantity();
                         return;
                     }
                     if (q > pendingProduct.getQuantity()) {
                         Toast.makeText(this,
-                                "Stock insuffisant (dispo: " + pendingProduct.getQuantity() + ")",
+                                L("Stock insuffisant (dispo: %@)", pendingProduct.getQuantity()),
                                 Toast.LENGTH_LONG).show();
                         askQuantity();
                         return;
@@ -230,7 +232,7 @@ public class ScanOutActivity extends AppCompatActivity {
                     journal.clear();
                     askAssignmentMode();
                 })
-                .setNegativeButton("Annuler", (d, w) -> finish())
+                .setNegativeButton(L("Annuler"), (d, w) -> finish())
                 .show();
     }
 
@@ -238,13 +240,13 @@ public class ScanOutActivity extends AppCompatActivity {
     private void askAssignmentMode() {
         if (remainingQty <= 0) { finishFlow(); return; }
 
-        String title = "Reste " + remainingQty + " × " + pendingProduct.getName();
+        String title = L("Reste %d × %@", remainingQty, pendingProduct.getName());
 
         String[] options = {
-                "🧠 Laisser Claude décider (auto)",
-                "🔎 Choisir dans la liste des tickets",
-                "✏️ Taper un ID manuellement",
-                "⏭️ Skip — sortir sans ticket"
+                L("🧠 Laisser Claude décider (auto)"),
+                L("🔎 Choisir dans la liste des tickets"),
+                L("✏️ Taper un ID manuellement"),
+                L("⏭️ Skip — sortir sans ticket")
         };
 
         // NB : setMessage + setItems sont incompatibles dans AlertDialog
@@ -277,7 +279,7 @@ public class ScanOutActivity extends AppCompatActivity {
                 onConfirmed(data.getIntExtra(ConfirmAssetActivity.EXTRA_PRODUCT_ID, -1),
                         data.getStringExtra(ConfirmAssetActivity.EXTRA_NAME));
             } else {
-                status.setText("Pointez la caméra vers l'équipement à sortir puis capturez.");
+                status.setText(L("Pointez la caméra vers l'équipement à sortir puis capturez."));
             }
             return;
         }
@@ -297,29 +299,29 @@ public class ScanOutActivity extends AppCompatActivity {
     // ---- Mode B : ID manuel ----
     private void promptManualId() {
         final EditText input = new EditText(this);
-        input.setHint("ex: ETXTUN-42");
+        input.setHint(L("ex: ETXTUN-42"));
         new AlertDialog.Builder(this)
-                .setTitle("Saisis l'ID du ticket")
+                .setTitle(L("Saisis l'ID du ticket"))
                 .setView(input)
-                .setPositiveButton("Vérifier", (d, w) -> {
+                .setPositiveButton(L("Vérifier"), (d, w) -> {
                     String key = input.getText().toString().trim().toUpperCase();
                     if (key.isEmpty()) { askAssignmentMode(); return; }
                     validateAndPickTicket(key);
                 })
-                .setNegativeButton("Annuler", (d, w) -> askAssignmentMode())
+                .setNegativeButton(L("Annuler"), (d, w) -> askAssignmentMode())
                 .show();
     }
 
     private void validateAndPickTicket(final String key) {
-        setBusy(true, "⏳ Vérification " + key + "…");
+        setBusy(true, L("⏳ Vérification %@…", key));
         JiraReader.getIssue(key, (ticket, err) -> runOnUiThread(() -> {
             setBusy(false, null);
             if (err != null || ticket == null || ticket.key == null) {
                 new AlertDialog.Builder(this)
-                        .setTitle("❌ Ticket introuvable")
-                        .setMessage("Impossible de trouver " + key + " (" + (err == null ? "not_found" : err) + ")")
-                        .setPositiveButton("Réessayer", (d, w) -> promptManualId())
-                        .setNegativeButton("Retour", (d, w) -> askAssignmentMode())
+                        .setTitle(L("❌ Ticket introuvable"))
+                        .setMessage(L("Impossible de trouver %@ (%@)", key, err == null ? "not_found" : err))
+                        .setPositiveButton(L("Réessayer"), (d, w) -> promptManualId())
+                        .setNegativeButton(L("Retour"), (d, w) -> askAssignmentMode())
                         .show();
                 return;
             }
@@ -334,34 +336,33 @@ public class ScanOutActivity extends AppCompatActivity {
         input.setInputType(InputType.TYPE_CLASS_NUMBER);
         input.setText(String.valueOf(remainingQty));
         new AlertDialog.Builder(this)
-                .setTitle("Assigner à " + ticketId)
+                .setTitle(L("Assigner à %@", ticketId))
                 .setMessage((summary == null ? "" : summary + "\n\n")
-                        + "Combien de \"" + pendingProduct.getName()
-                        + "\" pour ce ticket ? (max " + remainingQty + ")")
+                        + L("Combien de \"%@\" pour ce ticket ? (max %@)", pendingProduct.getName(), remainingQty))
                 .setView(input)
-                .setPositiveButton("Confirmer", (d, w) -> {
+                .setPositiveButton(L("Confirmer"), (d, w) -> {
                     int q;
                     try { q = Integer.parseInt(input.getText().toString().trim()); }
                     catch (NumberFormatException e) { q = 0; }
                     if (q <= 0 || q > remainingQty) {
-                        Toast.makeText(this, "Quantité invalide", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, L("Quantité invalide"), Toast.LENGTH_SHORT).show();
                         askQtyForTicket(ticketId, summary);
                         return;
                     }
                     commitAssignment(new Assignment(ticketId, q, "Choix manuel"));
                 })
-                .setNegativeButton("Annuler", (d, w) -> askAssignmentMode())
+                .setNegativeButton(L("Annuler"), (d, w) -> askAssignmentMode())
                 .show();
     }
 
     // ---- Mode C : IA ----
     private void runAiMode() {
-        setBusy(true, "🧠 Chargement tickets Jira + analyse Claude…");
+        setBusy(true, L("🧠 Chargement tickets Jira + analyse Claude…"));
         JiraReader.loadOpenTickets(50, (tickets, err) -> {
             if (err != null || tickets == null) {
                 runOnUiThread(() -> {
                     setBusy(false, null);
-                    showError("Impossible de charger les tickets : " + err);
+                    showError(L("Impossible de charger les tickets : %@", err));
                     askAssignmentMode();
                 });
                 return;
@@ -381,10 +382,9 @@ public class ScanOutActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         setBusy(false, null);
                         new AlertDialog.Builder(this)
-                                .setTitle("🧠 Aucun ticket à analyser")
-                                .setMessage("Tous les tickets Jira ouverts ont déjà été traités "
-                                        + "(cache local). Utilise un autre mode.")
-                                .setPositiveButton("OK", (d, w) -> askAssignmentMode())
+                                .setTitle(L("🧠 Aucun ticket à analyser"))
+                                .setMessage(L("Tous les tickets Jira ouverts ont déjà été traités (cache local). Utilise un autre mode."))
+                                .setPositiveButton(L("OK"), (d, w) -> askAssignmentMode())
                                 .show();
                     });
                     return;
@@ -406,9 +406,9 @@ public class ScanOutActivity extends AppCompatActivity {
                     }
                     if (assignments.isEmpty()) {
                         new AlertDialog.Builder(this)
-                                .setTitle("🧠 Claude n'a rien proposé")
-                                .setMessage(err2 != null ? err2 : "Aucun ticket ne correspond à cet équipement.")
-                                .setPositiveButton("Autre méthode", (d, w) -> askAssignmentMode())
+                                .setTitle(L("🧠 Claude n'a rien proposé"))
+                                .setMessage(err2 != null ? err2 : L("Aucun ticket ne correspond à cet équipement."))
+                                .setPositiveButton(L("Autre méthode"), (d, w) -> askAssignmentMode())
                                 .show();
                         return;
                     }
@@ -440,39 +440,39 @@ public class ScanOutActivity extends AppCompatActivity {
             checked[i] = c >= 60;
         }
         new AlertDialog.Builder(this)
-                .setTitle("🧠 Claude n'est pas sûr — coche ce que tu valides")
+                .setTitle(L("🧠 Claude n'est pas sûr — coche ce que tu valides"))
                 .setMultiChoiceItems(labels, checked, (d, which, isChecked) -> checked[which] = isChecked)
-                .setPositiveButton("Appliquer la sélection", (d, w) -> {
+                .setPositiveButton(L("Appliquer la sélection"), (d, w) -> {
                     List<TicketMatcher.Assignment> accepted = new ArrayList<>();
                     for (int i = 0; i < assignments.size(); i++) if (checked[i]) accepted.add(assignments.get(i));
                     if (accepted.isEmpty()) askAssignmentMode(); else commitBatchAssignments(accepted);
                 })
-                .setNegativeButton("Autre méthode", (d, w) -> askAssignmentMode())
+                .setNegativeButton(L("Autre méthode"), (d, w) -> askAssignmentMode())
                 .setCancelable(false)
                 .show();
     }
 
     private void showAiPreview(final List<TicketMatcher.Assignment> assignments, final List<Integer> conf) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Claude propose :\n\n");
+        sb.append(L("Claude propose :\n\n"));
         int total = 0;
         for (int i = 0; i < assignments.size(); i++) {
             TicketMatcher.Assignment a = assignments.get(i);
             int c = conf.get(i);
             sb.append("• ").append(a.ticketId).append(" → ").append(a.qty)
-              .append(c >= 0 ? "  (confiance " + c + " %)" : "").append("\n");
+              .append(c >= 0 ? L("  (confiance %@ %%)", c) : "").append("\n");
             sb.append("    ").append(a.reason == null ? "" : a.reason).append("\n\n");
             total += a.qty;
         }
         int rest = remainingQty - total;
-        sb.append("Total assigné : ").append(total).append(" / ").append(remainingQty).append("\n");
-        if (rest > 0) sb.append("Restant : ").append(rest).append(" (tu choisiras la méthode ensuite)");
+        sb.append(L("Total assigné : %@ / %@\n", total, remainingQty));
+        if (rest > 0) sb.append(L("Restant : %@ (tu choisiras la méthode ensuite)", rest));
 
         new AlertDialog.Builder(this)
-                .setTitle("🧠 Suggestion IA")
+                .setTitle(L("🧠 Suggestion IA"))
                 .setMessage(sb.toString())
-                .setPositiveButton("Appliquer", (d, w) -> commitBatchAssignments(assignments))
-                .setNegativeButton("Non, autre choix", (d, w) -> askAssignmentMode())
+                .setPositiveButton(L("Appliquer"), (d, w) -> commitBatchAssignments(assignments))
+                .setNegativeButton(L("Non, autre choix"), (d, w) -> askAssignmentMode())
                 .show();
     }
 
@@ -497,7 +497,7 @@ public class ScanOutActivity extends AppCompatActivity {
                     syncAssets(a.ticketId, qFinal, a.reason, () -> commitBatchNext(list, i + 1));
                 },
                 () -> runOnUiThread(() -> {
-                    Toast.makeText(this, "Stock insuffisant pour " + a.ticketId, Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, L("Stock insuffisant pour %@", a.ticketId), Toast.LENGTH_LONG).show();
                     askAssignmentMode();
                 }));
     }
@@ -512,7 +512,7 @@ public class ScanOutActivity extends AppCompatActivity {
                     syncAssets(a.ticketId, a.qty, a.reason, this::askAssignmentMode);
                 },
                 () -> runOnUiThread(() ->
-                        Toast.makeText(this, "Stock insuffisant", Toast.LENGTH_LONG).show()));
+                        Toast.makeText(this, L("Stock insuffisant"), Toast.LENGTH_LONG).show()));
     }
 
     private void skipRemaining() {
@@ -524,12 +524,12 @@ public class ScanOutActivity extends AppCompatActivity {
                     remainingQty = 0;
                     syncAssets("NO-TICKET", q, "Sortie libre", this::finishFlow);
                 },
-                () -> runOnUiThread(() -> Toast.makeText(this, "Stock insuffisant", Toast.LENGTH_LONG).show()));
+                () -> runOnUiThread(() -> Toast.makeText(this, L("Stock insuffisant"), Toast.LENGTH_LONG).show()));
     }
 
     /** Jira Assets : objets « In stock » → « OUT / Checked Out » + commentaire sur le ticket (iOS). */
     private void syncAssets(String ticket, int qty, String reason, Runnable next) {
-        setBusy(true, "⏳ Mise à jour Jira Assets…");
+        setBusy(true, L("⏳ Mise à jour Jira Assets…"));
         com.example.stockit.model.User u = MainController.getCurrentUser();
         String actor = u != null ? u.getUsername() : "stockit";
         SharedBridge.assetsCheckOut(pendingProduct.getName(), qty, ticket, reporters.get(ticket), reason, actor, (ok, detail) -> {
@@ -546,27 +546,40 @@ public class ScanOutActivity extends AppCompatActivity {
     // ============ 5) Récap final ============
     private void finishFlow() {
         int totalOut = 0;
-        StringBuilder recap = new StringBuilder();
+        StringBuilder recap = new StringBuilder();   // français : envoyé par e-mail
+        StringBuilder recapUi = new StringBuilder(); // affiché à l'écran (langue de l'app)
         recap.append("Équipement : ").append(pendingProduct.getName()).append("\n\n");
+        recapUi.append(L("Équipement : %@\n\n", pendingProduct.getName()));
         for (Assignment a : journal) {
             recap.append("• ").append(a.ticketId).append(" → ").append(a.qty).append("\n");
-            if (a.reason != null && !a.reason.isEmpty())
+            recapUi.append("• ").append(a.ticketId).append(" → ").append(a.qty).append("\n");
+            if (a.reason != null && !a.reason.isEmpty()) {
                 recap.append("    ").append(a.reason).append("\n");
+                recapUi.append("    ").append(com.example.stockit.util.AppLanguage.LV(a.reason)).append("\n");
+            }
             totalOut += a.qty;
         }
         if (!assetNotes.isEmpty()) {
             recap.append("\nJira Assets (OUT) :\n");
-            for (String n : assetNotes) recap.append("• ").append(n).append("\n");
+            recapUi.append(L("\nJira Assets (OUT) :\n"));
+            for (String n : assetNotes) {
+                recap.append("• ").append(n).append("\n");
+                recapUi.append("• ").append(n).append("\n");
+            }
         }
         recap.append("\nTotal sorti : ").append(totalOut);
-        if (SharedBridge.isTestMode(this)) recap.append("\n\n(Mode test : pas de Slack / e-mail / Jira réels)");
+        recapUi.append(L("\nTotal sorti : %@", totalOut));
+        if (SharedBridge.isTestMode(this)) {
+            recap.append("\n\n(Mode test : pas de Slack / e-mail / Jira réels)");
+            recapUi.append("\n").append(L("\n(Mode test : pas de Slack / e-mail / Jira réels)"));
+        }
         StockWidget.refreshAll(this);
 
         SlackNotifier.send(String.format(Locale.US,
                 ":package: [StockIT] Sortie de %d x %s vers %d ticket(s)",
                 totalOut, pendingProduct.getName(), journal.size()));
 
-        NotificationHelper.showNotification(this, "StockIT — Sortie enregistrée",
+        NotificationHelper.showNotification(this, L("StockIT — Sortie enregistrée"),
                 totalOut + " x " + pendingProduct.getName(),
                 (int) System.currentTimeMillis());
 
@@ -580,9 +593,9 @@ public class ScanOutActivity extends AppCompatActivity {
                 com.example.stockit.BuildConfig.STOCKIT_DEFAULT_EMAIL);
 
         new AlertDialog.Builder(this)
-                .setTitle("🟢 Sortie enregistrée")
-                .setMessage(recap.toString())
-                .setPositiveButton("OK", (d, w) -> finish())
+                .setTitle(L("🟢 Sortie enregistrée"))
+                .setMessage(recapUi.toString())
+                .setPositiveButton(L("OK"), (d, w) -> finish())
                 .setCancelable(false)
                 .show();
     }
@@ -590,9 +603,9 @@ public class ScanOutActivity extends AppCompatActivity {
     // ============ helpers ============
     private void showError(String msg) {
         new AlertDialog.Builder(this)
-                .setTitle("❌ Sortie équipement")
+                .setTitle("❌ " + L("Sortie équipement"))
                 .setMessage(msg)
-                .setPositiveButton("OK", null)
+                .setPositiveButton(L("OK"), null)
                 .show();
     }
 

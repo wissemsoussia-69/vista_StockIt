@@ -36,6 +36,8 @@ public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
 
     public interface OnPicked { void onPicked(JiraTicket t); }
 
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
+
     /** Modes de filtrage pilotés par les chips en haut de la liste. */
     public enum FilterMode { ALL, HIGHEST, OVERDUE, MINE }
 
@@ -222,9 +224,9 @@ public class TicketAdapter extends RecyclerView.Adapter<TicketAdapter.VH> {
             long deltaMs = due.getTime() - System.currentTimeMillis();
             long days = TimeUnit.MILLISECONDS.toDays(deltaMs);
             long hours = TimeUnit.MILLISECONDS.toHours(deltaMs);
-            if (deltaMs < 0) return "SLA " + days + "j";              // ex: SLA -2j
+            if (deltaMs < 0) return L("SLA %@j", days);              // ex: SLA -2j
             if (hours < 24)  return "SLA " + Math.max(hours, 1) + "h"; // ex: SLA 3h (urgent)
-            return "Due " + days + "j";                                // ex: Due 5j
+            return L("Due %@j", days);                                // ex: Due 5j
         } catch (Exception e) {
             return null;
         }

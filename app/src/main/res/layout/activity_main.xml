@@ -49,6 +49,70 @@
                     android:textSize="24sp"
                     android:textStyle="bold" />
 
+                <!-- Bandeau Jira Assets (iOS StockListView) : statut + bouton Synchroniser -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/assetsSyncCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="@color/vista_surface"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🔄"
+                            android:textSize="18sp" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/assetsSyncTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/assets_synced_title"
+                                android:textColor="@color/vista_navy"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/assetsSyncLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/assets_pull_to_sync"
+                                android:textColor="@color/vista_navy_muted"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <ProgressBar
+                            android:id="@+id/assetsSyncProgress"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:visibility="gone" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnAssetsSync"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/assets_sync_button"
+                            android:textColor="@color/vista_blue" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
                 <SearchView
                     android:id="@+id/searchView"
                     android:layout_width="match_parent"
@@ -86,12 +150,56 @@
                         android:textColor="#FFFFFF" />
                 </LinearLayout>
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/recyclerView"
+                <!-- Tirer vers le bas = synchronisation Jira Assets + rechargement (iOS .refreshable) -->
+                <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+                    android:id="@+id/stockSwipeRefresh"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
                     android:layout_marginTop="8dp"
-                    android:layout_weight="1" />
+                    android:layout_weight="1">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent">
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/recyclerView"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent" />
+
+                        <LinearLayout
+                            android:id="@+id/stockEmptyState"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="24dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="📦"
+                                android:textSize="44sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:text="@string/stock_empty_title"
+                                android:textAppearance="@style/TextAppearance.Vista.SectionTitle" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:gravity="center"
+                                android:text="@string/stock_empty_subtitle"
+                                android:textColor="@color/vista_navy_muted" />
+                        </LinearLayout>
+                    </FrameLayout>
+                </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
                 <ProgressBar
                     android:id="@+id/progressBar"
@@ -105,7 +213,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="@string/refresh_stock" />
+                    android:text="@string/refresh_stock"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- Dashboard View -->
@@ -128,7 +237,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Bons de commande"
+                    android:text="@string/main_purchase_orders_title"
                     android:textColor="@color/vista_navy"
                     android:textSize="22sp"
                     android:textStyle="bold" />
@@ -170,7 +279,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Gestion des utilisateurs"
+                    android:text="@string/main_users_title"
                     android:textColor="@color/vista_navy"
                     android:textSize="22sp"
                     android:textStyle="bold" />
@@ -203,7 +312,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Gestion des Catégories"
+                    android:text="@string/main_categories_title"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -224,13 +333,13 @@
                             android:id="@+id/inputCatName"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:hint="Nom de la catégorie" />
+                            android:hint="@string/main_category_name_hint" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="Catégorie parente (Optionnel)"
+                            android:text="@string/main_category_parent_label"
                             android:textSize="12sp" />
 
                         <Spinner
@@ -242,7 +351,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="Couleur de l'étiquette (Hex: #RRGGBB)"
+                            android:text="@string/main_category_color_label"
                             android:textSize="12sp" />
 
                         <EditText
@@ -258,7 +367,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
                             android:backgroundTint="#00AEEF"
-                            android:text="Créer Catégorie" />
+                            android:text="@string/main_category_btn_create" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -283,7 +392,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Historique d'Audit"
+                    android:text="@string/main_audit_title"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -385,7 +494,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Gestion des Fournisseurs"
+                    android:text="@string/main_suppliers_title"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -420,7 +529,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Expéditions / Sorties"
+                    android:text="@string/main_shipping_title"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -455,7 +564,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="8dp"
-                    android:text="Intelligence Artificielle"
+                    android:text="@string/main_ai_title"
                     android:textColor="#FFFFFF"
                     android:textSize="22sp"
                     android:textStyle="bold" />
@@ -464,7 +573,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Optimisation prédictive du stock"
+                    android:text="@string/main_ai_subtitle"
                     android:textColor="#94A3B8"
                     android:textSize="12sp" />
 
@@ -488,7 +597,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:text="Classement des Techniciens"
+                    android:text="@string/main_leaderboard_title"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -539,7 +648,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:contentDescription="Scanner un asset"
+            android:contentDescription="@string/main_fab_cd_scan_asset"
             app:srcCompat="@drawable/ic_fab_scan_asset" />
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -548,7 +657,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:contentDescription="Réception colis"
+            android:contentDescription="@string/main_fab_cd_receive_package"
             app:srcCompat="@drawable/ic_fab_receive" />
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -556,8 +665,17 @@
             style="@style/Widget.StockIT.Fab.Vista.Mini"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:contentDescription="Sortie équipement"
+            android:layout_marginBottom="12dp"
+            android:contentDescription="@string/main_fab_cd_scan_out"
             app:srcCompat="@drawable/ic_fab_ship_out" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabActionBatch"
+            style="@style/Widget.StockIT.Fab.Vista.Mini"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/main_fab_cd_batch_scan"
+            app:srcCompat="@drawable/ic_fab_scan" />
     </LinearLayout>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -567,7 +685,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="96dp"
-        android:contentDescription="Actions rapides"
+        android:contentDescription="@string/dash_quick_actions"
         app:srcCompat="@drawable/ic_fab_scan" />
 
     </FrameLayout>

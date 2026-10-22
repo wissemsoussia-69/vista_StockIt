@@ -75,21 +75,21 @@ public final class DeliveryNoteParser {
 
         new Thread(() -> {
             try {
-                if (progress != null) progress.onStep("[1/3] OCR MLKit…");
+                if (progress != null) progress.onStep(AppLanguage.L("[1/3] OCR MLKit…"));
                 String ocr = runOcr(photo);
                 if (ocr == null || ocr.trim().isEmpty()) {
-                    cb.onParsed(errorNote("OCR vide — le texte n'a pas été détecté", null));
+                    cb.onParsed(errorNote(AppLanguage.L("OCR vide — le texte n'a pas été détecté"), null));
                     return;
                 }
                 Log.i(TAG, "OCR chars=" + ocr.length() + " preview=" + preview(ocr, 200));
 
-                if (progress != null) progress.onStep("[2/3] Claude Opus 4 via Cimpress (" + ocr.length() + " chars)…");
+                if (progress != null) progress.onStep(AppLanguage.L("[2/3] Claude Opus 4 via Cimpress (%@ chars)…", ocr.length()));
                 ParsedNote note = extractViaClaude(ocr);
                 note.rawOcr = ocr;
                 cb.onParsed(note);
             } catch (Throwable t) {
                 Log.e(TAG, "parser crash", t);
-                cb.onParsed(errorNote("Crash parser : " + t.getClass().getSimpleName() + " — " + t.getMessage(), null));
+                cb.onParsed(errorNote(AppLanguage.L("Crash parser : %@ — %@", t.getClass().getSimpleName(), t.getMessage()), null));
             }
         }, "delivery-note-parser").start();
     }

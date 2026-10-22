@@ -51,7 +51,7 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.ViewHo
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Category cat = categories.get(position);
-        String name = cat.getName();
+        String name = com.example.stockit.util.AppLanguage.LV(cat.getName());
         if (cat.getParentId() != null) {
             name = " └─ " + name;
         }

@@ -42,7 +42,7 @@
                 android:id="@+id/itemPoDesc"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Description Claude…"
+                android:text="@string/po_block_desc_placeholder"
                 android:textSize="13sp"
                 android:textColor="#424242"
                 android:paddingTop="2dp" />

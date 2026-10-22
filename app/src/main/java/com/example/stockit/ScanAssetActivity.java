@@ -62,6 +62,8 @@ public class ScanAssetActivity extends AppCompatActivity {
 
     private static final int REQ_CAMERA = 4242;
 
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
+
     private PreviewView previewView;
     private TextView txtResult;
     private ProgressBar progress;
@@ -118,7 +120,7 @@ public class ScanAssetActivity extends AppCompatActivity {
         galleryLauncher = registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.GetContent(), uri -> {
             if (uri == null) return;
             byte[] jpeg = com.example.stockit.util.ImageBytes.readJpeg(this, uri);
-            if (jpeg == null) { Toast.makeText(this, "Image illisible", Toast.LENGTH_SHORT).show(); return; }
+            if (jpeg == null) { Toast.makeText(this, L("Image illisible"), Toast.LENGTH_SHORT).show(); return; }
             hideMatchBadge(); hideTargetFrame(); startScanBeam();
             analyze(jpeg);
         });
@@ -126,9 +128,9 @@ public class ScanAssetActivity extends AppCompatActivity {
         if (panel != null) {
             com.google.android.material.button.MaterialButton gallery = new com.google.android.material.button.MaterialButton(
                     this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
-            gallery.setText("🖼️ Choisir une photo");
+            gallery.setText(L("🖼️ Choisir une photo"));
             gallery.setTextColor(0xFFFFFFFF);
-            gallery.setOnClickListener(v -> galleryLauncher.launch("image/*"));
+            gallery.setOnClickListener(v -> { com.example.stockit.util.AppSession.allowExternal(); galleryLauncher.launch("image/*"); });
             panel.addView(gallery);
         }
 
@@ -147,7 +149,7 @@ public class ScanAssetActivity extends AppCompatActivity {
         if (code == REQ_CAMERA && r.length > 0 && r[0] == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
-            Toast.makeText(this, "Permission caméra refusée", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, L("Permission caméra refusée"), Toast.LENGTH_SHORT).show();
             finish();
         }
     }
@@ -175,14 +177,14 @@ public class ScanAssetActivity extends AppCompatActivity {
                     scanTorch.setVisibility(View.GONE);
                 }
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Erreur caméra : " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, L("Erreur caméra : %@", e.getMessage()), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
     private void capture() {
         if (imageCapture == null) return;
-        setBusy(true, "Capture…");
+        setBusy(true, L("Capture…"));
         hideMatchBadge();
         hideTargetFrame();
         startScanBeam();
@@ -196,7 +198,7 @@ public class ScanAssetActivity extends AppCompatActivity {
                     @Override public void onError(@NonNull ImageCaptureException e) {
                         setBusy(false, null);
                         stopScanBeam();
-                        Toast.makeText(ScanAssetActivity.this, "Capture échouée", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(ScanAssetActivity.this, L("Capture échouée"), Toast.LENGTH_SHORT).show();
                         SlackNotifier.send(":warning: [StockIT] Capture caméra échouée : " + e.getMessage());
                         com.example.stockit.util.StockItReporter.sendEvent(ScanAssetActivity.this,
                                 "Incident caméra (scan équipement)",
@@ -217,7 +219,7 @@ public class ScanAssetActivity extends AppCompatActivity {
     private Product existingProduct;
 
     private void analyze(byte[] jpeg) {
-        setBusy(true, "🧠 Analyse par Claude…");
+        setBusy(true, L("🧠 Analyse par Claude…"));
         detectedName = null; detectedConfidence = -1; detectedSerial = null; existingProduct = null;
         // Vision Claude (Cimpress Gateway) avec confiance + n° de série ; repli sur la chaîne
         // historique (Portkey / Gemini / HF / ML Kit) si Claude n'est pas disponible.
@@ -240,12 +242,12 @@ public class ScanAssetActivity extends AppCompatActivity {
         detectedSerial = serial;
         if (name != null && !name.isEmpty()) {
             detectedName = name;
-            txtResult.setText("🧠 Objet détecté : " + name + (confidence >= 0 ? " (" + confidence + " %)" : ""));
+            txtResult.setText(L("🧠 Objet détecté : %@", name) + (confidence >= 0 ? " (" + confidence + " %)" : ""));
             showTargetFrame();
-            showMatchSuccess("Match : " + name);
+            showMatchSuccess(L("Match : %@", name));
         } else {
-            String err = error != null ? error : "réponse vide";
-            txtResult.setText("❌ Analyse impossible (" + err + ")");
+            String err = error != null ? error : L("réponse vide");
+            txtResult.setText(L("❌ Analyse impossible (%@)", err));
             SlackNotifier.send(":x: [StockIT] Anomalie scan IA : " + err);
             com.example.stockit.util.StockItReporter.sendEvent(ScanAssetActivity.this,
                     "Anomalie détection IA Claude",
@@ -282,7 +284,7 @@ public class ScanAssetActivity extends AppCompatActivity {
         detectedName = null; detectedConfidence = -1; detectedSerial = null; existingProduct = null;
         hideMatchBadge();
         hideTargetFrame();
-        txtResult.setText("Pointez la caméra vers un objet informatique puis capturez.");
+        txtResult.setText(L("Pointez la caméra vers un objet informatique puis capturez."));
     }
 
     private void handleDetected(final String detectedName) {
@@ -291,7 +293,7 @@ public class ScanAssetActivity extends AppCompatActivity {
                 if (power && hdmi) {
                     askScanFacture(detectedName, "Kit complet (Alim + HDMI)");
                 } else {
-                    txtResult.setText("⛔ Kit incomplet — validation refusée.");
+                    txtResult.setText(L("⛔ Kit incomplet — validation refusée."));
                     SlackNotifier.send(":rotating_light: [StockIT] Kit anti-oubli incomplet pour un Écran (Alim=" + power + ", HDMI=" + hdmi + ")");
                     com.example.stockit.util.StockItReporter.sendEvent(this,
                             "Kit anti-oubli incomplet (écran)",
@@ -307,19 +309,19 @@ public class ScanAssetActivity extends AppCompatActivity {
                             (ok, res) -> runOnUiThread(() -> {
                                 if (ok) {
                                     String key = res;
-                                    txtResult.setText("⛔ Kit incomplet — Ticket Jira créé : " + key);
+                                    txtResult.setText(L("⛔ Kit incomplet — Ticket Jira créé : %@", key));
                                     new androidx.appcompat.app.AlertDialog.Builder(this)
-                                            .setTitle("🟢 Ticket Jira créé")
-                                            .setMessage("Clé : " + key + "\n\nProjet : " + BuildConfig.JIRA_PROJECT_KEY
-                                                    + "\nURL : " + BuildConfig.JIRA_BASE_URL + "/browse/" + key)
+                                            .setTitle(L("🟢 Ticket Jira créé"))
+                                            .setMessage(L("Clé : %@\n\nProjet : %@\nURL : %@", key, BuildConfig.JIRA_PROJECT_KEY,
+                                                    BuildConfig.JIRA_BASE_URL + "/browse/" + key))
                                             .setPositiveButton("OK", null)
                                             .show();
                                 } else {
-                                    txtResult.setText("⛔ Jira KO — " + res);
+                                    txtResult.setText(L("⛔ Jira KO — %@", res));
                                     SlackNotifier.send(":warning: [StockIT] Echec creation Jira : " + res);
                                     new androidx.appcompat.app.AlertDialog.Builder(this)
-                                            .setTitle("🔴 Jira KO — projet " + BuildConfig.JIRA_PROJECT_KEY)
-                                            .setMessage("Détail brut renvoyé par Jira :\n\n" + res)
+                                            .setTitle(L("🔴 Jira KO — projet %@", BuildConfig.JIRA_PROJECT_KEY))
+                                            .setMessage(L("Détail brut renvoyé par Jira :\n\n%@", res))
                                             .setPositiveButton("OK", null)
                                             .show();
                                 }
@@ -343,12 +345,10 @@ public class ScanAssetActivity extends AppCompatActivity {
         pendingName = name;
         pendingReason = reason;
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("📄 Scanner la facture liée ?")
-                .setMessage("Équipement : " + name + "\n\n"
-                        + "Prends en photo la facture pour rattacher automatiquement le PO. "
-                        + "Sinon l'équipement sera ajouté au stock sans PO.")
-                .setPositiveButton("📷 Scanner la facture", (d, w) -> launchFactureScan(name))
-                .setNegativeButton("Enregistrer sans PO", (d, w) -> saveAsset(name, reason, null, null, null))
+                .setTitle(L("📄 Scanner la facture liée ?"))
+                .setMessage(L("Équipement : %@\n\nPrends en photo la facture pour rattacher automatiquement le PO. Sinon l'équipement sera ajouté au stock sans PO.", name))
+                .setPositiveButton(L("📷 Scanner la facture"), (d, w) -> launchFactureScan(name))
+                .setNegativeButton(L("Enregistrer sans PO"), (d, w) -> saveAsset(name, reason, null, null, null))
                 .setCancelable(false)
                 .show();
     }
@@ -436,16 +436,15 @@ public class ScanAssetActivity extends AppCompatActivity {
 
         final String name = pendingName, reason = pendingReason;
 
-        String msg = "Équipement : " + name + "\n";
-        if (poNumber != null) msg += "PO facture : " + poNumber + "\n";
-        msg += "\nPrends en photo l'étiquette du carton pour obtenir le nom exact du produit, "
-             + "la quantité, la référence article et la marque.";
+        String msg = L("Équipement : %@\n", name);
+        if (poNumber != null) msg += L("PO facture : %@\n", poNumber);
+        msg += L("\nPrends en photo l'étiquette du carton pour obtenir le nom exact du produit, la quantité, la référence article et la marque.");
 
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("🏷️ Scanner l'étiquette du carton ?")
+                .setTitle(L("🏷️ Scanner l'étiquette du carton ?"))
                 .setMessage(msg)
-                .setPositiveButton("📷 Scanner l'étiquette", (d, w) -> launchLabelScan(poNumber))
-                .setNegativeButton("Enregistrer sans étiquette", (d, w) -> {
+                .setPositiveButton(L("📷 Scanner l'étiquette"), (d, w) -> launchLabelScan(poNumber))
+                .setNegativeButton(L("Enregistrer sans étiquette"), (d, w) -> {
                     pendingName = null; pendingReason = null;
                     pendingPoNumber = null; pendingPoDescription = null; pendingSupplier = null;
                     saveAsset(name, reason, poNumber, poDescription, supplier);
@@ -492,24 +491,25 @@ public class ScanAssetActivity extends AppCompatActivity {
         } else {
             if (!controller.canEditStock()) {
                 new androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("⛔ Permission refusée")
-                        .setMessage("Seuls les rôles ADMIN / MANAGER peuvent ajouter un nouveau produit au stock.")
+                        .setTitle(L("⛔ Permission refusée"))
+                        .setMessage(L("Seuls les rôles ADMIN / MANAGER peuvent ajouter un nouveau produit au stock."))
                         .setPositiveButton("OK", null).show();
                 return;
             }
             String cat = "Informatique".equals(category) ? SharedBridge.categoryFor(name) : category;
+            // syncAssets=false : les unités (avec n° de série) sont créées juste après par assetsCheckIn (iOS).
             controller.addProduct(name, cat, null, description, assetTag, quantity, 0.0, "", "", reason,
-                    poNumber, poDescription, receivedFrom, articleNumber, brand, packagePoNumber, after);
+                    poNumber, poDescription, receivedFrom, articleNumber, brand, packagePoNumber, false, after);
         }
     }
 
     private void onSaved(String name, int quantity, String reason, String poNumber, String poDescription,
                          String receivedFrom, String articleNumber, String brand, String packagePoNumber,
                          java.util.List<String> serials, boolean incremented) {
-        String suffix = poNumber != null ? " (lié à " + poNumber + ")" : "";
-        Toast.makeText(this, name + " x" + quantity + " ajouté au stock" + suffix, Toast.LENGTH_LONG).show();
-        NotificationHelper.showNotification(this, "StockIT — Réception",
-                name + " x" + quantity + " enregistré" + suffix, (int) System.currentTimeMillis());
+        String suffix = poNumber != null ? L(" (lié à %@)", poNumber) : "";
+        Toast.makeText(this, L("%@ x%@ ajouté au stock%@", name, quantity, suffix), Toast.LENGTH_LONG).show();
+        NotificationHelper.showNotification(this, L("StockIT — Réception"),
+                L("%@ x%@ enregistré%@", name, quantity, suffix), (int) System.currentTimeMillis());
         StockWidget.refreshAll(this);
         if (poNumber != null) {
             SlackNotifier.send(":white_check_mark: [StockIT] " + name + " x" + quantity
@@ -526,37 +526,39 @@ public class ScanAssetActivity extends AppCompatActivity {
                 com.example.stockit.BuildConfig.STOCKIT_DEFAULT_EMAIL);
 
         final StringBuilder body = new StringBuilder();
-        body.append("• Nom : ").append(name).append("\n");
-        body.append("• Quantité : ").append(quantity).append(incremented ? " (ajouté au produit existant)" : "").append("\n");
-        if (brand != null)          body.append("• Marque : ").append(brand).append("\n");
-        if (articleNumber != null)  body.append("• Art.-No. : ").append(articleNumber).append("\n");
-        body.append("• Motif : ").append(reason).append("\n");
-        if (poNumber != null)       body.append("• PO facture : ").append(poNumber).append("\n");
-        if (poDescription != null)  body.append("• Description PO : ").append(poDescription).append("\n");
-        if (packagePoNumber != null)body.append("• PO étiquette : ").append(packagePoNumber).append("\n");
-        if (receivedFrom != null)   body.append("• Fournisseur : ").append(receivedFrom).append("\n");
+        body.append(L("• Nom : %@", name)).append("\n");
+        body.append(L("• Quantité : %@", quantity)).append(incremented ? L(" (ajouté au produit existant)") : "").append("\n");
+        if (brand != null)          body.append(L("• Marque : %@", brand)).append("\n");
+        if (articleNumber != null)  body.append(L("• Art.-No. : %@", articleNumber)).append("\n");
+        body.append(L("• Motif : %@", com.example.stockit.util.AppLanguage.LV(reason))).append("\n");
+        if (poNumber != null)       body.append(L("• PO facture : %@", poNumber)).append("\n");
+        if (poDescription != null)  body.append(L("• Description PO : %@", poDescription)).append("\n");
+        if (packagePoNumber != null)body.append(L("• PO étiquette : %@", packagePoNumber)).append("\n");
+        if (receivedFrom != null)   body.append(L("• Fournisseur : %@", receivedFrom)).append("\n");
         if (!serials.isEmpty()) {
-            body.append("• N° de série : ").append(android.text.TextUtils.join(", ", serials.subList(0, Math.min(5, serials.size()))))
+            body.append(L("• N° de série : ")).append(android.text.TextUtils.join(", ", serials.subList(0, Math.min(5, serials.size()))))
                 .append(serials.size() > 5 ? "…" : "").append("\n");
         }
-        if (detectedConfidence >= 0) body.append("• Confiance IA : ").append(detectedConfidence).append(" %\n");
+        if (detectedConfidence >= 0) body.append(L("• Confiance IA : %@ %%", detectedConfidence)).append("\n");
 
         // Jira Assets (CMDB) : un objet « In stock » par unité reçue (comme iOS).
-        setBusy(true, "⏳ Synchronisation Jira Assets…");
+        setBusy(true, L("⏳ Synchronisation Jira Assets…"));
         SharedBridge.assetsCheckIn(name, quantity, brand, articleNumber,
                 poNumber != null ? poNumber : packagePoNumber, receivedFrom, serials, (ok, detail) -> {
-                    setBusy(false, "✅ " + name + " enregistré");
+                    setBusy(false, L("✅ %@ enregistré", name));
                     controller.audit(ok ? "ASSETS_CHECK_IN" : "ASSETS_CHECK_IN_FAILED",
                             name + " x" + quantity + " → " + (detail != null ? detail : ""));
+                    // Jira Assets = source de vérité : on réaligne l'inventaire après création des objets (iOS).
+                    if (ok) com.example.stockit.util.AssetsSync.sync(null);
                     if (!"assets_not_configured".equals(detail)) {
-                        body.append(ok ? "• Jira Assets : " + detail : "• Jira Assets : ⚠️ " + (detail != null ? detail : "échec")).append("\n");
+                        body.append(ok ? L("• Jira Assets : %@", detail) : L("• Jira Assets : ⚠️ %@", detail != null ? detail : L("échec"))).append("\n");
                     }
-                    if (SharedBridge.isTestMode(this)) body.append("\n(Mode test : pas de Slack / e-mail / Jira réels)");
+                    if (SharedBridge.isTestMode(this)) body.append(L("\n(Mode test : pas de Slack / e-mail / Jira réels)"));
                     new androidx.appcompat.app.AlertDialog.Builder(this)
-                            .setTitle("🟢 Équipement enregistré")
+                            .setTitle(L("🟢 Équipement enregistré"))
                             .setMessage(body.toString().trim())
                             .setPositiveButton("OK", (d, w) -> finish())
-                            .setNegativeButton("Scanner un autre", (d, w) -> resetForRetake())
+                            .setNegativeButton(L("Scanner un autre"), (d, w) -> resetForRetake())
                             .setCancelable(false)
                             .show();
                 });
@@ -676,7 +678,7 @@ public class ScanAssetActivity extends AppCompatActivity {
     /** Bascule le flash caméra (torche). Icône colorée en ambre quand actif. */
     private void toggleTorch() {
         if (camera == null || !camera.getCameraInfo().hasFlashUnit()) {
-            Toast.makeText(this, "Flash indisponible", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, L("Flash indisponible"), Toast.LENGTH_SHORT).show();
             return;
         }
         torchOn = !torchOn;

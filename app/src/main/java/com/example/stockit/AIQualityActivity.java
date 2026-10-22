@@ -34,20 +34,19 @@ public class AIQualityActivity extends SimpleScreenActivity {
 
         LinearLayout t = section("🎫 Répartition sur les tickets Jira");
         metric(t, "Suggestions appliquées", pct(q.getTicketAcceptanceRate()),
-                q.getTicketAccepted() + " / " + q.getTicketSuggestions() + " suggestions de Claude");
+                L("%@ / %@ suggestions de Claude", q.getTicketAccepted(), q.getTicketSuggestions()));
         metric(t, "Précision des quantités", pct(q.getQuantityPrecision()), "livré ÷ suggéré, par ticket");
         metric(t, "Affectations manuelles", String.valueOf(q.getManualAssignments()), "choix faits sans l'IA");
 
         LinearLayout v = section("📷 Reconnaissance d'équipement");
-        metric(v, "Nom conservé tel quel", pct(q.getVisionAccuracy()), q.getVisionKept() + " / " + q.getVisionScans() + " scans confirmés");
+        metric(v, "Nom conservé tel quel", pct(q.getVisionAccuracy()), L("%@ / %@ scans confirmés", q.getVisionKept(), q.getVisionScans()));
         metric(v, "Confiance moyenne annoncée", pct(q.getAvgConfidence()), "auto-évaluation de Claude");
         metric(v, "Scans à faible confiance", String.valueOf(q.getLowConfidenceScans()),
-                q.getLowConfidenceScans() > 0 ? q.getLowConfidenceKept() + " étaient corrects malgré tout" : "aucun");
+                q.getLowConfidenceScans() > 0 ? L("%@ étaient corrects malgré tout", q.getLowConfidenceKept()) : "aucun");
         metric(v, "Numéros de série lus", String.valueOf(q.getSerialsRead()), "envoyés à Jira Assets");
 
         LinearLayout n = section("À propos");
-        text(n, "Calculé uniquement sur les données de ce téléphone : chaque scan confirmé et chaque sortie sur ticket "
-                + "alimentent ces indicateurs. « — » = pas encore assez de données.", 12, false, R.color.vista_navy_muted);
+        text(n, "Calculé uniquement sur les données de ce téléphone : chaque scan confirmé et chaque sortie sur ticket alimentent ces indicateurs. « — » = pas encore assez de données.", 12, false, R.color.vista_navy_muted);
     }
 
     private void metric(LinearLayout parent, String title, String value, String sub) {

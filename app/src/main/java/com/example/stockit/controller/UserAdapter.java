@@ -40,8 +40,8 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         User user = users.get(position);
-        holder.name.setText(user.getUsername() + " (Lvl " + user.getLevel() + ")");
-        holder.email.setText(user.getPoints() + " Points");
+        holder.name.setText(com.example.stockit.util.AppLanguage.L("%@ (Niv. %@)", user.getUsername(), user.getLevel()));
+        holder.email.setText(com.example.stockit.util.AppLanguage.L("%@ Points", user.getPoints()));
         
         // Initiale pour l'avatar
         if (user.getUsername() != null && !user.getUsername().isEmpty()) {

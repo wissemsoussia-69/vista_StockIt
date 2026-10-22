@@ -58,7 +58,8 @@ public class ConfirmAssetActivity extends SimpleScreenActivity {
     private Product selected;
     private boolean settingName = false;
 
-    @Override protected String screenTitle() { return "Confirmer l'équipement"; }
+
+    @Override protected String screenTitle() { return L("Confirmer l'équipement"); }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,27 +73,27 @@ public class ConfirmAssetActivity extends SimpleScreenActivity {
         needsCheck = confidence >= 0 && confidence < 60;
 
         if (detected != null && !detected.isEmpty()) {
-            LinearLayout s = section("Claude a identifié");
+            LinearLayout s = section(L("Claude a identifié"));
             text(s, "✨ " + detected, 17, true, R.color.vista_navy);
             TextView badge = text(s, confidenceLabel(confidence), 13, true, R.color.vista_navy);
             badge.setTextColor(confidenceColor(confidence));
             if (needsCheck) {
-                text(s, "⚠️ Confiance faible : vérifie le nom (et le produit) avant de valider.", 12, false, R.color.vista_coral);
+                text(s, L("⚠️ Confiance faible : vérifie le nom (et le produit) avant de valider."), 12, false, R.color.vista_coral);
                 verifiedBox = new MaterialCheckBox(this);
-                verifiedBox.setText("J'ai vérifié l'équipement");
+                verifiedBox.setText(L("J'ai vérifié l'équipement"));
                 verifiedBox.setOnCheckedChangeListener((b, c) -> invalidateOptionsMenu());
                 s.addView(verifiedBox);
             }
         } else {
-            LinearLayout s = section("Analyse");
-            text(s, "⚠️ " + (error != null ? error : "Équipement non reconnu"), 14, true, R.color.vista_coral);
-            text(s, requireExisting ? "Choisis le produit dans la liste ci-dessous."
-                    : "Tape le nom de l'équipement ou choisis un produit existant.", 12, false, R.color.vista_navy_muted);
+            LinearLayout s = section(L("Analyse"));
+            text(s, "⚠️ " + (error != null ? error : L("Équipement non reconnu")), 14, true, R.color.vista_coral);
+            text(s, requireExisting ? L("Choisis le produit dans la liste ci-dessous.")
+                    : L("Tape le nom de l'équipement ou choisis un produit existant."), 12, false, R.color.vista_navy_muted);
         }
 
         if (!requireExisting) {
-            LinearLayout n = section("Nom enregistré");
-            nameField = input(n, "ex: Souris Logitech MX Master 3S", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+            LinearLayout n = section(L("Nom enregistré"));
+            nameField = input(n, L("ex: Souris Logitech MX Master 3S"), InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
             nameField.setText(detected != null ? detected : "");
             nameField.addTextChangedListener(watcher(() -> {
                 if (!settingName && selected != null && !selected.getName().equals(String.valueOf(nameField.getText()))) {
@@ -102,15 +103,15 @@ public class ConfirmAssetActivity extends SimpleScreenActivity {
                 invalidateOptionsMenu();
             }));
 
-            LinearLayout sn = section("Numéro de série");
-            serialField = input(sn, "Numéro de série (S/N)", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+            LinearLayout sn = section(L("Numéro de série"));
+            serialField = input(sn, L("Numéro de série (S/N)"), InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
             serialField.setText(serial != null ? serial : "");
-            text(sn, serial != null ? "🧠 Lu par Claude sur la photo — corrige-le si besoin. Il sera envoyé à Jira Assets."
-                    : "Optionnel : il sera aussi recherché sur l'étiquette du carton.", 11, false, R.color.vista_navy_muted);
+            text(sn, serial != null ? L("🧠 Lu par Claude sur la photo — corrige-le si besoin. Il sera envoyé à Jira Assets.")
+                    : L("Optionnel : il sera aussi recherché sur l'étiquette du carton."), 11, false, R.color.vista_navy_muted);
         }
 
-        LinearLayout pl = section(requireExisting ? "Produit à sortir" : "Ou rattacher à un produit existant");
-        searchField = input(pl, "Rechercher dans le stock…", InputType.TYPE_CLASS_TEXT);
+        LinearLayout pl = section(requireExisting ? L("Produit à sortir") : L("Ou rattacher à un produit existant"));
+        searchField = input(pl, L("Rechercher dans le stock…"), InputType.TYPE_CLASS_TEXT);
         searchField.addTextChangedListener(watcher(this::renderList));
         listBox = new LinearLayout(this);
         listBox.setOrientation(LinearLayout.VERTICAL);
@@ -179,15 +180,15 @@ public class ConfirmAssetActivity extends SimpleScreenActivity {
             if (requireExisting && p.getQuantity() <= 0) continue;
             if (shown++ >= 30) break;
             RadioButton rb = new RadioButton(this);
-            String label = p.getName() + "\nStock : " + p.getQuantity()
-                    + (suggestedId != null && suggestedId == p.getId() ? "   ·   ✨ Suggéré" : "");
+            String label = p.getName() + "\n" + L("Stock : %d", p.getQuantity())
+                    + (suggestedId != null && suggestedId == p.getId() ? "   ·   ✨ " + L("Suggéré") : "");
             rb.setText(label);
             rb.setChecked(selected != null && selected.getId() == p.getId());
             rb.setPadding(dp(4), dp(8), 0, dp(8));
             rb.setOnClickListener(v -> { select(p); renderList(); });
             listBox.addView(rb);
         }
-        if (shown == 0) text(listBox, "Aucun produit", 13, false, R.color.vista_navy_muted);
+        if (shown == 0) text(listBox, L("Aucun produit"), 13, false, R.color.vista_navy_muted);
     }
 
     private boolean canValidate() {
@@ -198,7 +199,7 @@ public class ConfirmAssetActivity extends SimpleScreenActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(0, 1, 0, "Valider").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        menu.add(0, 1, 0, L("Valider")).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         return true;
     }
 
@@ -240,10 +241,10 @@ public class ConfirmAssetActivity extends SimpleScreenActivity {
     }
 
     static String confidenceLabel(int c) {
-        if (c < 0) return "Confiance : inconnue";
-        if (c >= 85) return "Confiance élevée · " + c + " %";
-        if (c >= 60) return "Confiance moyenne · " + c + " %";
-        return "Confiance faible · " + c + " %";
+        if (c < 0) return L("Confiance : inconnue");
+        if (c >= 85) return L("Confiance élevée · %@ %%", c);
+        if (c >= 60) return L("Confiance moyenne · %@ %%", c);
+        return L("Confiance faible · %@ %%", c);
     }
 
     private int confidenceColor(int c) {

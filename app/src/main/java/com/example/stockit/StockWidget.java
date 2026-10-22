@@ -49,7 +49,7 @@ public class StockWidget extends AppWidgetProvider {
             for (int id : ids) {
                 RemoteViews v = new RemoteViews(app.getPackageName(), R.layout.stock_widget);
                 v.setTextViewText(R.id.widgetStockText, String.valueOf(total));
-                v.setTextViewText(R.id.widgetTitle, "STOCKIT · " + low + " bas · " + out + " rupture");
+                v.setTextViewText(R.id.widgetTitle, "STOCKIT · " + com.example.stockit.util.AppLanguage.L("%@ bas · %@ rupture", low, out));
 
                 Intent refresh = new Intent(app, StockWidget.class).setAction(ACTION_REFRESH);
                 v.setOnClickPendingIntent(R.id.widgetBtnRefresh, PendingIntent.getBroadcast(app, 0, refresh,

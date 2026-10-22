@@ -9,7 +9,7 @@
         android:id="@+id/detailName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Nom du Produit"
+        android:text="@string/product_name_placeholder"
         android:textSize="22sp"
         android:textStyle="bold"
         android:textColor="#000000" />
@@ -18,7 +18,7 @@
         android:id="@+id/detailStock"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Stock actuel"
+        android:text="@string/product_details_current_stock"
         android:textSize="16sp"
         android:layout_marginTop="8dp" />
 
@@ -26,7 +26,7 @@
         android:id="@+id/detailKit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="⚠️ KIT SANS OUBLI"
+        android:text="@string/product_details_kit"
         android:textColor="#D35400"
         android:background="#FEF5E7"
         android:padding="8dp"
@@ -44,20 +44,20 @@
         android:id="@+id/btnDetailChrono"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="FRISE CHRONOLOGIQUE" />
+        android:text="@string/product_details_btn_timeline" />
 
     <Button
         android:id="@+id/btnDetailZycus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="COMMANDE ZYCUS" />
+        android:text="@string/product_details_btn_zycus" />
 
     <Button
         android:id="@+id/btnDetailAlert"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="ALERTE N8N / SLACK" />
+        android:text="@string/product_details_btn_n8n_alert" />
 
 </LinearLayout>

@@ -124,8 +124,8 @@ public final class Auth0Manager {
             com.auth0.android.authentication.storage.LocalAuthenticationOptions opts =
                     new com.auth0.android.authentication.storage.LocalAuthenticationOptions.Builder()
                             .setTitle(activity.getString(R.string.app_name))
-                            .setDescription("Confirmez votre identité pour accéder à StockIT")
-                            .setNegativeButtonText("Annuler")
+                            .setDescription(AppLanguage.L("Confirmez votre identité pour accéder à StockIT"))
+                            .setNegativeButtonText(AppLanguage.L("Annuler"))
                             .setDeviceCredentialFallback(true)
                             .build();
             credentialsManager = new SecureCredentialsManager(
@@ -218,7 +218,7 @@ public final class Auth0Manager {
      */
     public void signIn(@NonNull Activity activity, @NonNull SignInCallback callback) {
         if (account == null || credentialsManager == null) {
-            callback.onError("Auth0 non configuré : renseignez com_auth0_domain et com_auth0_client_id.");
+            callback.onError(AppLanguage.L("Auth0 non configuré : renseignez com_auth0_domain et com_auth0_client_id."));
             return;
         }
 
@@ -259,7 +259,7 @@ public final class Auth0Manager {
                         String msg = error.getMessage();
                         if (TextUtils.isEmpty(msg)) msg = error.getDescription();
                         Log.e(TAG, "Login Auth0 échoué : " + msg, error);
-                        callback.onError(msg != null ? msg : "Erreur Auth0 inconnue.");
+                        callback.onError(msg != null ? msg : AppLanguage.L("Erreur Auth0 inconnue."));
                     }
                 });
     }

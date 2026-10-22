@@ -67,15 +67,15 @@ public final class PackageLabelParser {
 
         new Thread(() -> {
             try {
-                if (progress != null) progress.onStep("[1/2] OCR MLKit sur l'étiquette…");
+                if (progress != null) progress.onStep(AppLanguage.L("[1/2] OCR MLKit sur l'étiquette…"));
                 String ocr = runOcr(photo);
                 if (ocr == null || ocr.trim().isEmpty()) {
-                    cb.onParsed(errorLabel("OCR vide — texte non détecté sur l'étiquette"));
+                    cb.onParsed(errorLabel(AppLanguage.L("OCR vide — texte non détecté sur l'étiquette")));
                     return;
                 }
                 Log.i(TAG, "OCR chars=" + ocr.length() + " preview=" + preview(ocr, 200));
 
-                if (progress != null) progress.onStep("[2/2] Claude Opus 4 via Cimpress (" + ocr.length() + " chars)…");
+                if (progress != null) progress.onStep(AppLanguage.L("[2/2] Claude Opus 4 via Cimpress (%@ chars)…", ocr.length()));
                 Label lbl = extractViaClaude(ocr);
                 lbl.rawOcr = ocr;
                 try {
@@ -85,7 +85,7 @@ public final class PackageLabelParser {
                 cb.onParsed(lbl);
             } catch (Throwable t) {
                 Log.e(TAG, "parser crash", t);
-                cb.onParsed(errorLabel("Crash parser : " + t.getClass().getSimpleName() + " — " + t.getMessage()));
+                cb.onParsed(errorLabel(AppLanguage.L("Crash parser : %@ — %@", t.getClass().getSimpleName(), t.getMessage())));
             }
         }, "package-label-parser").start();
     }

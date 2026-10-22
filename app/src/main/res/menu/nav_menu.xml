@@ -15,11 +15,11 @@
         <item
             android:id="@+id/nav_categories"
             android:icon="@android:drawable/ic_menu_sort_alphabetically"
-            android:title="Catégories" />
+            android:title="@string/menu_nav_categories" />
         <item
             android:id="@+id/nav_batch_scan"
             android:icon="@android:drawable/ic_menu_camera"
-            android:title="Scan en rafale (codes-barres)" />
+            android:title="@string/menu_nav_batch_scan" />
         <item
             android:id="@+id/nav_fournisseur"
             android:icon="@android:drawable/ic_menu_myplaces"
@@ -46,19 +46,19 @@
         <item
             android:id="@+id/nav_ai_chat"
             android:icon="@android:drawable/ic_menu_help"
-            android:title="Assistant IA" />
+            android:title="@string/dash_ai_assistant" />
         <item
             android:id="@+id/nav_forecast"
             android:icon="@android:drawable/ic_menu_today"
-            android:title="Prévision des besoins (IA)" />
+            android:title="@string/menu_nav_forecast" />
         <item
             android:id="@+id/nav_ai_quality"
             android:icon="@android:drawable/ic_menu_view"
-            android:title="Qualité de l'IA" />
+            android:title="@string/menu_nav_ai_quality" />
         <item
             android:id="@+id/nav_leaderboard"
             android:icon="@android:drawable/btn_star_big_on"
-            android:title="Classement / Leaderboard" />
+            android:title="@string/menu_nav_leaderboard" />
         <item
             android:id="@+id/nav_audit"
             android:icon="@android:drawable/ic_menu_info_details"
@@ -77,7 +77,7 @@
         <item
             android:id="@+id/nav_import_pdf"
             android:icon="@android:drawable/ic_menu_add"
-            android:title="Rapport mensuel IA (PDF)" />
+            android:title="@string/menu_nav_monthly_report" />
     </group>
 
     <group android:id="@+id/nav_group_settings" android:checkableBehavior="single">

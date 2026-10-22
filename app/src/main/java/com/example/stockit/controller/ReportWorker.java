@@ -62,8 +62,8 @@ public class ReportWorker extends Worker {
                     if (success) {
                         Log.d("ReportWorker", "Rapport envoyé via webhook : " + bodyOrError);
                         NotificationHelper.showNotification(getApplicationContext(),
-                                "Rapport envoyé !",
-                                "Le rapport a été transmis au workflow StockIT.",
+                                com.example.stockit.util.AppLanguage.L("Rapport envoyé !"),
+                                com.example.stockit.util.AppLanguage.L("Le rapport a été transmis au workflow StockIT."),
                                 777);
                     } else {
                         Log.e("ReportWorker", "Webhook KO : " + bodyOrError);

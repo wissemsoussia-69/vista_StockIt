@@ -35,6 +35,10 @@ public class StockItApp extends Application {
         } catch (Throwable t) {
             android.util.Log.e("StockItApp", "Init module partagé KO", t);
         }
+        // Langue choisie dans Paramètres (FR / EN), indépendante du téléphone — identique iOS.
+        com.example.stockit.util.AppLanguage.apply(this);
+        // Verrouillage en arrière-plan, synchro Assets au retour, bandeau mode test — identique iOS.
+        com.example.stockit.util.AppSession.install(this);
 
         try {
             PeriodicWorkRequest daily = new PeriodicWorkRequest.Builder(ReportWorker.class, 1, TimeUnit.DAYS)

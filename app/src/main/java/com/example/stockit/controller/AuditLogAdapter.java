@@ -39,7 +39,7 @@ public class AuditLogAdapter extends RecyclerView.Adapter<AuditLogAdapter.ViewHo
         AuditLog log = logs.get(position);
         Context ctx = holder.itemView.getContext();
         
-        holder.action.setText(log.getAction());
+        holder.action.setText(com.example.stockit.util.AppLanguage.LV(log.getAction()));
         holder.details.setText(log.getDetails());
         holder.user.setText(ctx.getString(R.string.mov_label_user, log.getUserId()));
         holder.date.setText(dateFormat.format(new Date(log.getTimestamp())));

@@ -28,6 +28,8 @@ import java.util.concurrent.ExecutionException;
 
 public class BatchScanActivity extends AppCompatActivity {
 
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
+
     private PreviewView viewFinder;
     private BarcodeOverlay barcodeOverlay;
     private TextView txtCount;
@@ -63,7 +65,7 @@ public class BatchScanActivity extends AppCompatActivity {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
                 bindPreview(cameraProvider);
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Erreur Caméra: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, L("Erreur caméra : %@", e.getMessage()), Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -92,7 +94,7 @@ public class BatchScanActivity extends AppCompatActivity {
                             }
                         }
                         barcodeOverlay.updateRects(rects);
-                        txtCount.setText("Codes détectés : " + detectedCodes.size());
+                        txtCount.setText(L("Codes détectés : %@", detectedCodes.size()));
                     })
                     .addOnCompleteListener(task -> imageProxy.close());
         });

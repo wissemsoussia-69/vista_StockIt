@@ -27,11 +27,11 @@ public class TimelineAdapter extends RecyclerView.Adapter<TimelineAdapter.ViewHo
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         StockMovement m = movements.get(position);
         holder.date.setText(m.getDate());
-        holder.title.setText(m.getReason());
-        holder.user.setText("Par " + (m.getUserName() != null ? m.getUserName() : "Inconnu"));
+        holder.title.setText(com.example.stockit.util.AppLanguage.LV(m.getReason()));
+        holder.user.setText(com.example.stockit.util.AppLanguage.L("Par %@", m.getUserName() != null ? m.getUserName() : com.example.stockit.util.AppLanguage.L("Inconnu")));
         
         if (m.getComment() != null && !m.getComment().isEmpty()) {
-            holder.comment.setText("Note : " + m.getComment());
+            holder.comment.setText(com.example.stockit.util.AppLanguage.L("Note : %@", m.getComment()));
             holder.comment.setVisibility(View.VISIBLE);
         } else {
             holder.comment.setVisibility(View.GONE);

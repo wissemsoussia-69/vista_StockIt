@@ -51,6 +51,8 @@ public class PackageLabelActivity extends AppCompatActivity {
     private static final String TAG = "PackageLabel";
     private static final int REQ_CAMERA = 6161;
 
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
+
     public static final String EXTRA_EXPECTED_PO      = "expected_po";
     public static final String EXTRA_PRODUCT_NAME     = "product_name";
     public static final String EXTRA_QUANTITY         = "quantity";
@@ -80,7 +82,7 @@ public class PackageLabelActivity extends AppCompatActivity {
 
         expectedPo = getIntent().getStringExtra(EXTRA_EXPECTED_PO);
         if (expectedPo != null) {
-            status.setText("🏷️ Étiquette du carton (PO attendu : " + expectedPo + ")");
+            status.setText(L("🏷️ Étiquette du carton (PO attendu : %@)", expectedPo));
         }
 
         btnCapture.setOnClickListener(v -> capture());
@@ -99,7 +101,7 @@ public class PackageLabelActivity extends AppCompatActivity {
         if (code == REQ_CAMERA && r.length > 0 && r[0] == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
-            Toast.makeText(this, "Permission caméra refusée", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, L("Permission caméra refusée"), Toast.LENGTH_SHORT).show();
             finish();
         }
     }
@@ -119,67 +121,66 @@ public class PackageLabelActivity extends AppCompatActivity {
                 provider.unbindAll();
                 provider.bindToLifecycle(this, sel, p, imageCapture);
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Erreur caméra : " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, L("Erreur caméra : %@", e.getMessage()), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
     private void capture() {
         if (imageCapture == null) return;
-        setBusy(true, "📸 Capture…");
+        setBusy(true, L("📸 Capture…"));
         imageCapture.takePicture(ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageCapturedCallback() {
                     @Override public void onCaptureSuccess(@NonNull ImageProxy image) {
                         Bitmap bmp = toBitmap(image);
                         image.close();
-                        if (bmp == null) { setBusy(false, "❌ Décodage image échoué"); return; }
+                        if (bmp == null) { setBusy(false, L("❌ Décodage image échoué")); return; }
                         parse(bmp);
                     }
                     @Override public void onError(@NonNull ImageCaptureException e) {
-                        setBusy(false, "❌ Capture : " + e.getMessage());
+                        setBusy(false, L("❌ Capture : %@", e.getMessage()));
                     }
                 });
     }
 
     private void parse(Bitmap bmp) {
-        setBusy(true, "🧠 OCR MLKit sur l'étiquette…");
+        setBusy(true, L("🧠 OCR MLKit sur l'étiquette…"));
         try {
             PackageLabelParser.parse(bmp,
                     lbl -> runOnUiThread(() -> {
                         try {
                             setBusy(false, null);
-                            if (lbl == null) { showError("Callback null"); return; }
+                            if (lbl == null) { showError(L("Callback null")); return; }
                             if (lbl.error != null) {
                                 String extra = lbl.rawOcr != null && !lbl.rawOcr.isEmpty()
-                                        ? "\n\n— OCR extrait —\n" + trim(lbl.rawOcr, 500) : "";
-                                showError("Extraction IA impossible.\nErreur : " + lbl.error + extra);
+                                        ? L("\n\n— OCR extrait —\n") + trim(lbl.rawOcr, 500) : "";
+                                showError(L("Extraction IA impossible.\nErreur : %@", lbl.error) + extra);
                                 return;
                             }
                             confirmAndReturn(lbl);
                         } catch (Throwable t) {
                             Log.e(TAG, "post-parse crash", t);
-                            showError("Crash post-parse : " + t.getClass().getSimpleName() + " — " + t.getMessage());
+                            showError(L("Crash post-parse : %@ — %@", t.getClass().getSimpleName(), t.getMessage()));
                         }
                     }),
-                    step -> runOnUiThread(() -> setBusy(true, "⏳ " + step))
+                    step -> runOnUiThread(() -> setBusy(true, L("⏳ %@", step)))
             );
         } catch (Throwable t) {
             Log.e(TAG, "parse crash", t);
             setBusy(false, null);
-            showError("Crash parse : " + t.getMessage());
+            showError(L("Crash parse : %@", t.getMessage()));
         }
     }
 
     private void confirmAndReturn(final PackageLabelParser.Label lbl) {
         // Récap dialog
         StringBuilder msg = new StringBuilder();
-        msg.append("• Produit : ").append(lbl.productName == null ? "?" : lbl.productName).append("\n");
-        msg.append("• Quantité : ").append(lbl.quantity).append("\n");
-        if (lbl.brand != null)         msg.append("• Marque : ").append(lbl.brand).append("\n");
-        if (lbl.articleNumber != null) msg.append("• Art.-No. : ").append(lbl.articleNumber).append("\n");
-        if (lbl.poOnLabel != null)     msg.append("• PO étiquette : ").append(lbl.poOnLabel).append("\n");
+        msg.append(L("• Produit : %@\n• Quantité : %@", lbl.productName == null ? "?" : lbl.productName, lbl.quantity)).append("\n");
+        if (lbl.brand != null)         msg.append(L("• Marque : %@", lbl.brand)).append("\n");
+        if (lbl.articleNumber != null) msg.append(L("• Art.-No. : %@", lbl.articleNumber)).append("\n");
+        if (lbl.poOnLabel != null)     msg.append(L("• PO étiquette : %@", lbl.poOnLabel)).append("\n");
         if (lbl.serials != null && !lbl.serials.isEmpty()) {
-            msg.append("• N° de série : ").append(android.text.TextUtils.join(", ",
+            msg.append(L("• N° de série : ")).append(android.text.TextUtils.join(", ",
                     lbl.serials.subList(0, Math.min(5, lbl.serials.size()))));
             if (lbl.serials.size() > 5) msg.append(" (+").append(lbl.serials.size() - 5).append(")");
             msg.append("\n");
@@ -192,19 +193,17 @@ public class PackageLabelActivity extends AppCompatActivity {
 
         if (mismatch) {
             new AlertDialog.Builder(this)
-                    .setTitle("⚠️ PO facture ≠ PO étiquette")
-                    .setMessage(msg + "\n\nAttendu (facture) : " + expectedPo
-                            + "\nDétecté (étiquette) : " + lbl.poOnLabel
-                            + "\n\nContinuer quand même ?")
-                    .setPositiveButton("Oui, valider", (d, w) -> returnResult(lbl))
-                    .setNegativeButton("Non, re-scanner", null)
+                    .setTitle(L("⚠️ PO facture ≠ PO étiquette"))
+                    .setMessage(msg + L("\n\nAttendu (facture) : %@\nDétecté (étiquette) : %@\n\nContinuer quand même ?", expectedPo, lbl.poOnLabel))
+                    .setPositiveButton(L("Oui, valider"), (d, w) -> returnResult(lbl))
+                    .setNegativeButton(L("Non, re-scanner"), null)
                     .show();
         } else {
             new AlertDialog.Builder(this)
-                    .setTitle("🏷️ Étiquette lue")
+                    .setTitle(L("🏷️ Étiquette lue"))
                     .setMessage(msg)
-                    .setPositiveButton("✅ Utiliser", (d, w) -> returnResult(lbl))
-                    .setNegativeButton("Re-scanner", null)
+                    .setPositiveButton(L("✅ Utiliser"), (d, w) -> returnResult(lbl))
+                    .setNegativeButton(L("Re-scanner"), null)
                     .show();
         }
     }
@@ -230,7 +229,7 @@ public class PackageLabelActivity extends AppCompatActivity {
 
     private void showError(String msg) {
         new AlertDialog.Builder(this)
-                .setTitle("❌ Étiquette carton")
+                .setTitle(L("❌ Étiquette carton"))
                 .setMessage(msg)
                 .setPositiveButton("OK", null)
                 .show();

@@ -17,6 +17,8 @@ public final class KitAntiOubliDialog {
 
     private KitAntiOubliDialog() {}
 
+    private static String L(String key, Object... args) { return AppLanguage.L(key, args); }
+
     public interface OnKitValidated {
         void onValidated(boolean cablePower, boolean cableHdmi);
     }
@@ -30,10 +32,10 @@ public final class KitAntiOubliDialog {
 
     public static void show(final Context ctx, final String assetName, final OnKitValidated cb) {
         final CheckBox cbPower = new CheckBox(ctx);
-        cbPower.setText("Câble d'alimentation");
+        cbPower.setText(L("Câble d'alimentation"));
 
         final CheckBox cbHdmi = new CheckBox(ctx);
-        cbHdmi.setText("Câble HDMI");
+        cbHdmi.setText(L("Câble HDMI"));
 
         LinearLayout layout = new LinearLayout(ctx);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -43,16 +45,14 @@ public final class KitAntiOubliDialog {
         layout.addView(cbHdmi);
 
         final AlertDialog dialog = new AlertDialog.Builder(ctx)
-                .setTitle("Kit Anti-Oubli — " + assetName)
-                .setMessage("Cochez les dépendances effectivement présentes.\n"
-                          + "• Kit COMPLET → ajout normal au stock.\n"
-                          + "• Kit INCOMPLET → alerte Slack + ticket Jira automatique.")
+                .setTitle(L("Kit Anti-Oubli — %@", assetName))
+                .setMessage(L("Cochez les dépendances effectivement présentes.\n• Kit COMPLET → ajout normal au stock.\n• Kit INCOMPLET → alerte Slack + ticket Jira automatique."))
                 .setView(layout)
                 .setCancelable(false)
-                .setPositiveButton("Valider", (d, w) -> {
+                .setPositiveButton(L("Valider"), (d, w) -> {
                     if (cb != null) cb.onValidated(cbPower.isChecked(), cbHdmi.isChecked());
                 })
-                .setNegativeButton("Annuler", (d, w) -> d.dismiss())
+                .setNegativeButton(L("Annuler"), (d, w) -> d.dismiss())
                 .create();
 
         dialog.show();

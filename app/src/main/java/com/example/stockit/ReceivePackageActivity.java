@@ -54,6 +54,8 @@ public class ReceivePackageActivity extends AppCompatActivity {
     private static final int REQ_CAMERA = 5151;
     private static final int REQ_PO_SELECT = 5152;
 
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
+
     /** Si présent, active le mode "sélection pour équipement" (renvoie via setResult). */
     public static final String EXTRA_EQUIPMENT_NAME = "equipment_name";
 
@@ -83,9 +85,9 @@ public class ReceivePackageActivity extends AppCompatActivity {
         equipmentName = getIntent().getStringExtra(EXTRA_EQUIPMENT_NAME);
 
         if (equipmentName != null) {
-            status.setText("📄 Facture pour \"" + equipmentName + "\" — cadre puis capture.");
+            status.setText(L("📄 Facture pour \"%@\" — cadre puis capture.", equipmentName));
         } else {
-            status.setText("📄 Cadre le bon de livraison puis capture.");
+            status.setText(L("📄 Cadre le bon de livraison puis capture."));
         }
 
         btnCapture.setOnClickListener(v -> capture());
@@ -107,7 +109,7 @@ public class ReceivePackageActivity extends AppCompatActivity {
         if (code == REQ_CAMERA && r.length > 0 && r[0] == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
-            Toast.makeText(this, "Permission caméra refusée", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, L("Permission caméra refusée"), Toast.LENGTH_SHORT).show();
             finish();
         }
     }
@@ -130,43 +132,43 @@ public class ReceivePackageActivity extends AppCompatActivity {
                 provider.unbindAll();
                 provider.bindToLifecycle(this, sel, p, imageCapture);
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Erreur caméra : " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, L("Erreur caméra : %@", e.getMessage()), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
     private void capture() {
         if (imageCapture == null) return;
-        setBusy(true, "📸 Capture…");
+        setBusy(true, L("📸 Capture…"));
         imageCapture.takePicture(ContextCompat.getMainExecutor(this),
                 new ImageCapture.OnImageCapturedCallback() {
                     @Override public void onCaptureSuccess(@NonNull ImageProxy image) {
                         Bitmap bmp = toBitmap(image);
                         image.close();
                         if (bmp == null) {
-                            setBusy(false, "❌ Décodage image échoué"); return;
+                            setBusy(false, L("❌ Décodage image échoué")); return;
                         }
                         parse(bmp);
                     }
                     @Override public void onError(@NonNull ImageCaptureException e) {
-                        setBusy(false, "❌ Capture : " + e.getMessage());
+                        setBusy(false, L("❌ Capture : %@", e.getMessage()));
                     }
                 });
     }
 
     private void parse(Bitmap bmp) {
-        setBusy(true, "🧠 [1/3] OCR MLKit local en cours…");
+        setBusy(true, L("🧠 [1/3] OCR MLKit local en cours…"));
         try {
             DeliveryNoteParser.parse(bmp,
                     note -> runOnUiThread(() -> {
                         try {
                             setBusy(false, null);
-                            if (note == null) { showError("Callback null (parser silencieux)"); return; }
+                            if (note == null) { showError(L("Callback null (parser silencieux)")); return; }
                             if (note.error != null) {
                                 String extra = note.rawOcr != null && !note.rawOcr.isEmpty()
-                                        ? "\n\n— Texte OCR extrait —\n" + trim(note.rawOcr, 600)
+                                        ? L("\n\n— Texte OCR extrait —\n") + trim(note.rawOcr, 600)
                                         : "";
-                                showError("Extraction IA impossible.\nErreur : " + note.error + extra);
+                                showError(L("Extraction IA impossible.\nErreur : %@", note.error) + extra);
                                 return;
                             }
                             Log.i(TAG, "Extraction OK — supplier=" + note.supplier
@@ -178,15 +180,15 @@ public class ReceivePackageActivity extends AppCompatActivity {
                             }
                         } catch (Throwable t) {
                             Log.e(TAG, "Post-parse crash", t);
-                            showError("Crash post-parse : " + t.getClass().getSimpleName() + " — " + t.getMessage());
+                            showError(L("Crash post-parse : %@ — %@", t.getClass().getSimpleName(), t.getMessage()));
                         }
                     }),
-                    step -> runOnUiThread(() -> setBusy(true, "⏳ " + step))
+                    step -> runOnUiThread(() -> setBusy(true, L("⏳ %@", step)))
             );
         } catch (Throwable t) {
             Log.e(TAG, "parse() crash", t);
             setBusy(false, null);
-            showError("Crash parse() : " + t.getClass().getSimpleName() + " — " + t.getMessage());
+            showError(L("Crash parse() : %@ — %@", t.getClass().getSimpleName(), t.getMessage()));
         }
     }
 
@@ -211,9 +213,8 @@ public class ReceivePackageActivity extends AppCompatActivity {
     private void showClassicResult(final DeliveryNoteParser.ParsedNote note) {
         if (note.purchaseOrders.isEmpty()) {
             new AlertDialog.Builder(this)
-                    .setTitle("❌ Aucun PO détecté")
-                    .setMessage("La facture ne contient pas de numéro de PO exploitable.\n\n"
-                            + "— OCR —\n" + trim(note.rawOcr, 500))
+                    .setTitle(L("❌ Aucun PO détecté"))
+                    .setMessage(L("La facture ne contient pas de numéro de PO exploitable.\n\n— OCR —\n") + trim(note.rawOcr, 500))
                     .setPositiveButton("OK", null)
                     .show();
             return;
@@ -221,24 +222,23 @@ public class ReceivePackageActivity extends AppCompatActivity {
         // On matche chaque PO extrait contre la base et affiche un résumé
         controller.getPurchaseOrders(orders -> {
             StringBuilder msg = new StringBuilder();
-            msg.append("Fournisseur : ").append(note.supplier == null ? "?" : note.supplier).append("\n\n");
-            msg.append(note.purchaseOrders.size()).append(" PO détectés :\n\n");
+            msg.append(L("Fournisseur : %@\n\n%@ PO détectés :\n\n", note.supplier == null ? "?" : note.supplier, note.purchaseOrders.size()));
             PurchaseOrder firstMatch = null;
             for (DeliveryNoteParser.POBlock po : note.purchaseOrders) {
                 PurchaseOrder matched = matchDb(orders, po);
                 msg.append("• ").append(po.number)
-                   .append(matched != null ? " ✅ en base" : " ❓ inconnu")
-                   .append("\n    ").append(po.description == null ? "(pas de desc)" : po.description).append("\n");
+                   .append(" ").append(matched != null ? L("✅ en base") : L("❓ inconnu"))
+                   .append("\n    ").append(po.description == null ? L("(pas de desc)") : po.description).append("\n");
                 if (firstMatch == null) firstMatch = matched;
             }
             final PurchaseOrder toValidate = firstMatch;
             AlertDialog.Builder b = new AlertDialog.Builder(this)
-                    .setTitle("📄 Résultat facture")
+                    .setTitle(L("📄 Résultat facture"))
                     .setMessage(msg.toString());
             if (toValidate != null && !"Reçu".equalsIgnoreCase(toValidate.getStatus())) {
-                b.setPositiveButton("✅ Valider PO#" + toValidate.getId(), (d, w) -> validate(toValidate, note));
+                b.setPositiveButton(L("✅ Valider PO#%@", toValidate.getId()), (d, w) -> validate(toValidate, note));
             }
-            b.setNegativeButton("Fermer", null);
+            b.setNegativeButton(L("Fermer"), null);
             b.show();
         });
     }
@@ -258,7 +258,7 @@ public class ReceivePackageActivity extends AppCompatActivity {
             String label = "PO#" + po.getId() + " — " + po.getProductName() + " x" + po.getQuantity();
             SlackNotifier.send(":white_check_mark: [StockIT] Reception validee par OCR : " + label
                     + " (fournisseur " + po.getSupplier() + ")");
-            NotificationHelper.showNotification(this, "StockIT — Reception validee",
+            NotificationHelper.showNotification(this, L("StockIT — Reception validee"),
                     label, (int) System.currentTimeMillis());
             com.example.stockit.util.StockItReporter.sendEvent(this,
                     "Réception PO#" + po.getId() + " validée",
@@ -279,8 +279,8 @@ public class ReceivePackageActivity extends AppCompatActivity {
                     (ok, res) -> Log.i(TAG, "Jira log ticket -> ok=" + ok + " res=" + res));
 
             new AlertDialog.Builder(this)
-                    .setTitle("🟢 Réception enregistrée")
-                    .setMessage(label + "\n\nStatut passé à \"Reçu\".")
+                    .setTitle(L("🟢 Réception enregistrée"))
+                    .setMessage(label + L("\n\nStatut passé à \"Reçu\"."))
                     .setPositiveButton("OK", (d, w) -> { d.dismiss(); finish(); })
                     .show();
         }));
@@ -288,7 +288,7 @@ public class ReceivePackageActivity extends AppCompatActivity {
 
     private void showError(String msg) {
         new AlertDialog.Builder(this)
-                .setTitle("❌ Réception colis")
+                .setTitle(L("❌ Réception colis"))
                 .setMessage(msg)
                 .setPositiveButton("OK", null)
                 .show();

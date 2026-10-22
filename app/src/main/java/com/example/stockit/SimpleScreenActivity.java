@@ -37,7 +37,7 @@ public abstract class SimpleScreenActivity extends AppCompatActivity {
         Toolbar tb = new Toolbar(this);
         tb.setBackgroundColor(ContextCompat.getColor(this, R.color.vista_navy));
         tb.setTitleTextColor(0xFFFFFFFF);
-        tb.setTitle(screenTitle());
+        tb.setTitle(L(screenTitle()));
         root.addView(tb, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)));
         setSupportActionBar(tb);
         if (getSupportActionBar() != null) getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -58,6 +58,11 @@ public abstract class SimpleScreenActivity extends AppCompatActivity {
         return true;
     }
 
+    /** Texte traduit dans la langue de l'app (mêmes clés que l'app iOS). */
+    protected static String L(String key, Object... args) {
+        return com.example.stockit.util.AppLanguage.L(key, args);
+    }
+
     protected int dp(int v) {
         return (int) (v * getResources().getDisplayMetrics().density + 0.5f);
     }
@@ -65,7 +70,7 @@ public abstract class SimpleScreenActivity extends AppCompatActivity {
     /** Nouvelle section (titre + carte) ; retourne le conteneur de la carte. */
     protected LinearLayout section(String title) {
         TextView t = new TextView(this);
-        t.setText(title.toUpperCase());
+        t.setText(L(title).toUpperCase(com.example.stockit.util.AppLanguage.locale()));
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setTextColor(ContextCompat.getColor(this, R.color.vista_navy_muted));
@@ -85,7 +90,7 @@ public abstract class SimpleScreenActivity extends AppCompatActivity {
 
     protected TextView text(LinearLayout parent, String s, int sp, boolean bold, int colorRes) {
         TextView t = new TextView(this);
-        t.setText(s);
+        t.setText(L(s));
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
         if (bold) t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setTextColor(ContextCompat.getColor(this, colorRes));
@@ -100,12 +105,12 @@ public abstract class SimpleScreenActivity extends AppCompatActivity {
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setPadding(0, dp(6), 0, dp(6));
         TextView l = new TextView(this);
-        l.setText(label);
+        l.setText(L(label));
         l.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         l.setTextColor(ContextCompat.getColor(this, R.color.vista_navy));
         r.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         TextView v = new TextView(this);
-        v.setText(value);
+        v.setText(L(value));
         v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         v.setTypeface(Typeface.DEFAULT_BOLD);
         v.setTextColor(valueColor);

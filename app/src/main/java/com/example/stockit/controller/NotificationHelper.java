@@ -16,8 +16,8 @@ public class NotificationHelper {
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT);
-            channel.setDescription(CHANNEL_DESC);
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, com.example.stockit.util.AppLanguage.L(CHANNEL_NAME), NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription(com.example.stockit.util.AppLanguage.L(CHANNEL_DESC));
             notificationManager.createNotificationChannel(channel);
         }
 

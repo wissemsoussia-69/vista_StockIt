@@ -125,14 +125,18 @@ public class MainController {
 
             // 3) Rien de disponible → cause lisible
             String why = "cimpress_not_configured".equals(r.error)
-                    ? "IA non configurée : renseignez CIMPRESS_GATEWAY_KEY et GATEWAY_URL dans .env.sh / set_env.ps1, puis recompilez."
-                    : "Claude (Cimpress) indisponible : " + r.error;
+                    ? L("IA non configurée : renseignez CIMPRESS_GATEWAY_KEY et GATEWAY_URL dans .env.sh / set_env.ps1, puis recompilez.")
+                    : L("Claude (Cimpress) indisponible : %@", r.error);
             String offline = offlineAnswer(question);
             mainHandler.post(() -> callback.onResponse(offline + "\n\n(" + why + ")"));
         });
     }
 
     private String str(int resId) { return context.getString(resId); }
+
+    private static String L(String key, Object... args) {
+        return com.example.stockit.util.AppLanguage.L(key, args);
+    }
 
     /** Réponse locale à partir du stock réel quand l'IA est indisponible (identique iOS OfflineAI). */
     private String offlineAnswer(String question) {
@@ -148,7 +152,7 @@ public class MainController {
                     total, low, value, out, new java.util.ArrayList<>());
             return com.example.stockit.shared.ai.OfflineAI.INSTANCE.answer(question, ps, rd, new java.util.ArrayList<>());
         } catch (Throwable t) {
-            return "Désolé, l'assistant IA ne répond pas.";
+            return L("Désolé, l'assistant IA ne répond pas.");
         }
     }
 
@@ -203,8 +207,8 @@ public class MainController {
                 mainHandler.post(() -> callback.onResponse(com.example.stockit.util.CimpressChat.plainText(resultText)));
             } catch (Exception e) {
                 android.util.Log.e("MainController", "Gemini SDK Error", e);
-                mainHandler.post(() -> callback.onResponse("Désolé, l'assistant IA ne répond pas.\n\nClaude : "
-                        + cimpressError + "\nGemini : " + e.getMessage()));
+                mainHandler.post(() -> callback.onResponse(L("Désolé, l'assistant IA ne répond pas.\n\nClaude : %@\nGemini : %@",
+                        cimpressError, e.getMessage())));
             }
         }, executor);
     }
@@ -372,8 +376,8 @@ public class MainController {
     /** Message "Permission refusée" (même texte qu'iOS) affiché sur le thread principal. */
     private boolean denied(boolean adminOnly) {
         final String msg = adminOnly
-                ? "Permission refusée : rôle ADMIN requis"
-                : "Permission refusée : rôle ADMIN ou MANAGER requis";
+                ? L("Permission refusée : rôle ADMIN requis")
+                : L("Permission refusée : rôle ADMIN ou MANAGER requis");
         mainHandler.post(() -> android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show());
         return true;
     }
@@ -436,7 +440,7 @@ public class MainController {
         if (!isAdmin() && denied(true)) return;
         if (currentUser != null && currentUser.getUsername() != null
                 && currentUser.getUsername().equalsIgnoreCase(user.getUsername())) {
-            mainHandler.post(() -> android.widget.Toast.makeText(context, "Impossible de supprimer votre propre compte", android.widget.Toast.LENGTH_LONG).show());
+            mainHandler.post(() -> android.widget.Toast.makeText(context, L("Impossible de supprimer votre propre compte"), android.widget.Toast.LENGTH_LONG).show());
             return;
         }
         executor.execute(() -> {
@@ -480,6 +484,19 @@ public class MainController {
                            String poNumber, String poDescription, String receivedFrom,
                            String articleNumber, String brand, String packagePoNumber,
                            Runnable onComplete) {
+        addProduct(name, category, categoryId, description, assetTag, quantity, unitPrice, mfgDate, expDate, reason,
+                poNumber, poDescription, receivedFrom, articleNumber, brand, packagePoNumber, true, onComplete);
+    }
+
+    /**
+     * syncAssets : true → les unités sont créées dans Jira Assets ici (saisie manuelle) ;
+     * false → l'appelant s'en charge (scan d'équipement → assetsCheckIn avec n° de série). Identique iOS.
+     */
+    public void addProduct(String name, String category, Integer categoryId, String description, String assetTag,
+                           int quantity, double unitPrice, String mfgDate, String expDate, String reason,
+                           String poNumber, String poDescription, String receivedFrom,
+                           String articleNumber, String brand, String packagePoNumber,
+                           boolean syncAssets, Runnable onComplete) {
         if (!canEditStock() && denied(false)) return;
         executor.execute(() -> {
             Product p = new Product(name, category, description, assetTag, quantity, unitPrice, mfgDate, expDate);
@@ -496,11 +513,17 @@ public class MainController {
             recordMovement((int)newId, name, "IN", quantity, movReason, null);
             recordAuditLog("ADD_PRODUCT", context.getString(R.string.audit_prod_added, name, quantity));
             addPoints(10, "Ajout produit");
+            if (syncAssets && quantity > 0) com.example.stockit.util.AssetsSync.onQuantityChanged((int) newId, quantity, "CREATE");
             if (onComplete != null) mainHandler.post(onComplete);
         });
     }
 
     public void updateQuantity(Product product, int delta, Runnable onComplete) {
+        updateQuantity(product, delta, true, onComplete);
+    }
+
+    /** syncAssets : répercute l'écart réel dans Jira Assets (false si l'appelant s'en charge). */
+    public void updateQuantity(Product product, int delta, boolean syncAssets, Runnable onComplete) {
         // Tout utilisateur connecté peut ajuster la quantité via les boutons +/−
         // (technicien en réception, admin en correction manuelle…). Les rôles
         // ADMIN/MANAGER restent seuls autorisés à créer/supprimer un produit,
@@ -509,10 +532,13 @@ public class MainController {
                 + " delta=" + delta + " currentUser=" + (currentUser != null ? currentUser.getUsername() : "NULL"));
         if (currentUser == null) {
             android.util.Log.w("QtyDebug", "updateQuantity ABORTED: currentUser is null");
-            mainHandler.post(() -> android.widget.Toast.makeText(context, "Session expirée : reconnectez-vous", android.widget.Toast.LENGTH_LONG).show());
+            mainHandler.post(() -> android.widget.Toast.makeText(context, L("Session expirée : reconnectez-vous"), android.widget.Toast.LENGTH_LONG).show());
             return;
         }
         executor.execute(() -> {
+            Product fresh = db.productDao().getById(product.getId());
+            if (fresh != null) product.setQuantity(fresh.getQuantity());
+            int oldQty = product.getQuantity();
             int newQty = Math.max(0, product.getQuantity() + delta);
             android.util.Log.d("QtyDebug", "Updating DB: " + product.getName() + " " + product.getQuantity() + " -> " + newQty);
             product.setQuantity(newQty);
@@ -520,6 +546,9 @@ public class MainController {
             String type = (delta > 0) ? "IN" : "OUT";
             recordMovement(product.getId(), product.getName(), type, Math.abs(delta), context.getString(R.string.mov_manual_adj), null);
             recordAuditLog("UPDATE_QUANTITY", context.getString(R.string.audit_qty_adjusted, product.getName(), delta));
+            int applied = newQty - oldQty;
+            if (syncAssets && applied != 0) com.example.stockit.util.AssetsSync.onQuantityChanged(
+                    product.getId(), applied, applied > 0 ? "ADJUST_IN" : "ADJUST_OUT");
             android.util.Log.d("QtyDebug", "DB updated. Posting UI refresh callback=" + (onComplete != null));
             if (onComplete != null) mainHandler.post(onComplete);
         });
@@ -541,11 +570,13 @@ public class MainController {
                     existing.setQuantity(existing.getQuantity() + 1);
                     db.productDao().update(existing);
                     recordMovement(existing.getId(), existing.getName(), "IN", 1, "Batch Scan", null);
+                    com.example.stockit.util.AssetsSync.onQuantityChanged(existing.getId(), 1, "ADJUST_IN");
                     updated++;
                 } else {
                     Product p = new Product("Produit " + code, "Batch", "Batch Scan", code, 1, 0.0, "", "");
                     long id = db.productDao().insert(p);
                     recordMovement((int) id, p.getName(), "IN", 1, "Batch", null);
+                    com.example.stockit.util.AssetsSync.onQuantityChanged((int) id, 1, "CREATE");
                     created++;
                 }
             }
@@ -618,7 +649,9 @@ public class MainController {
     public void updateProduct(Product product, Runnable onComplete) {
         if (!canEditStock() && denied(false)) return;
         executor.execute(() -> {
+            Product old = db.productDao().getById(product.getId());
             db.productDao().update(product);
+            com.example.stockit.util.AssetsSync.onProductEdited(old, product);
             recordAuditLog("UPDATE_PRODUCT", context.getString(R.string.audit_prod_updated, product.getName()));
             if (onComplete != null) mainHandler.post(onComplete);
         });
@@ -627,6 +660,8 @@ public class MainController {
     public void deleteProduct(Product product, Runnable onComplete) {
         if (!isAdmin() && denied(true)) return;
         executor.execute(() -> {
+            Product fresh = db.productDao().getById(product.getId());
+            com.example.stockit.util.AssetsSync.onProductDeleted(fresh != null ? fresh : product);
             db.productDao().delete(product);
             recordMovement(product.getId(), product.getName(), "OUT", product.getQuantity(), context.getString(R.string.mov_deleted), null);
             recordAuditLog("DELETE_PRODUCT", context.getString(R.string.audit_prod_deleted, product.getName()));
@@ -850,7 +885,8 @@ public class MainController {
 
     public void seedStock(Runnable onComplete) {
         executor.execute(() -> {
-            if (db.productDao().getTotalQuantity() == 0) {
+            // Avec Jira Assets, le stock réel vient de la synchronisation : pas de données de démonstration (iOS).
+            if (!com.example.stockit.util.AssetsSync.isConfigured() && db.productDao().getTotalQuantity() == 0) {
                 db.productDao().insert(new Product("Laptop Dell Latitude", "Informatique", "Ordinateur portable", "DELL-LAT-01", 15, 1200.0, "10/01/2024", ""));
                 db.productDao().insert(new Product("Souris Logitech MX", "Périphérique", "Souris ergonomique", "LOGI-MX-02", 4, 85.0, "15/01/2024", ""));
                 db.productDao().insert(new Product("Ecran HP 24 pouces", "Informatique", "Moniteur Full HD", "HP-SCR-24", 2, 180.0, "20/01/2024", ""));
@@ -1115,7 +1151,7 @@ public class MainController {
     public void getMessages(int claimId, ChatCallback callback) {
         if (!hasClaimsBackend) {
             mainHandler.post(() -> android.widget.Toast.makeText(context,
-                    "Discussion indisponible : backend réclamations non configuré (STOCKIT_API_BASE_URL)",
+                    L("Discussion indisponible : backend réclamations non configuré (STOCKIT_API_BASE_URL)"),
                     android.widget.Toast.LENGTH_LONG).show());
             return;
         }
@@ -1125,11 +1161,11 @@ public class MainController {
                 if (response.isSuccessful() && response.body() != null) {
                     mainHandler.post(() -> callback.onMessagesLoaded(response.body()));
                 } else {
-                    mainHandler.post(() -> android.widget.Toast.makeText(context, "Erreur serveur : HTTP " + response.code(), android.widget.Toast.LENGTH_LONG).show());
+                    mainHandler.post(() -> android.widget.Toast.makeText(context, L("Erreur serveur : HTTP %@", response.code()), android.widget.Toast.LENGTH_LONG).show());
                 }
             } catch (Exception e) {
                 android.util.Log.e("MainController", "Get Messages Error: " + e.getMessage());
-                mainHandler.post(() -> android.widget.Toast.makeText(context, "Serveur injoignable : " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                mainHandler.post(() -> android.widget.Toast.makeText(context, L("Serveur injoignable : %@", e.getMessage()), android.widget.Toast.LENGTH_LONG).show());
             }
         });
     }
@@ -1140,7 +1176,7 @@ public class MainController {
             com.example.stockit.model.ChatMessage msg = new com.example.stockit.model.ChatMessage(uId, uId, text, System.currentTimeMillis());
             if (!hasClaimsBackend) {
                 mainHandler.post(() -> android.widget.Toast.makeText(context,
-                        "Envoi impossible : backend réclamations non configuré", android.widget.Toast.LENGTH_LONG).show());
+                        L("Envoi impossible : backend réclamations non configuré"), android.widget.Toast.LENGTH_LONG).show());
                 return;
             }
             try {
@@ -1148,11 +1184,11 @@ public class MainController {
                 if (r.isSuccessful()) {
                     if (onComplete != null) mainHandler.post(onComplete);
                 } else {
-                    mainHandler.post(() -> android.widget.Toast.makeText(context, "Erreur serveur : HTTP " + r.code(), android.widget.Toast.LENGTH_LONG).show());
+                    mainHandler.post(() -> android.widget.Toast.makeText(context, L("Erreur serveur : HTTP %@", r.code()), android.widget.Toast.LENGTH_LONG).show());
                 }
             } catch (Exception e) {
                 android.util.Log.e("MainController", "Add Message Error: " + e.getMessage());
-                mainHandler.post(() -> android.widget.Toast.makeText(context, "Serveur injoignable : " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+                mainHandler.post(() -> android.widget.Toast.makeText(context, L("Serveur injoignable : %@", e.getMessage()), android.widget.Toast.LENGTH_LONG).show());
             }
         });
     }
@@ -1167,7 +1203,7 @@ public class MainController {
                                   boolean byAI, ZycusCallback callback) {
         if (!canEditStock() && denied(false)) return;
         if (qty <= 0) {
-            mainHandler.post(() -> android.widget.Toast.makeText(context, "Quantité invalide", android.widget.Toast.LENGTH_SHORT).show());
+            mainHandler.post(() -> android.widget.Toast.makeText(context, L("Quantité invalide"), android.widget.Toast.LENGTH_SHORT).show());
             return;
         }
         executor.execute(() -> {
@@ -1388,13 +1424,13 @@ public class MainController {
                     if (success) {
                         android.widget.Toast.makeText(
                                 context,
-                                "✅ Ticket Jira créé : " + keyOrError,
+                                L("✅ Ticket Jira créé : %@", keyOrError),
                                 android.widget.Toast.LENGTH_LONG).show();
                     } else {
                         android.util.Log.e("MainController", "Jira create failed: " + keyOrError);
                         android.widget.Toast.makeText(
                                 context,
-                                "❌ Erreur Jira : " + keyOrError,
+                                L("❌ Erreur Jira : %@", keyOrError),
                                 android.widget.Toast.LENGTH_LONG).show();
                     }
                 }));

@@ -47,17 +47,21 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ViewHold
         holder.qty.setText(String.valueOf(p.getQuantity()));
 
         if (p.getQuantity() <= p.getMinThreshold()) {
-            holder.qty.setTextColor(android.graphics.Color.RED);
+            holder.qty.setTextColor(androidx.core.content.ContextCompat.getColor(ctx, R.color.vista_coral));
             holder.qty.setText(p.getQuantity() + " ⚠️");
         } else {
-            holder.qty.setTextColor(android.graphics.Color.BLACK);
+            holder.qty.setTextColor(androidx.core.content.ContextCompat.getColor(ctx, R.color.vista_navy));
         }
-        
-        holder.desc.setText(p.getDescription());
 
-        // Icon based on category
+        // Description, sinon catégorie (identique iOS ProductRow), traduite pour l'affichage.
+        String d = p.getDescription() != null && !p.getDescription().isEmpty() ? p.getDescription()
+                : (p.getCategory() != null ? p.getCategory() : "");
+        holder.desc.setText(com.example.stockit.util.AppLanguage.LV(d));
+        holder.desc.setMaxLines(2);
+
+        // Icône selon la catégorie (même logique que shared Product.categoryEmoji, iOS)
         String icon = "📦";
-        String cat = p.getCategory().toLowerCase();
+        String cat = p.getCategory() == null ? "" : p.getCategory().toLowerCase();
         if (cat.contains("computer") || cat.contains("laptop") || cat.contains("ordinateur")) icon = "💻";
         else if (cat.contains("keyboard") || cat.contains("clavier")) icon = "⌨️";
         else if (cat.contains("screen") || cat.contains("monitor") || cat.contains("écran")) icon = "🖥️";

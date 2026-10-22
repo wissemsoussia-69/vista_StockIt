@@ -43,7 +43,7 @@ public class ForecastActivity extends SimpleScreenActivity {
                 : "Calcul local sur les sorties réelles (60 j) + demandes Jira ouvertes. Configurez l'IA pour l'analyse de Claude.",
                 12, false, R.color.vista_navy_muted);
         SwitchMaterial sw = new SwitchMaterial(this);
-        sw.setText("Afficher aussi les produits sans risque");
+        sw.setText(L("Afficher aussi les produits sans risque"));
         sw.setOnCheckedChangeListener((b, on) -> { showAll = on; render(); });
         head.addView(sw);
 
@@ -72,16 +72,16 @@ public class ForecastActivity extends SimpleScreenActivity {
             return;
         }
         for (Forecast f : visible) {
-            LinearLayout card = section(riskLabel(f.getRisk()) + " · " + (f.getDaysLeft() < 0 ? "pas de rupture"
-                    : f.getDaysLeft() == 0 ? "rupture maintenant" : "rupture J+" + f.getDaysLeft()));
+            LinearLayout card = section(L(riskLabel(f.getRisk())) + " · " + (f.getDaysLeft() < 0 ? L("pas de rupture")
+                    : f.getDaysLeft() == 0 ? L("rupture maintenant") : L("rupture J+%@", f.getDaysLeft())));
             TextView name = text(card, f.getProductName(), 16, true, R.color.vista_navy);
             name.setTextColor(riskColor(f.getRisk()));
             text(card, f.getRationale(), 12, false, R.color.vista_navy_muted);
             if (f.getSuggestedOrder() > 0) {
-                text(card, "À commander : " + f.getSuggestedOrder(), 14, true, R.color.vista_navy);
+                text(card, L("À commander : %d", f.getSuggestedOrder()), 14, true, R.color.vista_navy);
                 if (controller.canEditStock()) {
                     MaterialButton b = new MaterialButton(this);
-                    b.setText("🛒 Brouillon de commande");
+                    b.setText(L("🛒 Brouillon de commande"));
                     b.setOnClickListener(v -> openDraft(f));
                     card.addView(b);
                 }
@@ -104,7 +104,7 @@ public class ForecastActivity extends SimpleScreenActivity {
     }
 
     private void openDraft(Forecast f) {
-        AlertDialog loading = new AlertDialog.Builder(this).setMessage("🧠 Claude prépare la demande…").setCancelable(false).show();
+        AlertDialog loading = new AlertDialog.Builder(this).setMessage(L("🧠 Claude prépare la demande…")).setCancelable(false).show();
         SharedBridge.draftOrder(this, f, d -> {
             loading.dismiss();
             showDraftDialog(this, controller, d, this::load);
@@ -118,36 +118,36 @@ public class ForecastActivity extends SimpleScreenActivity {
         int pad = (int) (20 * a.getResources().getDisplayMetrics().density);
         box.setPadding(pad, pad / 2, pad, 0);
         TextView info = new TextView(a);
-        info.setText(String.format(Locale.FRANCE,
-                "Fournisseur habituel : %s\nDélai : %d j\nPrix unitaire : %.2f €\n\n%s\n%s",
-                d.getSupplier() != null ? d.getSupplier() : "à définir", d.getLeadTimeDays(), d.getUnitPrice(),
-                d.getByAI() ? "🧠 Justification rédigée par Claude :" : "Justification :", d.getJustification()));
+        info.setText(L("Fournisseur habituel : %@\nDélai : %@ j\nPrix unitaire : %@ €\n\n%@\n%@",
+                d.getSupplier() != null ? d.getSupplier() : L("à définir"), d.getLeadTimeDays(),
+                String.format(com.example.stockit.util.AppLanguage.locale(), "%.2f", d.getUnitPrice()),
+                d.getByAI() ? L("🧠 Justification rédigée par Claude :") : L("Justification :"), d.getJustification()));
         box.addView(info);
         EditText qty = new EditText(a);
         qty.setInputType(InputType.TYPE_CLASS_NUMBER);
-        qty.setHint("Quantité");
+        qty.setHint(L("Quantité"));
         qty.setText(String.valueOf(d.getQuantity()));
         box.addView(qty);
         TextView note = new TextView(a);
         note.setTextSize(11);
-        note.setText("La validation crée le bon de commande « En attente » (menu Commandes) et prévient l'équipe sur Slack.");
+        note.setText(L("La validation crée le bon de commande « En attente » (menu Commandes) et prévient l'équipe sur Slack."));
         box.addView(note);
 
         new AlertDialog.Builder(a)
-                .setTitle("Brouillon : " + d.getProductName())
+                .setTitle(L("Brouillon : %@", d.getProductName()))
                 .setView(box)
-                .setPositiveButton("✅ Valider", (dlg, w) -> {
+                .setPositiveButton(L("✅ Valider"), (dlg, w) -> {
                     int q;
                     try { q = Integer.parseInt(qty.getText().toString().trim()); } catch (Exception e) { q = 0; }
                     final int fq = q;
                     controller.approveOrderDraft(d.getProductName(), q, d.getSupplier(), d.getJustification(), d.getByAI(), ref ->
-                            new AlertDialog.Builder(a).setTitle("✅ Commande créée")
-                                    .setMessage(d.getProductName() + " × " + fq + "\nRéférence : " + ref
-                                            + "\nBon de commande ajouté dans « Commandes » (En attente).")
-                                    .setPositiveButton("OK", (x, y) -> { if (onApproved != null) onApproved.run(); })
+                            new AlertDialog.Builder(a).setTitle(L("✅ Commande créée"))
+                                    .setMessage(L("%@ × %@\nRéférence : %@\nBon de commande ajouté dans « Commandes » (En attente).",
+                                            d.getProductName(), fq, ref))
+                                    .setPositiveButton(L("OK"), (x, y) -> { if (onApproved != null) onApproved.run(); })
                                     .show());
                 })
-                .setNegativeButton("Annuler", null)
+                .setNegativeButton(L("Annuler"), null)
                 .show();
     }
 

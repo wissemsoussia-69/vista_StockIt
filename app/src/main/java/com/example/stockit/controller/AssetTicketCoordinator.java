@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
  */
 public class AssetTicketCoordinator {
 
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
+
     // --- MODÈLES DE DONNÉES DE BASE (DEMANDÉS) ---
     
     public static class ITAsset {
@@ -123,9 +125,10 @@ public class AssetTicketCoordinator {
     }
 
     private void triggerUrgentNotification(Ticket ticket, ITAsset asset) {
-        String msg = "🚨 URGENT : Le matériel pour le ticket #" + ticket.id + " (" + ticket.priority + ") est arrivé !";
+        String msg = L("🚨 URGENT : Le matériel pour le ticket #%@ (%@) est arrivé !", ticket.id,
+                com.example.stockit.util.AppLanguage.LV(ticket.priority));
 
-        NotificationHelper.showNotification(context, "Action Requise - Support", msg, (int)System.currentTimeMillis());
+        NotificationHelper.showNotification(context, L("Action Requise - Support"), msg, (int)System.currentTimeMillis());
         Log.w("AssetCoordinator_Push", "Notification envoyée au technicien.");
 
         // Email de synthèse à l'équipe support pour tracer l'événement urgent.

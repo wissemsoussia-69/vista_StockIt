@@ -1,0 +1,30 @@
+/* StockIT Android — sortie d'équipement, liste des tickets Jira, confirmation d'équipement, scan par lot.
+   Compléments aux traductions iOS (clé = texte français). */
+
+"OK" = "OK";
+"Retour" = "Back";
+"Autre méthode" = "Other method";
+"Stock insuffisant" = "Insufficient stock";
+"Erreur caméra : %@" = "Camera error: %@";
+"❌ Capture : %@" = "❌ Capture: %@";
+"❌ Analyse impossible : %@" = "❌ Analysis failed: %@";
+"❌ Stock épuisé" = "❌ Out of stock";
+"Aucun \"%@\" disponible en stock (quantité = 0)." = "No \"%@\" available in stock (quantity = 0).";
+"Stock disponible : %@" = "Available stock: %@";
+"Pointez la caméra vers l'équipement à sortir puis capturez." = "Point the camera at the equipment to check out, then capture.";
+"Impossible de charger les tickets : %@" = "Unable to load tickets: %@";
+"🧠 Claude n'est pas sûr — coche ce que tu valides" = "🧠 Claude isn't sure — tick what you approve";
+"Appliquer la sélection" = "Apply selection";
+"⏳ Chargement des tickets Jira…" = "⏳ Loading Jira tickets…";
+"Aucun ticket ouvert." = "No open tickets.";
+"%@ ticket(s) ouvert(s)" = "%@ open ticket(s)";
+"Analyse" = "Analysis";
+"Confiance : inconnue" = "Confidence: unknown";
+"Confiance élevée · %@ %%" = "High confidence · %@ %%";
+"Confiance moyenne · %@ %%" = "Medium confidence · %@ %%";
+"Confiance faible · %@ %%" = "Low confidence · %@ %%";
+"Codes détectés : %@" = "Codes detected: %@";
+"SLA %@j" = "SLA %@d";
+"Due %@j" = "Due %@d";
+"🚨 URGENT : Le matériel pour le ticket #%@ (%@) est arrivé !" = "🚨 URGENT: The equipment for ticket #%@ (%@) has arrived!";
+"Action Requise - Support" = "Action Required - Support";

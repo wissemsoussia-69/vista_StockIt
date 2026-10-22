@@ -16,7 +16,7 @@
             android:id="@+id/logoImageView"
             android:layout_width="80dp"
             android:layout_height="80dp"
-            android:contentDescription="Logo Vistaprint"
+            android:contentDescription="@string/login_cd_logo"
             android:scaleType="fitCenter"
             android:src="@drawable/logo_vistaprint" />
 
@@ -86,7 +86,7 @@
             android:id="@+id/profileSectionTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Qui êtes-vous ?"
+            android:text="@string/login_who_are_you"
             android:textColor="@color/black"
             android:textSize="18sp"
             android:layout_marginBottom="16dp" />
@@ -111,7 +111,7 @@
             android:id="@+id/usernameEditText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Username"
+            android:hint="@string/username_hint"
             android:inputType="text" />
 
         <EditText
@@ -119,7 +119,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:hint="Password"
+            android:hint="@string/password_hint"
             android:inputType="textPassword" />
 
         <Button
@@ -127,7 +127,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Connexion classique" />
+            android:text="@string/login_btn_classic" />
 
         <ProgressBar
             android:id="@+id/loginProgressBar"
@@ -142,7 +142,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Utiliser l'empreinte"
+            android:text="@string/login_btn_fingerprint"
             android:visibility="gone" />
 
     </LinearLayout>

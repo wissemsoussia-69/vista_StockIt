@@ -48,7 +48,7 @@ public class AIChatActivity extends AppCompatActivity {
                 input.setText("");
                 btnSend.setEnabled(false);
                 btnSend.setAlpha(0.4f);
-                addMessage(getString(R.string.ai_name), "… réflexion en cours");
+                addMessage(getString(R.string.ai_name), com.example.stockit.util.AppLanguage.L("… réflexion en cours"));
                 final int typingIndex = messages.size() - 1;
 
                 controller.askAssistant(question, response -> {

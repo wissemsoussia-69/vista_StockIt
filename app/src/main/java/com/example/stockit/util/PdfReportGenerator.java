@@ -27,13 +27,13 @@ public class PdfReportGenerator {
         // Titre
         paint.setColor(Color.BLUE);
         paint.setTextSize(24);
-        canvas.drawText("StockIT - Rapport Mensuel d'Inventaire", 50, 50, paint);
+        canvas.drawText(AppLanguage.L("StockIT - Rapport Mensuel d'Inventaire"), 50, 50, paint);
 
         // Date
         paint.setColor(Color.GRAY);
         paint.setTextSize(12);
         String date = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());
-        canvas.drawText("Généré le : " + date, 50, 80, paint);
+        canvas.drawText(AppLanguage.L("Généré le : ") + date, 50, 80, paint);
 
         // Contenu rédigé par l'IA
         paint.setColor(Color.BLACK);
@@ -61,7 +61,7 @@ public class PdfReportGenerator {
         File file = new File(context.getExternalFilesDir(null), "Rapport_Stock_" + System.currentTimeMillis() + ".pdf");
         try {
             document.writeTo(new FileOutputStream(file));
-            Toast.makeText(context, "PDF généré avec succès", Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, AppLanguage.L("PDF généré avec succès"), Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
             e.printStackTrace();
             return null;

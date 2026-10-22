@@ -29,7 +29,7 @@ public class ChatActivity extends AppCompatActivity {
         controller = new MainController(this);
 
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.chatToolbar);
-        if (subject != null) toolbar.setTitle("Détails: " + subject);
+        if (subject != null) toolbar.setTitle(com.example.stockit.util.AppLanguage.L("Détails: %@", subject));
 
         RecyclerView recyclerView = findViewById(R.id.chatRecyclerView);
         EditText input = findViewById(R.id.chatInput);

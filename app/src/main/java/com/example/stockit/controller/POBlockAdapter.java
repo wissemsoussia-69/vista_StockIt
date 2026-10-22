@@ -32,6 +32,8 @@ public class POBlockAdapter extends RecyclerView.Adapter<POBlockAdapter.VH> {
     private final OnSelected callback;
     private int selectedIndex = -1;
 
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
+
     public POBlockAdapter(List<POBlock> items, Set<Integer> knownIds,
                           String equipmentHint, OnSelected cb) {
         this.items = items;
@@ -56,7 +58,7 @@ public class POBlockAdapter extends RecyclerView.Adapter<POBlockAdapter.VH> {
         POBlock po = items.get(position);
         h.number.setText(po.number);
         h.desc.setText(po.description == null || po.description.isEmpty()
-                ? "(pas de description)" : po.description);
+                ? L("(pas de description)") : po.description);
         h.radio.setChecked(position == selectedIndex);
 
         // Badge : trouvé en DB ?
@@ -68,8 +70,8 @@ public class POBlockAdapter extends RecyclerView.Adapter<POBlockAdapter.VH> {
                 && po.description.toLowerCase().contains(equipmentHint);
 
         StringBuilder badge = new StringBuilder();
-        if (inDb)           badge.append("✅ En base");
-        if (semanticMatch)  badge.append(inDb ? "  •  " : "").append("🎯 Correspond au scan");
+        if (inDb)           badge.append(L("✅ En base"));
+        if (semanticMatch)  badge.append(inDb ? "  •  " : "").append(L("🎯 Correspond au scan"));
         h.badge.setText(badge.toString());
         h.badge.setTextColor(semanticMatch ? Color.parseColor("#2E7D32")
                 : inDb ? Color.parseColor("#1565C0")

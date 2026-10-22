@@ -105,6 +105,13 @@ android {
         }
     }
 
+    // Traductions partagées avec l'app iOS (clé = texte français) : en.lproj/Localizable.strings.
+    sourceSets {
+        getByName("main") {
+            assets.srcDir("../iosApp/StockIT/Resources")
+        }
+    }
+
     lint {
         disable += listOf(
             "DuplicatePlatformClasses",
@@ -138,6 +145,7 @@ dependencies {
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
     implementation(libs.androidx.recyclerview)
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation(libs.androidx.cardview)
     implementation(libs.sendgrid.java)
     implementation(libs.retrofit)

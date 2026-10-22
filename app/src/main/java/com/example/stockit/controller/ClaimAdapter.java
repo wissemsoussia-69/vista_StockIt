@@ -48,6 +48,7 @@ public class ClaimAdapter extends RecyclerView.Adapter<ClaimAdapter.ViewHolder> 
         
         String localizedStatus = claim.getStatus();
         if ("OUVERT".equals(claim.getStatus())) localizedStatus = ctx.getString(R.string.status_open);
+        else localizedStatus = com.example.stockit.util.AppLanguage.LV(localizedStatus);
         holder.status.setText(ctx.getString(R.string.status_label, localizedStatus));
         
         String priority = claim.getPriority();

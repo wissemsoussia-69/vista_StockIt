@@ -24,7 +24,7 @@
             android:layout_width="100dp"
             android:layout_height="100dp"
             android:src="@drawable/logo_vistaprint"
-            android:contentDescription="Profile Picture" />
+            android:contentDescription="@string/profile_cd_picture" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -56,7 +56,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Statistiques Gamification"
+                android:text="@string/profile_gamification_stats"
                 android:textStyle="bold"
                 android:textColor="@color/colorPrimary"
                 android:layout_marginBottom="12dp" />
@@ -65,7 +65,7 @@
                 android:id="@+id/profileLevel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="NIVEAU 1"
+                android:text="@string/profile_level_placeholder"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:textColor="#F39C12"
@@ -83,7 +83,7 @@
                 android:id="@+id/profileBadges"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Badges : Aucun"
+                android:text="@string/profile_badges_none"
                 android:textColor="#8E44AD"/>
 
         </LinearLayout>
@@ -119,21 +119,21 @@
                 android:id="@+id/profileEmail"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Email"
+                android:text="@string/sup_email_hint"
                 android:layout_marginBottom="8dp"/>
 
             <TextView
                 android:id="@+id/profileDept"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Department"
+                android:text="@string/profile_dept_placeholder"
                 android:layout_marginBottom="8dp"/>
 
             <TextView
                 android:id="@+id/profileLocation"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Location"/>
+                android:text="@string/profile_location_placeholder"/>
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>

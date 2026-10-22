@@ -48,7 +48,7 @@ public class StockMovementAdapter extends RecyclerView.Adapter<StockMovementAdap
         holder.dateTime.setText(movement.getDate());
         holder.quantity.setText(ctx.getString(R.string.mov_label_qty, movement.getQuantity()));
         holder.userName.setText(ctx.getString(R.string.mov_label_user, movement.getUserName()));
-        holder.reason.setText(ctx.getString(R.string.mov_label_reason, movement.getReason()));
+        holder.reason.setText(ctx.getString(R.string.mov_label_reason, com.example.stockit.util.AppLanguage.LV(movement.getReason())));
         
         if (movement.getComment() != null && !movement.getComment().isEmpty()) {
             holder.comment.setText(ctx.getString(R.string.mov_label_comment, movement.getComment()));

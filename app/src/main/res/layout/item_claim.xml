@@ -23,7 +23,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Sujet de la réclamation"
+                android:text="@string/claim_item_subject_placeholder"
                 android:textColor="#2C3E50"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -34,7 +34,7 @@
                 android:layout_height="wrap_content"
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"
-                android:text="HAUTE"
+                android:text="@string/priority_high"
                 android:textColor="#E74C3C"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -46,7 +46,7 @@
             android:layout_marginTop="4dp"
             android:maxLines="2"
             android:ellipsize="end"
-            android:text="Description courte de la réclamation..."
+            android:text="@string/claim_item_desc_placeholder"
             android:textColor="#7F8C8D" />
 
         <View
@@ -66,14 +66,14 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Par: utilisateur"
+                android:text="@string/claim_item_by_placeholder"
                 android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/claimStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="STATUT: OUVERT"
+                android:text="@string/claim_item_status_placeholder"
                 android:textColor="#00AEEF"
                 android:textSize="12sp"
                 android:textStyle="bold" />

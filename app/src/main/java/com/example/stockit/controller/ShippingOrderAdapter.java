@@ -51,7 +51,7 @@ public class ShippingOrderAdapter extends RecyclerView.Adapter<ShippingOrderAdap
         holder.tracking.setText(ctx.getString(R.string.ship_tracking_label, (order.getTrackingNumber().isEmpty() ? "-" : order.getTrackingNumber())));
 
         String status = order.getStatus();
-        String localizedStatus = status;
+        String localizedStatus = com.example.stockit.util.AppLanguage.LV(status);
         
         // Status color logic
         switch (status) {
@@ -89,6 +89,7 @@ public class ShippingOrderAdapter extends RecyclerView.Adapter<ShippingOrderAdap
         holder.btnJira.setOnClickListener(v -> {
             android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
             intent.setData(android.net.Uri.parse(com.example.stockit.BuildConfig.JIRA_BASE_URL + "/jira/servicedesk/projects/" + com.example.stockit.BuildConfig.JIRA_PROJECT_KEY + "/queues"));
+            com.example.stockit.util.AppSession.allowExternal();
             v.getContext().startActivity(intent);
         });
     }

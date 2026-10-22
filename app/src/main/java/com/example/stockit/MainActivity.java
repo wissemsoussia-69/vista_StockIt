@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 ArrayList<String> codes = result.getData().getStringArrayListExtra("codes");
                 if (codes != null && !codes.isEmpty()) {
                     controller.addOrIncrementByCodes(codes, (created, updated) -> {
-                        Toast.makeText(this, "Scan en rafale : " + created + " créé(s), " + updated + " incrémenté(s)",
+                        Toast.makeText(this, L("Scan en rafale : %@ créé(s), %@ incrémenté(s)", created, updated),
                                 Toast.LENGTH_LONG).show();
                         refreshList();
                         updateDashboardData();
@@ -113,6 +113,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         setupSearch();
         findViewById(R.id.refreshButton).setOnClickListener(v -> refreshList());
+        setupAssetsSync();
         View scanInv = findViewById(R.id.btnScanInventory);
         if (scanInv != null) scanInv.setOnClickListener(v -> startBatchScan());
         View history = findViewById(R.id.btnMovementHistory);
@@ -132,12 +133,89 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             refreshArticles();
         }
 
-        // Seed initial data if empty
+        // Seed initial data if empty (aucune donnée de démonstration si Jira Assets est configuré, comme iOS)
         controller.getStock(products -> {
             if (products.isEmpty()) {
                 controller.seedStock(this::updateDashboardData);
             }
         });
+
+        // Connexion : renvoi des webhooks en attente + synchronisation silencieuse Jira Assets (iOS didLogin).
+        if (savedInstanceState == null) {
+            com.example.stockit.util.WebhookOutbox.flush(this, null);
+            com.example.stockit.util.AssetsSync.sync(null);
+        }
+    }
+
+    // ================================================================
+    //  Jira Assets → inventaire (iOS StockListView / AppState.syncAssets)
+    // ================================================================
+    private final Runnable assetsListener = this::onAssetsSyncStateChanged;
+
+    private void setupAssetsSync() {
+        View card = findViewById(R.id.assetsSyncCard);
+        if (card != null) card.setVisibility(com.example.stockit.util.AssetsSync.isConfigured() ? View.VISIBLE : View.GONE);
+        View btn = findViewById(R.id.btnAssetsSync);
+        if (btn != null) btn.setOnClickListener(v -> syncAssets(false));
+        androidx.swiperefreshlayout.widget.SwipeRefreshLayout srl = findViewById(R.id.stockSwipeRefresh);
+        if (srl != null) {
+            srl.setColorSchemeResources(R.color.vista_blue);
+            srl.setOnRefreshListener(() -> {
+                if (com.example.stockit.util.AssetsSync.isConfigured()) syncAssets(false);
+                else { refreshList(); srl.setRefreshing(false); }
+            });
+        }
+        com.example.stockit.util.AssetsSync.addListener(assetsListener);
+        onAssetsSyncStateChanged();
+    }
+
+    /** Jira Assets → inventaire (source de vérité). silent : pas de message si tout va bien. */
+    private void syncAssets(boolean silent) {
+        com.example.stockit.util.AssetsSync.sync(r -> {
+            if (r.success) {
+                if (!silent) com.example.stockit.util.VistaSnackbar.show(findViewById(R.id.content_frame),
+                        L("✅ Inventaire synchronisé : %@ modèles, %@ unités", r.products, r.units),
+                        com.example.stockit.util.VistaSnackbar.Level.SUCCESS);
+            } else if (!silent && !"sync_in_progress".equals(r.error)) {
+                com.example.stockit.util.VistaSnackbar.show(findViewById(R.id.content_frame),
+                        L("Synchronisation impossible") + (r.error != null ? " — " + r.error : ""),
+                        com.example.stockit.util.VistaSnackbar.Level.URGENT);
+            }
+        });
+    }
+
+    /** Bandeau (dernière synchro / en cours) + rechargement des écrans après une synchro. */
+    private void onAssetsSyncStateChanged() {
+        boolean syncing = com.example.stockit.util.AssetsSync.isSyncing();
+        View prog = findViewById(R.id.assetsSyncProgress);
+        View btn = findViewById(R.id.btnAssetsSync);
+        if (prog != null) prog.setVisibility(syncing ? View.VISIBLE : View.GONE);
+        if (btn != null) btn.setVisibility(syncing ? View.GONE : View.VISIBLE);
+        android.widget.TextView label = findViewById(R.id.assetsSyncLabel);
+        long last = com.example.stockit.util.AssetsSync.getLastSyncMs();
+        if (label != null) {
+            if (last == 0) label.setText(L("Tirez vers le bas pour synchroniser"));
+            else label.setText(L("Dernière synchronisation : %@",
+                    java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT,
+                            com.example.stockit.util.AppLanguage.locale()).format(new java.util.Date(last))));
+        }
+        androidx.swiperefreshlayout.widget.SwipeRefreshLayout srl = findViewById(R.id.stockSwipeRefresh);
+        if (srl != null && !syncing) srl.setRefreshing(false);
+        if (!syncing) {
+            if (layoutStock != null && layoutStock.getVisibility() == View.VISIBLE) reloadStockList();
+            if (layoutDashboard != null && layoutDashboard.getVisibility() == View.VISIBLE) updateDashboardData();
+            StockWidget.refreshAll(this);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        com.example.stockit.util.AssetsSync.removeListener(assetsListener);
+        super.onDestroy();
+    }
+
+    private static String L(String key, Object... args) {
+        return com.example.stockit.util.AppLanguage.L(key, args);
     }
 
     private void initLayouts() {
@@ -191,7 +269,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         // sont désormais centralisées dans le FAB Vista (voir setupVistaFab).
         // Le dashboard ne garde que 3 tuiles navigation : Stock / Article / IA.
         if (findViewById(R.id.btnQuickAdd) != null)
-            findViewById(R.id.btnQuickAdd).setOnClickListener(v -> { showLayout(layoutArticle); refreshArticles(); });
+            findViewById(R.id.btnQuickAdd).setOnClickListener(v -> showScanMenu());
         if (findViewById(R.id.btnNewMovement) != null)
             findViewById(R.id.btnNewMovement).setOnClickListener(v -> { showLayout(layoutStock); refreshList(); });
         if (findViewById(R.id.btnVoiceControl) != null)
@@ -230,6 +308,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (shipMini != null) shipMini.setOnClickListener(v -> {
             toggleFabMenu(fab, miniMenu, false);
             startActivity(new Intent(this, ScanOutActivity.class));
+        });
+
+        // Scan codes-barres en rafale (mini FAB) — 4e action caméra, identique iOS.
+        View batchMini = findViewById(R.id.fabActionBatch);
+        if (batchMini != null) batchMini.setOnClickListener(v -> {
+            toggleFabMenu(fab, miniMenu, false);
+            startBatchScan();
         });
 
         fab.setOnClickListener(v -> toggleFabMenu(fab, miniMenu, !fabMenuOpen));
@@ -301,6 +386,26 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         bnav.setSelectedItemId(R.id.bnav_dashboard);
     }
 
+    /** Actions caméra (iOS : onglet Scanner / tuile Scan du dashboard). */
+    private void showScanMenu() {
+        String[] items = {
+                L("🧠 Scanner un équipement (IA)"),
+                L("📦 Réception colis (facture)"),
+                L("📤 Sortie équipement"),
+                L("🔢 Scan codes-barres en rafale"),
+        };
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(L("Actions caméra"))
+                .setItems(items, (d, i) -> {
+                    if (i == 0) startActivity(new Intent(this, ScanAssetActivity.class));
+                    else if (i == 1) startActivity(new Intent(this, ReceivePackageActivity.class));
+                    else if (i == 2) startActivity(new Intent(this, ScanOutActivity.class));
+                    else startBatchScan();
+                })
+                .setNegativeButton(L("Annuler"), null)
+                .show();
+    }
+
     private void startBatchScan() {
         batchScanLauncher.launch(new Intent(this, BatchScanActivity.class));
     }
@@ -319,11 +424,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             File photoFile = File.createTempFile("SCAN_", ".jpg", getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES));
             photoUri = androidx.core.content.FileProvider.getUriForFile(this, "com.example.stockit.fileprovider", photoFile);
             takePictureLauncher.launch(photoUri);
-        } catch (Exception e) { Toast.makeText(this, "Erreur caméra", Toast.LENGTH_SHORT).show(); }
+        } catch (Exception e) { Toast.makeText(this, L("Erreur caméra"), Toast.LENGTH_SHORT).show(); }
     }
 
     private void processImageFromUri(Uri uri) {
-        final androidx.appcompat.app.AlertDialog progress = new androidx.appcompat.app.AlertDialog.Builder(this).setMessage("Analyse Vision Gemini...").setCancelable(false).show();
+        final androidx.appcompat.app.AlertDialog progress = new androidx.appcompat.app.AlertDialog.Builder(this).setMessage(L("Analyse Vision Gemini...")).setCancelable(false).show();
         controller.detectObjectsGemini(uri, (labels, visionText) -> {
             progress.dismiss();
             String bestLabel = labels.isEmpty() ? "Objet IT" : labels.get(0);
@@ -335,22 +440,22 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         // --- OPTIMISATION D'IMAGE (Détourage + WebP) ---
         com.example.stockit.util.ImageOptimizerUtil.optimizeImage(this, uri, (optimizedFile, oldSize, newSize) -> {
             double saved = (1.0 - (double)newSize / (oldSize > 0 ? oldSize : 1000000)) * 100;
-            String optiText = String.format(Locale.getDefault(), "\n\n⚡ Optimisation : %.0f%% d'espace gagné (Format WebP)", saved > 0 ? saved : 85);
+            String optiText = L("\n\n⚡ Optimisation : %@%% d'espace gagné (Format WebP)", String.format(Locale.getDefault(), "%.0f", saved > 0 ? saved : 85));
 
-            String displayMsg = "Matériel détecté par Gemini : " + label + optiText;
+            String displayMsg = L("Matériel détecté par Gemini : %@", label) + optiText;
 
             new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle("Analyse Vision Gemini 1.5")
+                    .setTitle(L("Analyse Vision Gemini 1.5"))
                     .setMessage(displayMsg)
-                    .setPositiveButton("Ajouter", (d, w) -> {
+                    .setPositiveButton(L("Ajouter"), (d, w) -> {
                         controller.addProduct(label, "Informatique", null, "Scan Gemini Vision", "ASSET-" + System.currentTimeMillis(), 1, 0.0, "", "", "Scan IA", () -> {
                             refreshList();
                             updateDashboardData();
-                            Toast.makeText(this, label + " ajouté !", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, L("%@ ajouté !", label), Toast.LENGTH_SHORT).show();
 
                         });
                     })
-                    .setNegativeButton("Réessayer", (d, w) -> startScanIA())
+                    .setNegativeButton(L("Réessayer"), (d, w) -> startScanIA())
                     .show();
         });
     }
@@ -369,9 +474,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             // Compteurs animés (0 → valeur) pour un effet premium
             if (txtTotal != null) animateInt(txtTotal, total, null);
             if (txtValue != null) animateDouble(txtValue, value, " €");
-            if (txtAlerts != null) txtAlerts.setText(out + " en rupture, " + low + " bas");
+            if (txtAlerts != null) txtAlerts.setText(L("%@ en rupture, %@ bas", out, low));
             if (txtHeroSub != null) txtHeroSub.setText(
-                    total + " articles · " + out + " en rupture");
+                    L("%d articles · %d en rupture", total, out));
         });
 
         // --- QUÊTES (LUDIFICATION) ---
@@ -381,8 +486,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 android.widget.TextView title = findViewById(R.id.dashQuestTitle);
                 android.widget.TextView desc = findViewById(R.id.dashQuestDesc);
                 ProgressBar prog = findViewById(R.id.dashQuestProgress);
-                if (title != null) title.setText(q.getTitle());
-                if (desc != null) desc.setText(q.getDescription() + " (" + q.getCurrentCount() + "/" + q.getGoalCount() + ")");
+                if (title != null) title.setText(com.example.stockit.util.AppLanguage.LV(q.getTitle()));
+                if (desc != null) desc.setText(com.example.stockit.util.AppLanguage.LV(q.getDescription()) + " (" + q.getCurrentCount() + "/" + q.getGoalCount() + ")");
                 if (prog != null) {
                     prog.setMax(q.getGoalCount());
                     prog.setProgress(q.getCurrentCount());
@@ -401,19 +506,30 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         });
     }
 
-    private void refreshList() {
-        controller.getStock(products -> {
-            RecyclerView rv = findViewById(R.id.recyclerView);
-            if (rv != null) {
-                rv.setLayoutManager(new LinearLayoutManager(this));
-                rv.setAdapter(new ProductAdapter(products, productActionListener));
-            }
-        });
+    private void refreshList() { reloadStockList(); }
+
+    /** Recharge la liste (avec la recherche en cours) + état vide (iOS EmptyStateView). */
+    private void reloadStockList() {
+        SearchView sv = findViewById(R.id.searchView);
+        String q = sv != null && sv.getQuery() != null ? sv.getQuery().toString().trim() : "";
+        MainController.StockCallback cb = this::showStock;
+        if (q.isEmpty()) controller.getStock(cb); else controller.searchProducts(q, cb);
+    }
+
+    private void showStock(List<Product> products) {
+        RecyclerView rv = findViewById(R.id.recyclerView);
+        if (rv != null) {
+            if (rv.getLayoutManager() == null) rv.setLayoutManager(new LinearLayoutManager(this));
+            rv.setAdapter(new ProductAdapter(products, productActionListener));
+        }
+        View empty = findViewById(R.id.stockEmptyState);
+        if (empty != null) empty.setVisibility(products.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
     private final ProductAdapter.OnProductActionListener productActionListener = new ProductAdapter.OnProductActionListener() {
-        @Override public void onUpdateQuantity(Product p, int d) { 
-            controller.updateQuantity(p, d, () -> { refreshList(); updateDashboardData(); }); 
+        @Override public void onUpdateQuantity(Product p, int d) {
+            if (MainController.getCurrentUser() == null) { Toast.makeText(MainActivity.this, L("Connexion requise"), Toast.LENGTH_SHORT).show(); return; }
+            controller.updateQuantity(p, d, () -> { refreshList(); updateDashboardData(); StockWidget.refreshAll(MainActivity.this); });
         }
         @Override public void onShowDetails(Product p) { showProductDetails(p); }
         @Override public void onShowMovement(Product p) { showProductTimeline(p); }
@@ -423,15 +539,15 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         View view = getLayoutInflater().inflate(R.layout.dialog_product_details, null);
         ((android.widget.TextView)view.findViewById(R.id.detailName)).setText(p.getName());
         StringBuilder info = new StringBuilder();
-        info.append("Stock actuel : ").append(p.getQuantity()).append("  (seuil ").append(p.getMinThreshold()).append(")");
-        if (p.getQuantity() == 0) info.append("  — 🔴 RUPTURE");
-        else if (p.getQuantity() <= p.getMinThreshold()) info.append("  — 🟠 STOCK BAS");
+        info.append(L("Stock actuel : %@  (seuil %@)", p.getQuantity(), p.getMinThreshold()));
+        if (p.getQuantity() == 0) info.append(L("  — 🔴 RUPTURE"));
+        else if (p.getQuantity() <= p.getMinThreshold()) info.append(L("  — 🟠 STOCK BAS"));
         appendField(info, "Catégorie", p.getCategory());
         appendField(info, "Description", p.getDescription());
         appendField(info, "Asset tag", p.getAssetTag());
         appendField(info, "Marque", p.getBrand());
         appendField(info, "Réf. article", p.getArticleNumber());
-        if (p.getUnitPrice() > 0) info.append(String.format(Locale.FRANCE, "\nPrix unitaire : %.2f € (valeur %.2f €)", p.getUnitPrice(), p.getUnitPrice() * p.getQuantity()));
+        if (p.getUnitPrice() > 0) info.append(L("\nPrix unitaire : %@ € (valeur %@ €)", String.format(Locale.FRANCE, "%.2f", p.getUnitPrice()), String.format(Locale.FRANCE, "%.2f", p.getUnitPrice() * p.getQuantity())));
         appendField(info, "PO facture", p.getPoNumber());
         appendField(info, "Description PO", p.getPoDescription());
         appendField(info, "PO étiquette", p.getPackagePoNumber());
@@ -444,17 +560,20 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         android.widget.TextView txtKit = view.findViewById(R.id.detailKit);
         String n = p.getName() == null ? "" : p.getName().toLowerCase();
         if (n.contains("écran") || n.contains("ecran") || n.contains("monitor") || n.contains("moniteur")) {
-            txtKit.setText("⚠️ KIT : Câble HDMI + Alimentation");
+            txtKit.setText(L("⚠️ KIT : Câble HDMI + Alimentation"));
             txtKit.setVisibility(View.VISIBLE);
         }
 
-        ((Button) view.findViewById(R.id.btnDetailZycus)).setText("🧠 BROUILLON DE COMMANDE IA");
-        ((Button) view.findViewById(R.id.btnDetailAlert)).setText("🚨 ALERTE STOCK (SLACK / JIRA / E-MAIL)");
+        Button draftBtn = view.findViewById(R.id.btnDetailZycus);
+        draftBtn.setText(L("🛒 BROUILLON DE COMMANDE IA"));
+        // Brouillon de commande : réservé ADMIN / MANAGER (identique iOS).
+        draftBtn.setVisibility(controller.canEditStock() ? View.VISIBLE : View.GONE);
+        ((Button) view.findViewById(R.id.btnDetailAlert)).setText(L("🚨 ALERTE N8N / SLACK"));
 
         androidx.appcompat.app.AlertDialog.Builder b = new androidx.appcompat.app.AlertDialog.Builder(this).setView(view);
-        if (controller.canEditStock()) b.setNeutralButton("✏️ Modifier", (d, w) -> showProductForm(p));
-        if (controller.isAdmin()) b.setNegativeButton("🗑 Supprimer", (d, w) -> confirmDeleteProduct(p));
-        b.setPositiveButton("Fermer", null);
+        if (controller.canEditStock()) b.setNeutralButton(L("✏️ Modifier"), (d, w) -> showProductForm(p));
+        if (controller.isAdmin()) b.setNegativeButton(L("🗑 Supprimer"), (d, w) -> confirmDeleteProduct(p));
+        b.setPositiveButton(L("Fermer"), null);
         androidx.appcompat.app.AlertDialog dialog = b.create();
         view.findViewById(R.id.btnDetailChrono).setOnClickListener(v -> { dialog.dismiss(); showProductTimeline(p); });
         view.findViewById(R.id.btnDetailZycus).setOnClickListener(v -> {
@@ -463,32 +582,32 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         });
         view.findViewById(R.id.btnDetailAlert).setOnClickListener(v -> {
             dialog.dismiss();
-            controller.triggerN8nAlert(p, () -> Toast.makeText(this, "Alerte envoyée (Slack + e-mail n8n + Jira)", Toast.LENGTH_LONG).show());
+            controller.triggerN8nAlert(p, () -> Toast.makeText(this, L("Alerte envoyée !"), Toast.LENGTH_LONG).show());
         });
         dialog.show();
     }
 
     private static void appendField(StringBuilder sb, String label, String value) {
-        if (value != null && !value.trim().isEmpty()) sb.append("\n").append(label).append(" : ").append(value);
+        if (value != null && !value.trim().isEmpty()) sb.append(L("\n%@ : %@", L(label), value));
     }
 
     private void confirmDeleteProduct(Product p) {
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Supprimer " + p.getName() + " ?")
-                .setMessage("Cette action est définitive.")
-                .setPositiveButton("Supprimer", (d, w) -> controller.deleteProduct(p, () -> {
+                .setTitle(L("Supprimer %@ ?", p.getName()))
+                .setMessage(L("Cette action est définitive."))
+                .setPositiveButton(L("Supprimer"), (d, w) -> controller.deleteProduct(p, () -> {
                     refreshList(); refreshArticles(); updateDashboardData();
-                    Toast.makeText(this, p.getName() + " supprimé", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, L("%@ supprimé", p.getName()), Toast.LENGTH_SHORT).show();
                 }))
-                .setNegativeButton("Annuler", null).show();
+                .setNegativeButton(L("Annuler"), null).show();
     }
 
     /** Brouillon de commande IA pour un produit (iOS OrderDraftView). */
     private void openOrderDraft(Product p) {
         final androidx.appcompat.app.AlertDialog loading = new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setMessage("🧠 Calcul de la prévision et rédaction du brouillon…").setCancelable(false).show();
+                .setMessage(L("🧠 Calcul de la prévision et rédaction du brouillon…")).setCancelable(false).show();
         com.example.stockit.util.SharedBridge.forecastFor(this, p.getId(), list -> {
-            if (list.isEmpty()) { loading.dismiss(); Toast.makeText(this, "Prévision indisponible", Toast.LENGTH_SHORT).show(); return; }
+            if (list.isEmpty()) { loading.dismiss(); Toast.makeText(this, L("Prévision indisponible"), Toast.LENGTH_SHORT).show(); return; }
             com.example.stockit.util.SharedBridge.draftOrder(this, list.get(0), draft -> {
                 loading.dismiss();
                 ForecastActivity.showDraftDialog(this, controller, draft, null);
@@ -514,11 +633,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         sv.addView(form);
 
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(existing == null ? "Nouveau produit" : "Modifier " + existing.getName())
+                .setTitle(existing == null ? L("Nouveau produit") : L("Modifier %@", existing.getName()))
                 .setView(sv)
-                .setPositiveButton("Enregistrer", (d, w) -> {
+                .setPositiveButton(L("Enregistrer"), (d, w) -> {
                     String nm = name.getText().toString().trim();
-                    if (nm.isEmpty()) { Toast.makeText(this, "Nom obligatoire", Toast.LENGTH_SHORT).show(); return; }
+                    if (nm.isEmpty()) { Toast.makeText(this, L("Nom obligatoire"), Toast.LENGTH_SHORT).show(); return; }
                     int q = parseIntOr(qty, 0), m = parseIntOr(min, 5);
                     double pr;
                     try { pr = Double.parseDouble(price.getText().toString().replace(',', '.')); } catch (Exception e) { pr = 0; }
@@ -526,7 +645,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                         controller.addProduct(nm, cat.getText().toString().trim(), null, desc.getText().toString().trim(),
                                 tag.getText().toString().trim().isEmpty() ? "ASSET-" + System.currentTimeMillis() : tag.getText().toString().trim(),
                                 q, pr, "", "", "Ajout manuel", () -> {
-                                    Toast.makeText(this, nm + " ajouté", Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(this, L("%@ ajouté", nm), Toast.LENGTH_SHORT).show();
                                     refreshList(); refreshArticles(); updateDashboardData();
                                 });
                     } else {
@@ -538,18 +657,18 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                         existing.setUnitPrice(pr);
                         existing.setMinThreshold(m);
                         controller.updateProduct(existing, () -> {
-                            Toast.makeText(this, nm + " mis à jour", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, L("%@ mis à jour", nm), Toast.LENGTH_SHORT).show();
                             refreshList(); refreshArticles(); updateDashboardData();
                         });
                     }
                 })
-                .setNegativeButton("Annuler", null)
+                .setNegativeButton(L("Annuler"), null)
                 .show();
     }
 
     private EditText field(android.widget.LinearLayout parent, String hint, String value, int inputType) {
         com.google.android.material.textfield.TextInputLayout til = new com.google.android.material.textfield.TextInputLayout(this);
-        til.setHint(hint);
+        til.setHint(L(hint));
         com.google.android.material.textfield.TextInputEditText et = new com.google.android.material.textfield.TextInputEditText(til.getContext());
         et.setInputType(inputType);
         et.setText(value == null ? "" : value);
@@ -567,7 +686,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             RecyclerView rv = new RecyclerView(this);
             rv.setLayoutManager(new LinearLayoutManager(this));
             rv.setAdapter(new com.example.stockit.controller.TimelineAdapter(movements));
-            new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Timeline : " + p.getName()).setView(rv).setPositiveButton("OK", null).show();
+            new androidx.appcompat.app.AlertDialog.Builder(this).setTitle(L("Timeline : %@", p.getName())).setView(rv).setPositiveButton("OK", null).show();
         });
     }
 
@@ -590,7 +709,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             String reason = inputReason != null ? inputReason.getText().toString().trim() : "Ajout manuel";
             
             if (name.isEmpty() || qtyS.isEmpty()) {
-                Toast.makeText(this, "Veuillez remplir le nom et la quantité", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, L("Veuillez remplir le nom et la quantité"), Toast.LENGTH_SHORT).show();
                 return;
             }
             
@@ -599,7 +718,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 double p = Double.parseDouble(priceS);
                 
                 controller.addProduct(name, "Informatique", null, "Saisie manuelle", "ASSET-" + System.currentTimeMillis(), q, p, "", "", reason, () -> {
-                    Toast.makeText(this, "Article " + name + " ajouté avec succès !", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, L("Article %@ ajouté avec succès !", name), Toast.LENGTH_SHORT).show();
                     if (inputName != null) inputName.setText("");
                     if (inputQty != null) inputQty.setText("");
                     if (inputPrice != null) inputPrice.setText("");
@@ -608,7 +727,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     updateDashboardData();
                 });
             } catch (Exception e) {
-                Toast.makeText(this, "Erreur de format (Nombre attendu)", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, L("Erreur de format (Nombre attendu)"), Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -632,10 +751,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (sv != null) sv.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override public boolean onQueryTextSubmit(String q) { return false; }
             @Override public boolean onQueryTextChange(String q) {
-                controller.searchProducts(q, products -> {
-                    RecyclerView rv = findViewById(R.id.recyclerView);
-                    if (rv != null) rv.setAdapter(new ProductAdapter(products, productActionListener));
-                });
+                reloadStockList();
                 return true;
             }
         });
@@ -691,19 +807,19 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             if (tv != null) tv.setText(String.format("%.2f €", value));
             
             android.widget.TextView tvOut = findViewById(R.id.reportOutOfStock);
-            if (tvOut != null) tvOut.setText(out + " articles");
+            if (tvOut != null) tvOut.setText(L("%@ articles", out));
             
             android.widget.TextView tvItems = findViewById(R.id.reportTotalItems);
-            if (tvItems != null) tvItems.setText("Articles en stock : " + total);
+            if (tvItems != null) tvItems.setText(L("Articles en stock: %@", total));
             android.widget.TextView tvLow = findViewById(R.id.reportLowStockCount);
-            if (tvLow != null) tvLow.setText("Alertes niveau faible : " + low);
+            if (tvLow != null) tvLow.setText(L("Alertes niveau faible: %@", low));
             android.widget.TextView tvCat = findViewById(R.id.reportCategoryDetails);
             if (tvCat != null && counts != null) {
                 StringBuilder sb = new StringBuilder();
                 for (com.example.stockit.model.ProductDao.CategoryCount c : counts) {
-                    sb.append("• ").append(c.category == null ? "Sans catégorie" : c.category).append(" : ").append(c.total).append("\n");
+                    sb.append("• ").append(c.category == null ? L("Sans catégorie") : com.example.stockit.util.AppLanguage.LV(c.category)).append(" : ").append(c.total).append("\n");
                 }
-                tvCat.setText(sb.length() == 0 ? "Aucune donnée" : sb.toString().trim());
+                tvCat.setText(sb.length() == 0 ? L("Aucune donnée") : sb.toString().trim());
             }
 
             // --- PIE CHART (Distribution) ---
@@ -711,9 +827,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             if (pieChart != null && counts != null && !counts.isEmpty()) {
                 java.util.List<com.github.mikephil.charting.data.PieEntry> entries = new java.util.ArrayList<>();
                 for (com.example.stockit.model.ProductDao.CategoryCount c : counts) {
-                    entries.add(new com.github.mikephil.charting.data.PieEntry(c.total, c.category));
+                    entries.add(new com.github.mikephil.charting.data.PieEntry(c.total, com.example.stockit.util.AppLanguage.LV(c.category)));
                 }
-                com.github.mikephil.charting.data.PieDataSet dataSet = new com.github.mikephil.charting.data.PieDataSet(entries, "Catégories");
+                com.github.mikephil.charting.data.PieDataSet dataSet = new com.github.mikephil.charting.data.PieDataSet(entries, L("Catégories"));
                 dataSet.setColors(com.github.mikephil.charting.utils.ColorTemplate.MATERIAL_COLORS);
                 com.github.mikephil.charting.data.PieData data = new com.github.mikephil.charting.data.PieData(dataSet);
                 pieChart.setData(data);
@@ -740,7 +856,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 rv.setAdapter(new SupplierAdapter(s, new SupplierAdapter.OnSupplierActionListener() {
                     @Override public void onEdit(com.example.stockit.model.Supplier sup) { showSupplierForm(sup); }
                     @Override public void onDelete(com.example.stockit.model.Supplier sup) {
-                        confirm("Supprimer " + sup.getName() + " ?", () -> controller.deleteSupplier(sup, MainActivity.this::refreshSuppliers));
+                        confirm(L("Supprimer %@ ?", sup.getName()), () -> controller.deleteSupplier(sup, MainActivity.this::refreshSuppliers));
                     }
                     @Override public void onOrder(com.example.stockit.model.Supplier sup) { showPurchaseForm(sup.getName()); }
                 }));
@@ -759,11 +875,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             di.setText(String.valueOf(existing.getDiscount()));
         }
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(existing == null ? "Nouveau fournisseur" : "Modifier le fournisseur")
+                .setTitle(existing == null ? L("Nouveau fournisseur") : L("Modifier le fournisseur"))
                 .setView(v)
-                .setPositiveButton("Enregistrer", (d, w) -> {
+                .setPositiveButton(L("Enregistrer"), (d, w) -> {
                     String name = n.getText().toString().trim();
-                    if (name.isEmpty()) { Toast.makeText(this, "Nom obligatoire", Toast.LENGTH_SHORT).show(); return; }
+                    if (name.isEmpty()) { Toast.makeText(this, L("Nom obligatoire"), Toast.LENGTH_SHORT).show(); return; }
                     int lead = parseIntOr(l, 7);
                     double disc;
                     try { disc = Double.parseDouble(di.getText().toString().replace(',', '.')); } catch (Exception ex) { disc = 0; }
@@ -777,7 +893,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                         controller.updateSupplier(existing, this::refreshSuppliers);
                     }
                 })
-                .setNegativeButton("Annuler", null).show();
+                .setNegativeButton(L("Annuler"), null).show();
     }
 
     private void refreshPurchases() {
@@ -787,16 +903,16 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 rv.setLayoutManager(new LinearLayoutManager(this));
                 rv.setAdapter(new PurchaseOrderAdapter(o, new PurchaseOrderAdapter.OnOrderActionListener() {
                     @Override public void onValidate(com.example.stockit.model.PurchaseOrder order) {
-                        confirm("Marquer « " + order.getProductName() + " » comme reçu ?", () -> {
+                        confirm(L("Marquer « %@ » comme reçu ?", order.getProductName()), () -> {
                             order.setStatus("Reçu");
                             controller.updatePurchaseOrder(order, () -> {
-                                Toast.makeText(MainActivity.this, "Commande reçue", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(MainActivity.this, L("Commande reçue"), Toast.LENGTH_SHORT).show();
                                 refreshPurchases();
                             });
                         });
                     }
                     @Override public void onDelete(com.example.stockit.model.PurchaseOrder order) {
-                        confirm("Supprimer la commande « " + order.getProductName() + " » ?",
+                        confirm(L("Supprimer la commande « %@ » ?", order.getProductName()),
                                 () -> controller.deletePurchaseOrder(order, MainActivity.this::refreshPurchases));
                     }
                 }));
@@ -813,18 +929,18 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         EditText qty = field(form, "Quantité", "1", android.text.InputType.TYPE_CLASS_NUMBER);
         EditText sup = field(form, "Fournisseur", supplier != null ? supplier : "", android.text.InputType.TYPE_CLASS_TEXT);
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Nouvelle commande")
+                .setTitle(L("Nouvelle commande"))
                 .setView(form)
-                .setPositiveButton("Créer", (d, w) -> {
+                .setPositiveButton(L("Créer"), (d, w) -> {
                     String p = prod.getText().toString().trim();
                     int q = parseIntOr(qty, 0);
-                    if (p.isEmpty() || q <= 0) { Toast.makeText(this, "Produit et quantité requis", Toast.LENGTH_SHORT).show(); return; }
+                    if (p.isEmpty() || q <= 0) { Toast.makeText(this, L("Produit et quantité requis"), Toast.LENGTH_SHORT).show(); return; }
                     controller.createPurchaseOrder(p, q, sup.getText().toString().trim(), () -> {
-                        Toast.makeText(this, "Commande créée", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, L("Commande créée"), Toast.LENGTH_SHORT).show();
                         if (layoutPurchase.getVisibility() == View.VISIBLE) refreshPurchases();
                     });
                 })
-                .setNegativeButton("Annuler", null).show();
+                .setNegativeButton(L("Annuler"), null).show();
     }
 
     private static final String[] SHIP_STATUSES = {"PENDING", "PREPARING", "SHIPPED", "DELIVERED"};
@@ -837,28 +953,28 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 rv.setAdapter(new ShippingOrderAdapter(o, new ShippingOrderAdapter.OnShippingActionListener() {
                     @Override public void onPrepare(com.example.stockit.model.ShippingOrder order) {
                         new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
-                                .setTitle("Statut de l'expédition")
-                                .setItems(new String[]{"En attente", "En préparation", "Expédié", "Livré"}, (d, w) -> {
+                                .setTitle(L("Statut de l'expédition"))
+                                .setItems(new String[]{L("En attente"), L("En préparation"), L("Expédié"), L("Livré")}, (d, w) -> {
                                     order.setStatus(SHIP_STATUSES[w]);
                                     controller.updateShippingOrder(order, MainActivity.this::refreshShipping);
                                 }).show();
                     }
                     @Override public void onLabel(com.example.stockit.model.ShippingOrder order) {
                         EditText input = new EditText(MainActivity.this);
-                        input.setHint("N° de suivi");
+                        input.setHint(L("N° de suivi"));
                         input.setText(order.getTrackingNumber());
                         new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this)
-                                .setTitle("Étiquette / suivi")
+                                .setTitle(L("Étiquette / suivi"))
                                 .setView(input)
-                                .setPositiveButton("Enregistrer", (d, w) -> {
+                                .setPositiveButton(L("Enregistrer"), (d, w) -> {
                                     order.setTrackingNumber(input.getText().toString().trim());
                                     if ("PENDING".equals(order.getStatus()) || "EN ATTENTE".equals(order.getStatus())) order.setStatus("SHIPPED");
                                     controller.updateShippingOrder(order, MainActivity.this::refreshShipping);
                                 })
-                                .setNegativeButton("Annuler", null).show();
+                                .setNegativeButton(L("Annuler"), null).show();
                     }
                     @Override public void onDelete(com.example.stockit.model.ShippingOrder order) {
-                        confirm("Supprimer l'expédition pour « " + order.getCustomerName() + " » ?",
+                        confirm(L("Supprimer l'expédition pour « %@ » ?", order.getCustomerName()),
                                 () -> controller.deleteShippingOrder(order, MainActivity.this::refreshShipping));
                     }
                 }));
@@ -876,15 +992,15 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         EditText addr = field(form, "Adresse", "", android.text.InputType.TYPE_CLASS_TEXT);
         EditText ticket = field(form, "Ticket Jira (optionnel)", "", android.text.InputType.TYPE_CLASS_TEXT);
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Nouvelle expédition")
+                .setTitle(L("Nouvelle expédition"))
                 .setView(form)
-                .setPositiveButton("Créer", (d, w) -> {
+                .setPositiveButton(L("Créer"), (d, w) -> {
                     String c = cust.getText().toString().trim();
-                    if (c.isEmpty()) { Toast.makeText(this, "Destinataire requis", Toast.LENGTH_SHORT).show(); return; }
+                    if (c.isEmpty()) { Toast.makeText(this, L("Destinataire requis"), Toast.LENGTH_SHORT).show(); return; }
                     controller.addShippingOrder(c, items.getText().toString().trim(), addr.getText().toString().trim(),
                             ticket.getText().toString().trim().toUpperCase(Locale.ROOT), this::refreshShipping);
                 })
-                .setNegativeButton("Annuler", null).show();
+                .setNegativeButton(L("Annuler"), null).show();
     }
 
     private void refreshUsers() {
@@ -893,26 +1009,21 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             if (rv != null) {
                 rv.setLayoutManager(new LinearLayoutManager(this));
                 rv.setAdapter(new UserAdapter(u, this::showUserActions, user -> {
-                    if (!controller.isAdmin()) { Toast.makeText(this, "Permission refusée : rôle ADMIN requis", Toast.LENGTH_LONG).show(); return; }
-                    confirm("Supprimer l'utilisateur " + user.getUsername() + " ?", () -> controller.deleteUser(user, this::refreshUsers));
+                    if (!controller.isAdmin()) { Toast.makeText(this, L("Permission refusée : rôle ADMIN requis"), Toast.LENGTH_LONG).show(); return; }
+                    confirm(L("Supprimer l'utilisateur %@ ?", user.getUsername()), () -> controller.deleteUser(user, this::refreshUsers));
                 }));
             }
         });
     }
 
     private void showUserActions(com.example.stockit.model.User user) {
-        String info = "Rôle : " + user.getRole() + "\nNiveau " + user.getLevel() + " · " + user.getPoints() + " points"
-                + (user.getBadges() != null && !user.getBadges().isEmpty() ? "\nBadges : " + user.getBadges() : "");
+        String info = L("Rôle : %@\nNiveau %@ · %@ points", user.getRole(), user.getLevel(), user.getPoints())
+                + (user.getBadges() != null && !user.getBadges().isEmpty() ? L("\nBadges : %@", com.example.stockit.util.AppLanguage.LV(user.getBadges())) : "");
         androidx.appcompat.app.AlertDialog.Builder b = new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(user.getUsername()).setMessage(info).setPositiveButton("Fermer", null);
+                .setTitle(user.getUsername()).setMessage(info).setPositiveButton(L("Fermer"), null);
         if (controller.isAdmin()) {
-            b.setNeutralButton("Changer le rôle", (d, w) -> {
-                String[] roles = {"ADMIN", "MANAGER", "TECHNICIEN", "USER"};
-                new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Rôle de " + user.getUsername())
-                        .setItems(roles, (d2, i) -> controller.updateUserRole(user, roles[i], this::refreshUsers)).show();
-            });
-            b.setNegativeButton("Supprimer", (d, w) ->
-                    confirm("Supprimer l'utilisateur " + user.getUsername() + " ?", () -> controller.deleteUser(user, this::refreshUsers)));
+            b.setNegativeButton(L("Supprimer"), (d, w) ->
+                    confirm(L("Supprimer l'utilisateur %@ ?", user.getUsername()), () -> controller.deleteUser(user, this::refreshUsers)));
         }
         b.show();
     }
@@ -926,7 +1037,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             EditText color = findViewById(R.id.inputCatColor);
             android.widget.Spinner parent = findViewById(R.id.spinnerParentCat);
             String n = name.getText().toString().trim();
-            if (n.isEmpty()) { Toast.makeText(this, "Nom de catégorie requis", Toast.LENGTH_SHORT).show(); return; }
+            if (n.isEmpty()) { Toast.makeText(this, L("Nom de catégorie requis"), Toast.LENGTH_SHORT).show(); return; }
             String c = color.getText().toString().trim();
             if (!c.matches("#[0-9A-Fa-f]{6}")) c = "#0F53FA";
             Integer parentId = null;
@@ -934,7 +1045,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             if (sel instanceof com.example.stockit.model.Category) parentId = ((com.example.stockit.model.Category) sel).getId();
             controller.addCategory(n, parentId, c, () -> {
                 name.setText("");
-                Toast.makeText(this, "Catégorie créée", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, L("Catégorie créée"), Toast.LENGTH_SHORT).show();
                 refreshCategories();
             });
         });
@@ -947,30 +1058,32 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 rv.setLayoutManager(new LinearLayoutManager(this));
                 rv.setAdapter(new CategoryAdapter(cats, new CategoryAdapter.OnCategoryActionListener() {
                     @Override public void onEdit(com.example.stockit.model.Category c) {
+                        if (!controller.isAdmin()) return;
                         android.widget.LinearLayout form = new android.widget.LinearLayout(MainActivity.this);
                         form.setOrientation(android.widget.LinearLayout.VERTICAL);
                         int pad = (int) (20 * getResources().getDisplayMetrics().density);
                         form.setPadding(pad, pad / 2, pad, 0);
                         EditText n = field(form, "Nom", c.getName(), android.text.InputType.TYPE_CLASS_TEXT);
                         EditText col = field(form, "Couleur (#RRGGBB)", c.getLabelColor(), android.text.InputType.TYPE_CLASS_TEXT);
-                        new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this).setTitle("Modifier la catégorie").setView(form)
-                                .setPositiveButton("Enregistrer", (d, w) -> {
+                        new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this).setTitle(L("Modifier la catégorie")).setView(form)
+                                .setPositiveButton(L("Enregistrer"), (d, w) -> {
                                     c.setName(n.getText().toString().trim());
                                     String cc = col.getText().toString().trim();
                                     if (cc.matches("#[0-9A-Fa-f]{6}")) c.setLabelColor(cc);
                                     controller.updateCategory(c, MainActivity.this::refreshCategories);
                                 })
-                                .setNegativeButton("Annuler", null).show();
+                                .setNegativeButton(L("Annuler"), null).show();
                     }
                     @Override public void onDelete(com.example.stockit.model.Category c) {
-                        confirm("Supprimer la catégorie " + c.getName() + " ?", () -> controller.deleteCategory(c, MainActivity.this::refreshCategories));
+                        if (!controller.isAdmin()) { Toast.makeText(MainActivity.this, L("Permission refusée : rôle ADMIN requis"), Toast.LENGTH_LONG).show(); return; }
+                        confirm(L("Supprimer la catégorie %@ ?", c.getName()), () -> controller.deleteCategory(c, MainActivity.this::refreshCategories));
                     }
                 }));
             }
             android.widget.Spinner parent = findViewById(R.id.spinnerParentCat);
             if (parent != null) {
                 List<Object> items = new ArrayList<>();
-                items.add("— Aucune —");
+                items.add(L("— Aucune —"));
                 items.addAll(cats);
                 parent.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, items));
             }
@@ -1009,9 +1122,10 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 i.putExtra(Intent.EXTRA_STREAM, uri);
                 i.putExtra(Intent.EXTRA_SUBJECT, "StockIT — inventaire");
                 i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                startActivity(Intent.createChooser(i, "Exporter l'inventaire (CSV)"));
+                com.example.stockit.util.AppSession.allowExternal();
+                startActivity(Intent.createChooser(i, L("Exporter l'inventaire (CSV)")));
             } catch (Exception e) {
-                Toast.makeText(this, "Export impossible : " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, L("Export impossible : %@", e.getMessage()), Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -1023,7 +1137,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             rv.setLayoutManager(new LinearLayoutManager(this));
             rv.setAdapter(new StockMovementAdapter(movements));
             new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle("Historique des mouvements (" + movements.size() + ")")
+                    .setTitle(L("Historique des mouvements (%@)", movements.size()))
                     .setView(rv).setPositiveButton("OK", null).show();
         });
     }
@@ -1031,8 +1145,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private void confirm(String message, Runnable action) {
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setMessage(message)
-                .setPositiveButton("Confirmer", (d, w) -> action.run())
-                .setNegativeButton("Annuler", null).show();
+                .setPositiveButton(L("Confirmer"), (d, w) -> action.run())
+                .setNegativeButton(L("Annuler"), null).show();
     }
 
     /** Nom / rôle de l'utilisateur dans l'en-tête du drawer. */
@@ -1044,16 +1158,21 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (name != null && u != null) name.setText(u.getUsername());
     }
 
-    /** Masque les entrées réservées aux administrateurs (comme iOS). */
+    /**
+     * Droits identiques à iOS : Catégories, Audit et Utilisateurs sont consultables par tous ;
+     * seules les actions (créer / modifier / supprimer) sont réservées aux administrateurs.
+     */
     private void applyRoleVisibility(NavigationView nv) {
         if (nv == null) return;
         boolean admin = controller.isAdmin();
-        MenuItem users = nv.getMenu().findItem(R.id.nav_utilisateur);
-        if (users != null) users.setVisible(admin);
-        MenuItem audit = nv.getMenu().findItem(R.id.nav_audit);
-        if (audit != null) audit.setVisible(admin);
-        MenuItem cats = nv.getMenu().findItem(R.id.nav_categories);
-        if (cats != null) cats.setVisible(admin);
+        View catForm = findViewById(R.id.btnAddCat);
+        if (catForm != null) {
+            View card = (View) catForm.getParent().getParent();
+            if (card != null) card.setVisibility(admin ? View.VISIBLE : View.GONE);
+        }
+        // Gestion Articles : création / édition réservées ADMIN / MANAGER (iOS : bouton + du Stock).
+        MenuItem art = nv.getMenu().findItem(R.id.nav_article);
+        if (art != null) art.setVisible(controller.canEditStock());
     }
 
     private void requestNotificationPermission() {
@@ -1080,9 +1199,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             for (int i = 0; i < l.size(); i++) {
                 com.example.stockit.model.User u = l.get(i);
                 String medal = i == 0 ? "🥇 " : i == 1 ? "🥈 " : i == 2 ? "🥉 " : (i + 1) + ". ";
-                String badges = u.getBadges() == null || u.getBadges().isEmpty() ? "" : " · " + u.getBadges();
+                String badges = u.getBadges() == null || u.getBadges().isEmpty() ? "" : " · " + com.example.stockit.util.AppLanguage.LV(u.getBadges());
                 rows.add(new com.example.stockit.controller.SimpleRowAdapter.Row(medal + u.getUsername(),
-                        "Niveau " + u.getLevel() + badges, u.getPoints() + " pts", 0, u));
+                        L("Niveau %@", u.getLevel()) + badges, L("%@ pts", u.getPoints()), 0, u));
             }
             rv.setLayoutManager(new LinearLayoutManager(this));
             rv.setAdapter(new com.example.stockit.controller.SimpleRowAdapter(rows, null));
@@ -1091,7 +1210,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     private void generateMonthlyPdfReport() {
         final androidx.appcompat.app.AlertDialog loading = new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setMessage("Rédaction du rapport par l'IA (Claude)…").setCancelable(false).show();
+                .setMessage(L("Rédaction du rapport par l'IA (Claude)…")).setCancelable(false).show();
 
         controller.getReportData((total, low, value, out, counts) -> {
             String rawData = String.format(Locale.FRANCE,
@@ -1103,19 +1222,20 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 File pdfFile = com.example.stockit.util.PdfReportGenerator.generateMonthlyReport(this, summary);
                 if (pdfFile != null) {
                     new androidx.appcompat.app.AlertDialog.Builder(this)
-                            .setTitle("Rapport IA Terminé")
-                            .setMessage("Le rapport a été rédigé par l'IA et sauvegardé.\nVoulez-vous le partager ?")
-                            .setPositiveButton("Partager", (d, w) -> {
+                            .setTitle(L("Rapport IA Terminé"))
+                            .setMessage(L("Le rapport a été rédigé par l'IA et sauvegardé.\nVoulez-vous le partager ?"))
+                            .setPositiveButton(L("Partager"), (d, w) -> {
                                 Uri uri = androidx.core.content.FileProvider.getUriForFile(this, "com.example.stockit.fileprovider", pdfFile);
                                 Intent intent = new Intent(Intent.ACTION_SEND);
                                 intent.setType("application/pdf");
                                 intent.putExtra(Intent.EXTRA_STREAM, uri);
                                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                                startActivity(Intent.createChooser(intent, "Partager le rapport"));
+                                com.example.stockit.util.AppSession.allowExternal();
+                                startActivity(Intent.createChooser(intent, L("Partager le rapport")));
                             })
-                            .setNegativeButton("Fermer", null).show();
+                            .setNegativeButton(L("Fermer"), null).show();
                 } else {
-                    Toast.makeText(this, "Erreur de génération PDF", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, L("Erreur de génération PDF"), Toast.LENGTH_SHORT).show();
                 }
             });
         });
@@ -1145,9 +1265,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         // Salutation contextuelle (matin / après-midi / soir)
         int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
-        String hello = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
+        String hello = hour < 12 ? L("Bonjour") : hour < 18 ? L("Bon après-midi") : L("Bonsoir");
 
-        if (greeting != null) greeting.setText(hello + " " + userName + " 👋");
+        if (greeting != null) greeting.setText(L("%@ %@ 👋", hello, userName));
         if (avatar != null) {
             String initial = userName.substring(0, 1).toUpperCase(Locale.getDefault());
             avatar.setText(initial);

@@ -113,7 +113,7 @@ public final class GeminiGatewayClient {
                 return;
             }
 
-            cb.onResult(null, "IA indisponible — " + trace);
+            cb.onResult(null, AppLanguage.L("IA indisponible — %@", trace.toString()));
         }, "vision-gateway").start();
     }
 

@@ -61,6 +61,9 @@ public class TicketListActivity extends AppCompatActivity {
     private View emptyStateRoot;
     private ChipGroup chipGroup;
     private ValueAnimator shimmerAnimator;
+    private boolean pickMode;
+
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,7 +79,10 @@ public class TicketListActivity extends AppCompatActivity {
         chipGroup         = findViewById(R.id.tlChipGroup);
         MaterialButton cancel = findViewById(R.id.tlBtnCancel);
 
+        // Mode sélection (sortie équipement) vs consultation (onglet Tickets) — identique iOS TicketBrowserView.
+        pickMode = getCallingActivity() != null;
         adapter = new TicketAdapter(t -> {
+            if (!pickMode) return;
             Intent data = new Intent();
             data.putExtra(EXTRA_TICKET_ID, t.key);
             data.putExtra(EXTRA_TICKET_SUMMARY, t.summary);
@@ -118,6 +124,14 @@ public class TicketListActivity extends AppCompatActivity {
         setupSwipeActions();
 
         cancel.setOnClickListener(v -> { setResult(RESULT_CANCELED); finish(); });
+        // Onglet Tickets : pas de bouton Annuler (iOS : seulement en mode sélection).
+        cancel.setVisibility(pickMode ? View.VISIBLE : View.GONE);
+
+        androidx.swiperefreshlayout.widget.SwipeRefreshLayout srl = findViewById(R.id.tlSwipeRefresh);
+        if (srl != null) {
+            srl.setColorSchemeResources(R.color.vista_blue);
+            srl.setOnRefreshListener(() -> { srl.setRefreshing(false); loadTickets(); });
+        }
 
         loadTickets();
     }
@@ -149,10 +163,10 @@ public class TicketListActivity extends AppCompatActivity {
                 JiraTicket t = adapter.removeAt(pos);
                 if (t == null) return;
                 if (dir == ItemTouchHelper.RIGHT) {
-                    VistaSnackbar.show(recycler, "Assigné à moi : " + t.key,
+                    VistaSnackbar.show(recycler, L("Assigné à moi : %@", t.key),
                             VistaSnackbar.Level.SUCCESS);
                 } else {
-                    VistaSnackbar.show(recycler, "Reporté : " + t.key,
+                    VistaSnackbar.show(recycler, L("Reporté : %@", t.key),
                             VistaSnackbar.Level.INFO);
                 }
                 updateEmptyState();
@@ -193,21 +207,21 @@ public class TicketListActivity extends AppCompatActivity {
 
     private void loadTickets() {
         showSkeleton(true);
-        setBusy(true, "⏳ Chargement des tickets Jira…");
+        setBusy(true, L("⏳ Chargement des tickets Jira…"));
         JiraReader.loadOpenTickets(50, (tickets, error) -> runOnUiThread(() -> {
             setBusy(false, null);
             showSkeleton(false);
             if (error != null) {
                 status.setText("❌ " + error);
-                showEmpty("Impossible de charger", error);
+                showEmpty(L("Impossible de charger"), error);
                 return;
             }
             if (tickets == null || tickets.isEmpty()) {
-                status.setText("Aucun ticket ouvert.");
-                showEmpty("Aucun ticket ouvert", "Rien à traiter — 🎉 profitez d'une pause.");
+                status.setText(L("Aucun ticket ouvert."));
+                showEmpty(L("Aucun ticket ouvert"), L("Rien à traiter — 🎉 profitez d'une pause."));
                 return;
             }
-            status.setText(tickets.size() + " ticket(s) ouvert(s)");
+            status.setText(L("%@ ticket(s) ouvert(s)", tickets.size()));
             adapter.setData(tickets);
             updateEmptyState();
         }));
@@ -215,7 +229,7 @@ public class TicketListActivity extends AppCompatActivity {
 
     private void updateEmptyState() {
         if (adapter.visibleCount() == 0 && !isSkeletonVisible()) {
-            showEmpty("Aucun résultat", "Essayez un autre filtre ou une autre recherche.");
+            showEmpty(L("Aucun résultat"), L("Essayez un autre filtre ou une autre recherche."));
         } else {
             hideEmpty();
         }

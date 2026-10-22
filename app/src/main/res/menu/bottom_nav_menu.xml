@@ -3,17 +3,17 @@
     <item
         android:id="@+id/bnav_dashboard"
         android:icon="@drawable/ic_nav_dashboard"
-        android:title="Dashboard" />
+        android:title="@string/menu_bottom_dashboard" />
     <item
         android:id="@+id/bnav_stock"
         android:icon="@drawable/ic_nav_stock"
-        android:title="Stock" />
+        android:title="@string/dash_stock" />
     <item
         android:id="@+id/bnav_tickets"
         android:icon="@drawable/ic_nav_tickets"
-        android:title="Tickets" />
+        android:title="@string/menu_bottom_tickets" />
     <item
         android:id="@+id/bnav_profile"
         android:icon="@drawable/ic_nav_profile"
-        android:title="Profil" />
+        android:title="@string/menu_bottom_profile" />
 </menu>

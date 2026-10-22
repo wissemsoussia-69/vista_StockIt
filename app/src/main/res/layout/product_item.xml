@@ -28,7 +28,7 @@
             android:id="@+id/productName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Product Name"
+            android:text="@string/product_name_placeholder"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -36,7 +36,7 @@
             android:id="@+id/productDesc"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Description / Tag"
+            android:text="@string/product_item_desc_placeholder"
             android:textSize="12sp"
             android:textColor="#666666" />
     </LinearLayout>

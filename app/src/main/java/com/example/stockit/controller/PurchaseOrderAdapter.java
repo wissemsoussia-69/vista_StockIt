@@ -67,6 +67,8 @@ public class PurchaseOrderAdapter extends RecyclerView.Adapter<PurchaseOrderAdap
             localizedStatus = ctx.getString(R.string.status_received);
             holder.status.setTextColor(android.graphics.Color.GREEN);
             holder.btnValidate.setVisibility(View.GONE);
+        } else {
+            localizedStatus = com.example.stockit.util.AppLanguage.LV(status);
         }
         holder.status.setText(localizedStatus);
 

@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingBottom="12dp"
-        android:text="Tickets Jira ouverts"
+        android:text="@string/tickets_title"
         android:textAppearance="@style/TextAppearance.Vista.SectionTitle" />
 
     <EditText
@@ -21,7 +21,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="10dp"
         android:background="@drawable/bg_glass_card"
-        android:hint="Rechercher (key, sujet, description…)"
+        android:hint="@string/tickets_search_hint"
         android:imeOptions="actionSearch"
         android:inputType="text"
         android:padding="14dp"
@@ -49,7 +49,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:checked="true"
-                android:text="Tous"
+                android:text="@string/tickets_filter_all"
                 app:chipBackgroundColor="@drawable/bg_chip_filter"
                 app:chipStrokeWidth="0dp"
                 android:textColor="@color/chip_filter_text" />
@@ -59,7 +59,7 @@
                 style="@style/Widget.MaterialComponents.Chip.Choice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Highest"
+                android:text="@string/tickets_filter_highest"
                 app:chipBackgroundColor="@drawable/bg_chip_filter"
                 app:chipStrokeWidth="0dp"
                 android:textColor="@color/chip_filter_text" />
@@ -69,7 +69,7 @@
                 style="@style/Widget.MaterialComponents.Chip.Choice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="En retard"
+                android:text="@string/tickets_filter_overdue"
                 app:chipBackgroundColor="@drawable/bg_chip_filter"
                 app:chipStrokeWidth="0dp"
                 android:textColor="@color/chip_filter_text" />
@@ -79,7 +79,7 @@
                 style="@style/Widget.MaterialComponents.Chip.Choice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Assignés à moi"
+                android:text="@string/tickets_filter_assigned_to_me"
                 app:chipBackgroundColor="@drawable/bg_chip_filter"
                 app:chipStrokeWidth="0dp"
                 android:textColor="@color/chip_filter_text" />
@@ -103,11 +103,16 @@
         android:text=""
         android:textColor="@color/vista_navy_muted" />
 
-    <!-- Zone contenu : liste OU skeletons OU empty state -->
-    <FrameLayout
+    <!-- Zone contenu : liste OU skeletons OU empty state. Tirer vers le bas = recharger (iOS .refreshable) -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/tlSwipeRefresh"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/tlRecycler"
@@ -132,6 +137,7 @@
 
         <include layout="@layout/view_empty_state" />
     </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/tlBtnCancel"
@@ -139,7 +145,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Annuler"
+        android:text="@string/common_cancel"
         android:textColor="@color/vista_blue"
         app:strokeColor="@color/vista_blue" />
 </LinearLayout>

@@ -1,0 +1,17 @@
+/* StockIT Android — compléments aux traductions iOS (iosApp/StockIT/Resources/en.lproj/Localizable.strings).
+   Même format : clé = texte français. Seuls les textes propres à Android sont ici. */
+
+"Mode hors ligne actif : ML Kit + analyse locale du stock." = "Offline mode on: ML Kit + local stock analysis.";
+"Mode test activé" = "Test mode on";
+"Mode test désactivé" = "Test mode off";
+"Envoi…" = "Sending…";
+"File vide ✅" = "Queue empty ✅";
+"%@ envoi(s) toujours en attente" = "%@ call(s) still pending";
+"Connecté" = "Signed in";
+"Application" = "App";
+"Mode test" = "Test mode";
+"Version" = "Version";
+"Permission refusée : rôle ADMIN requis" = "Permission denied: ADMIN role required";
+"Permission refusée : rôle ADMIN ou MANAGER requis" = "Permission denied: ADMIN or MANAGER role required";
+"Qualité de l'IA" = "AI quality";
+"Prévision des besoins" = "Demand forecast";

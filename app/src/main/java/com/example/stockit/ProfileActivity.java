@@ -39,21 +39,21 @@ public class ProfileActivity extends AppCompatActivity {
             profileUsername.setText(user.getUsername());
             String email = session.getEmail();
             profileEmail.setText(email != null && !email.isEmpty() ? email
-                    : ("auth0".equals(session.getProvider()) ? "—" : "Compte local (démo)"));
+                    : ("auth0".equals(session.getProvider()) ? "—" : L("Compte local (démo)")));
 
             TextView txtLevel = findViewById(R.id.profileLevel);
             TextView txtPoints = findViewById(R.id.profilePoints);
             TextView txtBadges = findViewById(R.id.profileBadges);
-            if (txtLevel != null) txtLevel.setText("NIVEAU " + user.getLevel());
-            if (txtPoints != null) txtPoints.setText(user.getPoints() + " POINTS");
-            String badges = user.getBadges() == null || user.getBadges().isEmpty() ? "Aucun" : user.getBadges();
-            if (txtBadges != null) txtBadges.setText("Badges : " + badges);
+            if (txtLevel != null) txtLevel.setText(L("NIVEAU %@", user.getLevel()));
+            if (txtPoints != null) txtPoints.setText(L("%@ POINTS", user.getPoints()));
+            String badges = user.getBadges() == null || user.getBadges().isEmpty() ? L("Aucun") : user.getBadges();
+            if (txtBadges != null) txtBadges.setText(L("Badges : %@", badges));
         }
 
-        String provider = "auth0".equals(session.getProvider()) ? "Vista SSO (Okta)" : "Connexion locale (démo)";
+        String provider = "auth0".equals(session.getProvider()) ? L("Vista SSO (Okta)") : L("Connexion locale (démo)");
         String role = user != null ? user.getRole() : session.getRole();
-        profileDept.setText("Rôle : " + role + "  ·  " + getString(R.string.profile_dept_it));
-        profileLocation.setText("Connexion : " + provider + "  ·  " + getString(R.string.profile_loc_hq));
+        profileDept.setText(L("Rôle : %@", com.example.stockit.util.AppLanguage.LV(role)) + "  ·  " + getString(R.string.profile_dept_it));
+        profileLocation.setText(L("Connexion : %@", provider) + "  ·  " + getString(R.string.profile_loc_hq));
 
         Button logoutButton = findViewById(R.id.logoutButton);
         logoutButton.setOnClickListener(v -> {
@@ -68,6 +68,8 @@ public class ProfileActivity extends AppCompatActivity {
             });
         });
     }
+
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
 
     @Override
     public boolean onSupportNavigateUp() {

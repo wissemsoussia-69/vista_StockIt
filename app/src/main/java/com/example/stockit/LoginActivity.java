@@ -126,6 +126,8 @@ public class LoginActivity extends AppCompatActivity {
         setLoading(true);
         oktaStatusText.setVisibility(View.GONE);
 
+        // Vrai pendant l'ouverture de la page Okta (l'app passe brièvement en arrière-plan) — iOS signingIn.
+        com.example.stockit.util.AppSession.allowExternal();
         oktaAuth.signIn(this, new Auth0Manager.SignInCallback() {
             @Override
             public void onSuccess(String username, @Nullable String email, String role) {
@@ -136,7 +138,7 @@ public class LoginActivity extends AppCompatActivity {
                 controller.loginSso(username, role, (success, dbUser) -> {
                     if (!success) {
                         oktaStatusText.setVisibility(View.VISIBLE);
-                        oktaStatusText.setText(getString(R.string.sso_error, "base locale indisponible"));
+                        oktaStatusText.setText(getString(R.string.sso_error, L("base locale indisponible")));
                         return;
                     }
                     openMain();
@@ -193,13 +195,13 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
                 super.onAuthenticationError(errorCode, errString);
-                Toast.makeText(LoginActivity.this, "Erreur empreinte : " + errString, Toast.LENGTH_SHORT).show();
+                Toast.makeText(LoginActivity.this, L("Erreur empreinte : %@", errString), Toast.LENGTH_SHORT).show();
             }
         });
 
         BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Connexion pour " + user.getUsername())
-                .setSubtitle("Posez votre doigt pour valider votre identité")
+                .setTitle(L("Connexion pour %@", user.getUsername()))
+                .setSubtitle(L("Posez votre doigt pour valider votre identité"))
                 .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL)
                 .build();
 
@@ -216,7 +218,7 @@ public class LoginActivity extends AppCompatActivity {
                         user != null ? user.getRole() : "USER");
                 openMain();
             } else {
-                Toast.makeText(this, "Identifiants incorrects", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, L("Identifiants incorrects"), Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -235,6 +237,8 @@ public class LoginActivity extends AppCompatActivity {
         if (loginButton != null) loginButton.setEnabled(!loading);
         if (oktaSignInButton != null) oktaSignInButton.setEnabled(!loading && oktaAuth.isConfigured());
     }
+
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
 
     private void checkBiometricSupport(Button biometricButton) {
         BiometricManager manager = BiometricManager.from(this);

@@ -68,6 +68,8 @@ object SharedBridge {
     fun init(context: Context) {
         AndroidStockIt.setup(context)
         StockItConfig.testMode = isTestMode(context)
+        StockItConfig.language = AppLanguage.current(context)
+        AssetsSync.init(context)
     }
 
     @JvmStatic
@@ -187,10 +189,13 @@ object SharedBridge {
                        actor: String, cb: OpCallback) {
         scope.launch {
             val hasTicket = ticketKey.isNotBlank() && !ticketKey.equals("NO-TICKET", true)
+            // Unités connues grâce à la synchronisation : on cible leurs clés exactes (identique iOS).
+            val (tag, keys) = runCatching { AssetsSync.preferredKeysFor(name) }.getOrElse { null to emptyList() }
             val assets = if (JiraAssetsClient.isConfigured)
-                runCatching { JiraAssetsClient.checkOut(name, qty, assignedTo ?: actor, ticketKey) }
+                runCatching { JiraAssetsClient.checkOut(name, qty, assignedTo ?: actor, ticketKey, keys, AssetsSync.typeIdForTag(tag)) }
                     .getOrElse { OpResult(false, it.message) }
             else OpResult(false, "assets_not_configured")
+            if (assets.success && tag != null) AssetsSync.removeKeys(tag, assets.detail)
             if (hasTicket) {
                 val lines = buildList {
                     add("📦 StockIT — livraison enregistrée")

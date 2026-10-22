@@ -28,13 +28,12 @@ public class ClaimActivity extends AppCompatActivity {
         controller = new MainController(this);
         androidx.appcompat.widget.Toolbar tb = findViewById(R.id.claimToolbar);
         if (tb != null) {
-            tb.setTitle("Réclamations");
+            tb.setTitle(L("Réclamations"));
             setSupportActionBar(tb);
             if (getSupportActionBar() != null) getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         }
         if (!controller.hasClaimsBackend()) {
-            Toast.makeText(this, "Mode local : backend réclamations non configuré (STOCKIT_API_BASE_URL). "
-                    + "Les réclamations restent sur ce téléphone.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, L("Mode local : backend réclamations non configuré (STOCKIT_API_BASE_URL). Les réclamations restent sur ce téléphone."), Toast.LENGTH_LONG).show();
         }
 
         RecyclerView rv = findViewById(R.id.claimRecyclerView);
@@ -65,23 +64,25 @@ public class ClaimActivity extends AppCompatActivity {
 
         new AlertDialog.Builder(this)
                 .setView(view)
-                .setPositiveButton("Envoyer", (dialog, which) -> {
+                .setPositiveButton(L("Envoyer"), (dialog, which) -> {
                     String sub = editSubject.getText().toString();
                     String desc = editDesc.getText().toString();
                     String prio = spinnerPriority.getSelectedItem().toString();
 
                     if (!sub.isEmpty()) {
                         controller.addClaim(sub, desc, prio, () -> {
-                            Toast.makeText(this, "Réclamation enregistrée", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, L("Réclamation enregistrée"), Toast.LENGTH_SHORT).show();
                             loadClaims();
                         });
                     } else {
-                        Toast.makeText(this, "Le sujet est obligatoire", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, L("Le sujet est obligatoire"), Toast.LENGTH_SHORT).show();
                     }
                 })
-                .setNegativeButton("Annuler", null)
+                .setNegativeButton(L("Annuler"), null)
                 .show();
     }
+
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
 
     @Override
     public boolean onSupportNavigateUp() {

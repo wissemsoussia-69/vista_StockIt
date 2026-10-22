@@ -44,6 +44,8 @@ public class POSelectionActivity extends AppCompatActivity {
     public static final String EXTRA_SELECTED_DESCRIPTION= "selected_po_description";
     public static final String EXTRA_SELECTED_SUPPLIER   = "selected_po_supplier";
 
+    private static String L(String key, Object... args) { return com.example.stockit.util.AppLanguage.L(key, args); }
+
     private TextView title, subtitle;
     private RecyclerView recycler;
     private Button btnConfirm, btnCancel;
@@ -68,8 +70,8 @@ public class POSelectionActivity extends AppCompatActivity {
 
         if (note == null || note.purchaseOrders == null || note.purchaseOrders.isEmpty()) {
             new AlertDialog.Builder(this)
-                    .setTitle("❌ Aucun PO détecté")
-                    .setMessage("La facture n'a produit aucun numéro de PO exploitable."
+                    .setTitle(L("❌ Aucun PO détecté"))
+                    .setMessage(L("La facture n'a produit aucun numéro de PO exploitable.")
                             + (note != null && note.rawOcr != null ? "\n\nOCR:\n" + trim(note.rawOcr, 500) : ""))
                     .setPositiveButton("OK", (d, w) -> { setResult(RESULT_CANCELED); finish(); })
                     .setCancelable(false)
@@ -77,9 +79,9 @@ public class POSelectionActivity extends AppCompatActivity {
             return;
         }
 
-        title.setText(note.purchaseOrders.size() + " PO détecté(s) — sélectionne le bon");
-        subtitle.setText("🖥️ Équipement scanné : " + (equipmentName == null ? "?" : equipmentName)
-                + (note.supplier != null ? "   •   Fournisseur facture : " + note.supplier : ""));
+        title.setText(L("%@ PO détecté(s) — sélectionne le bon", note.purchaseOrders.size()));
+        subtitle.setText(L("🖥️ Équipement scanné : %@", equipmentName == null ? "?" : equipmentName)
+                + (note.supplier != null ? L("   •   Fournisseur facture : %@", note.supplier) : ""));
 
         setupRecycler();
 
@@ -111,14 +113,12 @@ public class POSelectionActivity extends AppCompatActivity {
         }
         // Option B : warning non bloquant
         new AlertDialog.Builder(this)
-                .setTitle("⚠️ Incohérence possible")
-                .setMessage("Tu as scanné : « " + (equipmentName == null ? "?" : equipmentName) + " ».\n\n"
-                        + "Mais le PO " + selected.number + " indique :\n« "
-                        + (selected.description == null ? "(sans description)" : selected.description) + " »\n\n"
-                        + "Ce PO ne mentionne pas ton équipement.\n"
-                        + "Confirmer quand même ce rattachement ?")
-                .setPositiveButton("Oui, rattacher", (d, w) -> returnResult(selected))
-                .setNegativeButton("Non, choisir un autre", null)
+                .setTitle(L("⚠️ Incohérence possible"))
+                .setMessage(L("Tu as scanné : « %@ ».\n\nMais le PO %@ indique :\n« %@ »\n\nCe PO ne mentionne pas ton équipement.\nConfirmer quand même ce rattachement ?",
+                        equipmentName == null ? "?" : equipmentName, selected.number,
+                        selected.description == null ? L("(sans description)") : selected.description))
+                .setPositiveButton(L("Oui, rattacher"), (d, w) -> returnResult(selected))
+                .setNegativeButton(L("Non, choisir un autre"), null)
                 .show();
     }
 
