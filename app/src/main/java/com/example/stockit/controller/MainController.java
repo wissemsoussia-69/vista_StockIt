@@ -16,11 +16,6 @@ import com.example.stockit.model.ApiService;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-import com.google.ai.client.generativeai.GenerativeModel;
-import com.google.ai.client.generativeai.java.GenerativeModelFutures;
-import com.google.ai.client.generativeai.type.Content;
-import com.google.ai.client.generativeai.type.GenerateContentResponse;
-
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,7 +27,6 @@ public class MainController {
     private final Handler mainHandler;
     private static User currentUser;
     private final ApiService apiService;
-    private final com.example.stockit.model.AIService aiService;
     private final boolean hasClaimsBackend;
 
     /** Vrai si un backend réclamations réel est configuré (STOCKIT_API_BASE_URL). */
@@ -85,20 +79,13 @@ public class MainController {
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         this.apiService = retrofit.create(ApiService.class);
-
-        // Configuration Google Gemini 1.5 Pro
-        Retrofit aiRetrofit = new Retrofit.Builder()
-                .baseUrl("https://generativelanguage.googleapis.com/v1beta/") 
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-        this.aiService = aiRetrofit.create(com.example.stockit.model.AIService.class);
     }
 
     /**
      * Assistant IA (AIChatActivity + rapport PDF).
      * 1) Claude via la passerelle Cimpress (même config que iOS), avec l'état réel du stock en contexte.
-     * 2) Gemini SDK uniquement si GEMINI_API_KEY est une vraie clé Google ("AIza…").
-     * 3) Sinon : message d'erreur explicite (cause exacte affichée).
+     * 2) Sinon réponse locale (OfflineAI) + cause lisible — plus aucun envoi direct
+     *    à un fournisseur tiers hors Vista (Gemini retiré, TM-01 / TM-26).
      */
     public void askAssistant(String question, AIResponseCallback callback) {
         executor.execute(() -> {
@@ -116,14 +103,7 @@ public class MainController {
             }
             android.util.Log.w("MainController", "Assistant Cimpress KO: " + r.error);
 
-            // 2) Gemini (seulement avec une vraie clé Google)
-            String gk = com.example.stockit.BuildConfig.GEMINI_API_KEY;
-            if (gk != null && gk.startsWith("AIza") && gk.length() >= 35) {
-                askGemini(system + "\n\nQuestion: " + question, callback, r.error);
-                return;
-            }
-
-            // 3) Rien de disponible → cause lisible
+            // 2) Rien de disponible → cause lisible + réponse locale
             String why = "cimpress_not_configured".equals(r.error)
                     ? L("IA non configurée : renseignez CIMPRESS_GATEWAY_KEY et GATEWAY_URL dans .env.sh / set_env.ps1, puis recompilez.")
                     : L("Claude (Cimpress) indisponible : %@", r.error);
@@ -196,99 +176,95 @@ public class MainController {
         }
     }
 
-    private void askGemini(String fullPrompt, AIResponseCallback callback, String cimpressError) {
-        GenerativeModel gm = new GenerativeModel("gemini-1.5-pro", com.example.stockit.BuildConfig.GEMINI_API_KEY);
-        GenerativeModelFutures model = GenerativeModelFutures.from(gm);
-        Content content = new Content.Builder().addText(fullPrompt).build();
-        com.google.common.util.concurrent.ListenableFuture<GenerateContentResponse> response = model.generateContent(content);
-        response.addListener(() -> {
-            try {
-                String resultText = response.get().getText();
-                mainHandler.post(() -> callback.onResponse(com.example.stockit.util.CimpressChat.plainText(resultText)));
-            } catch (Exception e) {
-                android.util.Log.e("MainController", "Gemini SDK Error", e);
-                mainHandler.post(() -> callback.onResponse(L("Désolé, l'assistant IA ne répond pas.\n\nClaude : %@\nGemini : %@",
-                        cimpressError, e.getMessage())));
-            }
-        }, executor);
-    }
-
+    /**
+     * Analyse de facture (texte du prompt système iOS) via la passerelle Cimpress —
+     * plus aucun appel direct à l'API Gemini (clé en query string, TM-26).
+     */
     public void analyzeInvoice(android.net.Uri fileUri, AIResponseCallback callback) {
         executor.execute(() -> {
-            try {
-                if (fileUri != null) {
-                    android.util.Log.d("MainController", "Analyzing invoice: " + fileUri.getPath());
-                }
-                // Pour l'analyse de facture, on demande à l'IA de renvoyer un JSON structuré
-                java.util.Map<String, Object> body = new java.util.HashMap<>();
-                java.util.List<java.util.Map<String, Object>> messages = new java.util.ArrayList<>();
-                
-                java.util.Map<String, Object> systemMsg = new java.util.HashMap<>();
-                systemMsg.put("role", "system");
-                systemMsg.put("content", context.getString(R.string.ai_invoice_system_role));
-                messages.add(systemMsg);
-
-                // Note: En production, on enverrait l'image en base64 ou via une URL publique
-                java.util.Map<String, Object> userMsg = new java.util.HashMap<>();
-                userMsg.put("role", "user");
-                userMsg.put("content", context.getString(R.string.ai_invoice_user_prompt));
-                messages.add(userMsg);
-
-                body.put("model", "gemini-1.5-flash"); // Utilisation de flash pour l'analyse rapide
-
-                String apiKey = com.example.stockit.BuildConfig.GEMINI_API_KEY;
-                retrofit2.Response<okhttp3.ResponseBody> response = aiService.generateGeminiContent("gemini-1.5-flash", apiKey, body).execute();
-                if (response.isSuccessful() && response.body() != null) {
-                    String raw = response.body().string();
-                    mainHandler.post(() -> callback.onResponse(raw));
-                }
-            } catch (Exception e) {
-                mainHandler.post(() -> callback.onResponse(context.getString(R.string.ai_error_analysis, e.getMessage())));
+            com.example.stockit.util.CimpressChat.Result r =
+                    com.example.stockit.util.CimpressChat.chat(
+                            context.getString(R.string.ai_invoice_system_role),
+                            context.getString(R.string.ai_invoice_user_prompt), 1200);
+            if (r.ok()) {
+                mainHandler.post(() -> callback.onResponse(com.example.stockit.util.CimpressChat.plainText(r.text)));
+            } else {
+                mainHandler.post(() -> callback.onResponse(context.getString(R.string.ai_error_analysis,
+                        "Claude (Cimpress) indisponible : " + r.error)));
             }
         });
     }
 
     public void login(String username, String password, AuthCallback callback) {
         android.util.Log.d("MainController", "Login requested for: " + username);
+        // TM-08 : le repli local (comptes à mot de passe) n'existe que dans les builds
+        // Debug — en Release, seul le SSO Vista est disponible.
+        if (!com.example.stockit.BuildConfig.DEBUG) {
+            mainHandler.post(() -> callback.onResult(false, null));
+            return;
+        }
+        final String name = username == null ? "" : username.trim();
+        if (name.isEmpty() || password == null || password.isEmpty()) {
+            mainHandler.post(() -> callback.onResult(false, null));
+            return;
+        }
+        executor.execute(() -> {
+            User user = null;
+            if (com.example.stockit.util.LoginGuard.isLockedOut(name)) {
+                recordAuditLog("LOGIN_LOCKED", "Connexion refusée (trop d'échecs) : " + name);
+            } else {
+                try {
+                    User row = db.userDao().findLocalByUsername(name);
+                    // Vérification PBKDF2 (jamais de comparaison en clair) hors du thread UI.
+                    boolean ok = row != null && com.example.stockit.shared.security.PasswordHasher.INSTANCE
+                            .verify(password, row.getPassword() == null ? "" : row.getPassword());
+                    if (ok) {
+                        com.example.stockit.util.LoginGuard.clear(name);
+                        user = row;
+                        recordAuditLog("LOGIN", "Utilisateur connecté: " + name);
+                    } else {
+                        com.example.stockit.util.LoginGuard.recordFailure(name);
+                        recordAuditLog("LOGIN_FAILED", "Échec de connexion locale : " + name);
+                    }
+                } catch (Exception e) {
+                    android.util.Log.e("MainController", "Login CRASH: " + e.getMessage(), e);
+                }
+            }
+
+            final User finalUser = user;
+            if (finalUser != null) currentUser = finalUser;
+            mainHandler.post(() -> callback.onResult(finalUser != null, finalUser));
+        });
+    }
+
+    /**
+     * Crée (ou réinitialise) un compte local — développement / tests uniquement.
+     * Mot de passe haché PBKDF2 ; refusé si le nom appartient déjà à un compte SSO.
+     */
+    public void provisionLocalUser(String username, String password, String role, AuthCallback callback) {
+        if (!com.example.stockit.BuildConfig.DEBUG || username == null || username.trim().isEmpty() || password == null || password.length() < 10) {
+            mainHandler.post(() -> callback.onResult(false, null));
+            return;
+        }
+        final String name = username.trim();
+        final String hash = com.example.stockit.shared.security.PasswordHasher.INSTANCE.hash(password, com.example.stockit.shared.security.PasswordHasher.DEFAULT_ITERATIONS);
+        final String r = com.example.stockit.util.Permissions.normalize(role);
         executor.execute(() -> {
             try {
-                android.util.Log.d("MainController", "Login background task started");
-                
-                // Force seed for debug/demo purposes
-                if (db.userDao().getUserCount() < 5) { // Force si l'équipe n'est pas complète
-                    android.util.Log.d("MainController", "Seeding Vistaprint Team...");
-                    db.userDao().register(new User("admin", "admin123", "ADMIN"));
-                    db.userDao().register(new User("Nadhem", "pass123", "TECHNICIEN"));
-                    db.userDao().register(new User("Nour", "pass123", "TECHNICIEN"));
-                    db.userDao().register(new User("Eya", "pass123", "TECHNICIEN"));
-                    db.userDao().register(new User("Majdi", "pass123", "TECHNICIEN"));
-                    db.userDao().register(new User("Zied", "pass123", "TECHNICIEN"));
+                User existing = db.userDao().findLocalByUsername(name);
+                if (existing == null) {
+                    User u = new User(name, hash, r);
+                    db.userDao().register(u);
+                } else {
+                    existing.setPassword(hash);
+                    existing.setRole(r);
+                    db.userDao().update(existing);
                 }
-                
-                User user = db.userDao().login(username, password);
-                if (user == null) {
-                    // Fallback for demo: if it's admin/admin123 and still fails, something is wrong with DB
-                    // Let's try to just return a dummy user to unblock the developer
-                    if ("admin".equals(username) && "admin123".equals(password)) {
-                        android.util.Log.w("MainController", "DB Login failed for admin, using hardcoded fallback");
-                        user = new User("admin", "admin123", "ADMIN");
-                    }
-                }
-
-                android.util.Log.d("MainController", "Database login result: " + (user != null ? "Success" : "Failure"));
-                
-                final User finalUser = user;
-                if (finalUser != null) {
-                    currentUser = finalUser;
-                    recordAuditLog("LOGIN", "Utilisateur connecté: " + username);
-                }
-                
-                mainHandler.post(() -> {
-                    android.util.Log.d("MainController", "Posting login result to UI");
-                    callback.onResult(finalUser != null, finalUser);
-                });
+                recordAuditLog("PROVISION_LOCAL_USER", "Compte local " + name + " (" + r + ")");
+                User saved = db.userDao().findLocalByUsername(name);
+                mainHandler.post(() -> callback.onResult(true, saved));
             } catch (Exception e) {
-                android.util.Log.e("MainController", "Login CRASH: " + e.getMessage(), e);
+                android.util.Log.e("MainController", "Provision CRASH: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onResult(false, null));
             }
         });
@@ -298,50 +274,57 @@ public class MainController {
         executor.execute(() -> {
             String uId = (currentUser != null) ? currentUser.getUsername() : context.getString(R.string.user_name_guest);
             String device = android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL;
-            AuditLog log = new AuditLog(uId, action, details, System.currentTimeMillis(), "127.0.0.1", device);
+            // TM-15 : pas d'adresse IP inventée (« 127.0.0.1 ») — le téléphone n'en
+            // connaît pas la sienne côté client ; l'appareil est l'information fiable.
+            AuditLog log = new AuditLog(uId, action, details, System.currentTimeMillis(), null, device);
             db.auditLogDao().insert(log);
         });
     }
 
     /**
-     * Enregistre en base locale un utilisateur authentifié via SSO Auth0 (Vista).
-     *
-     * Le mot de passe est un placeholder inutilisable ({@code "sso-auth0"}) : les
-     * utilisateurs SSO ne peuvent PAS se reconnecter par le formulaire classique
-     * — Auth0 reste la seule source de vérité pour leur mot de passe.
-     * On persiste tout de même l'utilisateur en Room pour que les vérifications
-     * de rôle ({@link #isAdmin()}, {@link #canEditStock()}) et les jointures
-     * (audit, mouvements de stock…) fonctionnent normalement.
+     * Utilisateur authentifié via SSO Auth0 (Vista). L'identité est le sujet Auth0
+     * (« sub », immuable) : un employé nommé « admin » ne récupère PAS un compte
+     * local existant ; les comptes locaux ne sont jamais modifiés par une connexion
+     * SSO (aucun mot de passe local). Une ancienne ligne SSO sans sujet est adoptée
+     * une fois puis liée.
      */
-    public void loginSso(String username, String role, AuthCallback callback) {
-        android.util.Log.d("MainController", "SSO login: " + username + " (role=" + role + ")");
+    public void loginSso(String subject, String username, String role, AuthCallback callback) {
+        final String name = username == null || username.trim().isEmpty() ? "vista.user" : username.trim();
+        final String r = com.example.stockit.util.Permissions.normalize(role);
+        android.util.Log.d("MainController", "SSO login: " + name + " (role=" + r + ")");
         executor.execute(() -> {
             try {
-                User existing = null;
-                for (User u : db.userDao().getAllUsers()) {
-                    if (u.getUsername() != null && u.getUsername().equalsIgnoreCase(username)) {
-                        existing = u;
-                        break;
-                    }
+                java.util.List<User> all = db.userDao().getAllUsers();
+                long matchId = com.example.stockit.util.SsoIdentity.resolve(toIdentityRows(all), subject, name);
+                User user = null;
+                if (matchId > 0) {
+                    for (User u : all) if (u.getId() == matchId) { user = u; break; }
                 }
 
-                User user;
-                if (existing != null) {
-                    // Met à jour uniquement le rôle si nécessaire, préserve id/points/level/badges.
-                    if (role != null && !role.equals(existing.getRole())) {
-                        existing.setRole(role);
-                        db.userDao().update(existing);
+                if (user != null) {
+                    // Ligne SSO existante (ou ancienne ligne adoptée) : liaison du sujet + rôle à jour.
+                    if (user.getAuthSubject() == null || user.getAuthSubject().isEmpty()) {
+                        db.userDao().bindAuthSubject(subject, user.getId());
+                        user.setAuthSubject(subject);
                     }
-                    user = existing;
+                    if (!r.equals(user.getRole())) {
+                        user.setRole(r);
+                        db.userDao().update(user);
+                    }
                 } else {
-                    user = new User(username, "sso-auth0", role != null ? role : "USER");
-                    db.userDao().register(user);
+                    // Pas de ligne réutilisable : nouveau compte SSO (nom unique dérivé du sujet).
+                    String unique = uniqueUsername(name, subject);
+                    User u = new User(unique, "", r, subject, com.example.stockit.util.SsoIdentity.PROVIDER_AUTH0);
+                    db.userDao().register(u);
+                    user = db.userDao().findByAuthSubject(subject);
+                    if (user == null) user = u;
                 }
 
                 currentUser = user;
-                recordAuditLog("LOGIN_SSO", "Connexion SSO Auth0 : " + username);
+                recordAuditLog("LOGIN_SSO", "Connexion SSO Auth0 : " + name + " (" + r + ")");
 
-                mainHandler.post(() -> callback.onResult(true, user));
+                final User finalSsoUser = user;
+                mainHandler.post(() -> callback.onResult(true, finalSsoUser));
             } catch (Exception e) {
                 android.util.Log.e("MainController", "SSO login CRASH: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onResult(false, null));
@@ -349,29 +332,62 @@ public class MainController {
         });
     }
 
+    /** « Sam » sinon « Sam (a1b2c3) » d'après le sujet Auth0. */
+    private String uniqueUsername(String name, String subject) {
+        java.util.List<User> all = db.userDao().getAllUsers();
+        boolean taken = false;
+        for (User u : all) {
+            if (u.getUsername() != null && u.getUsername().equalsIgnoreCase(name)) { taken = true; break; }
+        }
+        if (!taken) return name;
+        String suffix = subject == null ? "sso" : subject.replaceAll("[^A-Za-z0-9]", "");
+        if (suffix.length() > 6) suffix = suffix.substring(suffix.length() - 6);
+        String candidate = name + " (" + suffix + ")";
+        int i = 2;
+        while (true) {
+            boolean exists = false;
+            for (User u : all) {
+                if (u.getUsername() != null && u.getUsername().equalsIgnoreCase(candidate)) { exists = true; break; }
+            }
+            if (!exists) return candidate;
+            candidate = name + " (" + suffix + "-" + i++ + ")";
+        }
+    }
+
     public static User getCurrentUser() { return currentUser; }
 
-    /** Restaure l'utilisateur courant depuis la session persistée (processus relancé). */
+    /** Session ouverte par la biométrie (LoginActivity) : utilisateur déjà vérifié. */
+    public static void setSessionUser(User user) { currentUser = user; }
+
+    /**
+     * Restaure l'utilisateur courant depuis la session de ce lancement (processus
+     * relancé par le système). TM-09 : le rôle de la préférence n'est JAMAIS une
+     * autorité — seule la ligne Room (mise à jour par SSO/admin) fait foi ; aucun
+     * compte n'est créé ici.
+     */
     public void restoreSession(String username, String role, Runnable onDone) {
         executor.execute(() -> {
             User found = null;
-            for (User u : db.userDao().getAllUsers()) {
-                if (u.getUsername() != null && u.getUsername().equalsIgnoreCase(username)) { found = u; break; }
-            }
-            if (found == null) {
-                found = new User(username, "sso-auth0", role != null ? role : "USER");
-                db.userDao().register(found);
+            if (username != null && !username.trim().isEmpty()) {
                 for (User u : db.userDao().getAllUsers()) {
-                    if (u.getUsername() != null && u.getUsername().equalsIgnoreCase(username)) { found = u; break; }
+                    if (u.getUsername() != null && u.getUsername().equalsIgnoreCase(username.trim())) { found = u; break; }
                 }
             }
-            currentUser = found;
+            if (found == null) {
+                // Aucun compte connu : pas de session fantôme, retour au login.
+                currentUser = null;
+            } else {
+                currentUser = found;
+            }
             if (onDone != null) mainHandler.post(onDone);
         });
     }
 
-    /** Ferme la session locale (équivalent iOS repo.logout()). */
-    public static void logoutLocal() { currentUser = null; }
+    /** Ferme la session locale (équivalent iOS repo.logout()). Le mode test ne survit pas. */
+    public static void logoutLocal() {
+        currentUser = null;
+        com.example.stockit.shared.config.StockItConfig.INSTANCE.setTestMode(false);
+    }
 
     /** Message "Permission refusée" (même texte qu'iOS) affiché sur le thread principal. */
     private boolean denied(boolean adminOnly) {
@@ -381,8 +397,25 @@ public class MainController {
         mainHandler.post(() -> android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show());
         return true;
     }
-    public boolean isAdmin() { return currentUser != null && "ADMIN".equals(currentUser.getRole()); }
-    public boolean canEditStock() { return currentUser != null && ("ADMIN".equals(currentUser.getRole()) || "MANAGER".equals(currentUser.getRole())); }
+    public boolean isAdmin() { return currentUser != null && com.example.stockit.util.Permissions.canAdminister(currentUser.getRole()); }
+    public boolean canEditStock() { return currentUser != null && com.example.stockit.util.Permissions.canEditStock(currentUser.getRole()); }
+    public boolean canAdjustStock() { return currentUser != null && com.example.stockit.util.Permissions.canAdjustStock(currentUser.getRole()); }
+
+    /**
+     * Mode test (aucune écriture externe) : ADMIN uniquement, tracé dans l'audit,
+     * désactivé à la déconnexion (cf. logoutLocal / SplashActivity).
+     */
+    public void setTestMode(boolean on, Runnable onComplete) {
+        if (!isAdmin()) {
+            denied(true);
+            return;
+        }
+        executor.execute(() -> {
+            com.example.stockit.util.SharedBridge.setTestMode(context, on);
+            recordAuditLog(on ? "TEST_MODE_ON" : "TEST_MODE_OFF", "Mode test " + (on ? "activé" : "désactivé"));
+            if (onComplete != null) mainHandler.post(onComplete);
+        });
+    }
 
     // --- CATEGORIES ---
     public void getCategories(CategoryCallback callback) {
@@ -535,6 +568,10 @@ public class MainController {
             mainHandler.post(() -> android.widget.Toast.makeText(context, L("Session expirée : reconnectez-vous"), android.widget.Toast.LENGTH_LONG).show());
             return;
         }
+        if (!com.example.stockit.util.Permissions.canAdjustStock(currentUser.getRole())) {
+            denied(false);
+            return;
+        }
         executor.execute(() -> {
             Product fresh = db.productDao().getById(product.getId());
             if (fresh != null) product.setQuantity(fresh.getQuantity());
@@ -558,7 +595,7 @@ public class MainController {
 
     /** Scan en rafale (iOS addOrIncrementByCode) : +1 si le code existe, sinon création. */
     public void addOrIncrementByCodes(java.util.List<String> codes, BatchCallback cb) {
-        if (!canEditStock() && denied(false)) return;
+        if (!canAdjustStock() && denied(false)) return;
         executor.execute(() -> {
             int created = 0, updated = 0;
             for (String code : codes) {
@@ -589,7 +626,7 @@ public class MainController {
 
     /** Entrée sur un produit existant (scan d'un modèle déjà en stock, identique iOS). */
     public void incrementExisting(Product product, int qty, String reason, String poNumber, Runnable onComplete) {
-        if (currentUser == null) return;
+        if (!canAdjustStock()) { denied(false); return; }
         executor.execute(() -> {
             Product fresh = db.productDao().getById(product.getId());
             if (fresh == null) fresh = product;
@@ -617,23 +654,17 @@ public class MainController {
         executor.execute(() -> {
             StringBuilder sb = new StringBuilder("ID;Nom;Catégorie;Quantité;Seuil;Prix unitaire;Valeur;Asset tag;Marque;Référence;PO;Fournisseur\n");
             for (Product p : db.productDao().getAll()) {
-                sb.append(p.getId()).append(';').append(csv(p.getName())).append(';').append(csv(p.getCategory())).append(';')
+                sb.append(p.getId()).append(';').append(com.example.stockit.util.Csv.cell(p.getName())).append(';').append(com.example.stockit.util.Csv.cell(p.getCategory())).append(';')
                   .append(p.getQuantity()).append(';').append(p.getMinThreshold()).append(';')
                   .append(String.format(java.util.Locale.FRANCE, "%.2f", p.getUnitPrice())).append(';')
                   .append(String.format(java.util.Locale.FRANCE, "%.2f", p.getUnitPrice() * p.getQuantity())).append(';')
-                  .append(csv(p.getAssetTag())).append(';').append(csv(p.getBrand())).append(';')
-                  .append(csv(p.getArticleNumber())).append(';').append(csv(p.getPoNumber())).append(';')
-                  .append(csv(p.getReceivedFrom())).append('\n');
+                  .append(com.example.stockit.util.Csv.cell(p.getAssetTag())).append(';').append(com.example.stockit.util.Csv.cell(p.getBrand())).append(';')
+                  .append(com.example.stockit.util.Csv.cell(p.getArticleNumber())).append(';').append(com.example.stockit.util.Csv.cell(p.getPoNumber())).append(';')
+                  .append(com.example.stockit.util.Csv.cell(p.getReceivedFrom())).append('\n');
             }
             String out = sb.toString();
             mainHandler.post(() -> cb.onResponse(out));
         });
-    }
-
-    private static String csv(String s) {
-        if (s == null) return "";
-        String v = s.replace("\"", "\"\"");
-        return (v.contains(";") || v.contains("\n") || v.contains("\"")) ? "\"" + v + "\"" : v;
     }
 
     public void updateUserRole(User user, String role, Runnable onComplete) {
@@ -670,6 +701,9 @@ public class MainController {
     }
 
     public void recordMovement(int productId, String productName, String type, int qty, String reason, String comment) {
+        // Matrice de permissions : mouvements de stock réservés à ADMIN/MANAGER/TECHNICIEN.
+        if (!canAdjustStock()) { denied(false); return; }
+        if (qty <= 0 || qty > 1000 || (!"IN".equals(type) && !"OUT".equals(type))) return;
         executor.execute(() -> {
             String date = new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(new java.util.Date());
             String userName = (currentUser != null) ? currentUser.getUsername() : context.getString(R.string.user_name_system);
@@ -690,6 +724,13 @@ public class MainController {
                                    final String ticketId, final String assignmentReason,
                                    final Runnable onSuccess, final Runnable onInsufficientStock) {
         if (product == null || qty <= 0) return;
+        // Matrice : sorties sur ticket réservées à ADMIN/MANAGER/TECHNICIEN (TM-05).
+        if (!canAdjustStock()) { denied(false); return; }
+        if (qty > 1000) return;
+        // Clé Jira validée avant tout mouvement / appel réseau (TM-42, TM-18).
+        if (ticketId != null && !ticketId.isEmpty()
+                && !"NO-TICKET".equalsIgnoreCase(ticketId)
+                && !com.example.stockit.util.JiraPaths.isValidKey(ticketId)) return;
         executor.execute(() -> {
             // Recharger le produit à jour
             Product fresh = db.productDao().getById(product.getId());
@@ -834,6 +875,24 @@ public class MainController {
     }
 
     // ==========================================================================
+
+    /** Adaptateur Room → vue minimale pour la décision de rattachement SSO. */
+    private static java.util.List<com.example.stockit.util.SsoIdentity.Row> toIdentityRows(java.util.List<User> users) {
+        java.util.List<com.example.stockit.util.SsoIdentity.Row> out = new java.util.ArrayList<>(users.size());
+        for (User u : users) {
+            final User f = u;
+            out.add(new com.example.stockit.util.SsoIdentity.Row() {
+                @Override public long getId() { return f.getId(); }
+                @Override public String getUsername() { return f.getUsername(); }
+                @Override public String getAuthSubject() { return f.getAuthSubject(); }
+                @Override public String getProvider() {
+                    return f.getProvider() == null || f.getProvider().isEmpty()
+                            ? com.example.stockit.util.SsoIdentity.PROVIDER_LOCAL : f.getProvider();
+                }
+            });
+        }
+        return out;
+    }
 
     public void getStockMovements(MovementCallback callback) {
         executor.execute(() -> {
@@ -989,6 +1048,9 @@ public class MainController {
     }
 
     public void addShippingOrder(String customer, String items, String address, String ticket, Runnable onComplete) {
+        // Matrice : expéditions réservées à ADMIN/MANAGER/TECHNICIEN (TM-05).
+        if (!canAdjustStock()) { denied(false); return; }
+        if (customer == null || customer.trim().isEmpty()) return;
         executor.execute(() -> {
             com.example.stockit.model.ShippingOrder order = new com.example.stockit.model.ShippingOrder(customer, items, address, "", context.getString(R.string.ship_status_pending));
             order.setTicketNumber(ticket);
@@ -999,6 +1061,7 @@ public class MainController {
     }
 
     public void updateShippingOrder(com.example.stockit.model.ShippingOrder order, Runnable onComplete) {
+        if (!canAdjustStock()) { denied(false); return; }
         executor.execute(() -> {
             db.shippingOrderDao().update(order);
             recordAuditLog("UPDATE_SHIPPING", context.getString(R.string.audit_ship_updated, String.valueOf(order.getId())));
@@ -1228,10 +1291,14 @@ public class MainController {
         askAssistant(prompt, callback);
     }
 
+    /**
+     * Vision (photo → nom de l'objet) via la passerelle Cimpress (Claude vision),
+     * identique à l'app iOS — plus d'API Gemini directe ni de clé en query string
+     * (TM-01, TM-26). L'image est lue et envoyée en base64 au gateway Vista.
+     */
     public void detectObjectsGemini(android.net.Uri fileUri, VisionCallback callback) {
         executor.execute(() -> {
             try {
-                // 1. Lire l'image et l'encoder en Base64
                 java.io.InputStream inputStream = context.getContentResolver().openInputStream(fileUri);
                 java.io.ByteArrayOutputStream byteBuffer = new java.io.ByteArrayOutputStream();
                 byte[] buffer = new byte[1024];
@@ -1239,66 +1306,17 @@ public class MainController {
                 while ((len = inputStream.read(buffer)) != -1) byteBuffer.write(buffer, 0, len);
                 byte[] bytes = byteBuffer.toByteArray();
                 inputStream.close();
-                String base64Image = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
 
-                // 2. Préparer la requête Multimodale pour Gemini (Version Flash rapide)
-                java.util.Map<String, Object> body = new java.util.HashMap<>();
-                java.util.List<java.util.Map<String, Object>> contents = new java.util.ArrayList<>();
-                java.util.Map<String, Object> contentMap = new java.util.HashMap<>();
-                java.util.List<java.util.Map<String, Object>> parts = new java.util.ArrayList<>();
-
-                java.util.Map<String, Object> textPart = new java.util.HashMap<>();
-                textPart.put("text", "Réponds par un seul mot (le nom de l'objet IT). " +
-                        "Exemple: Souris, Clavier, Ordinateur, Ecran. " +
-                        "Si tu vois une marque, écris-la après l'objet (ex: Souris Logitech). Rien d'autre.");
-                parts.add(textPart);
-
-                java.util.Map<String, Object> imagePart = new java.util.HashMap<>();
-                java.util.Map<String, String> inlineData = new java.util.HashMap<>();
-                inlineData.put("mime_type", "image/jpeg");
-                inlineData.put("data", base64Image);
-                imagePart.put("inline_data", inlineData);
-                parts.add(imagePart);
-
-                contentMap.put("parts", parts);
-                contents.add(contentMap);
-                body.put("contents", contents);
-
-                // Désactivation des filtres de sécurité pour éviter les faux positifs (blocage d'analyse)
-                java.util.List<java.util.Map<String, String>> safetySettings = new java.util.ArrayList<>();
-                String[] categories = {"HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"};
-                for (String cat : categories) {
-                    java.util.Map<String, String> setting = new java.util.HashMap<>();
-                    setting.put("category", cat);
-                    setting.put("threshold", "BLOCK_NONE");
-                    safetySettings.add(setting);
-                }
-                body.put("safetySettings", safetySettings);
-
-                String apiKey = com.example.stockit.BuildConfig.GEMINI_API_KEY;
-                retrofit2.Response<okhttp3.ResponseBody> response = aiService.generateGeminiContent("gemini-1.5-flash", apiKey, body).execute();
-                
-                if (response.isSuccessful() && response.body() != null) {
-                    String raw = response.body().string();
-                    org.json.JSONObject json = new org.json.JSONObject(raw);
-                    String result = json.getJSONArray("candidates")
-                                     .getJSONObject(0)
-                                     .getJSONObject("content")
-                                     .getJSONArray("parts")
-                                     .getJSONObject(0)
-                                     .getString("text").trim();
-                    
-                    // Nettoyage Markdown (étoiles) et espaces
-                    String cleanResult = result.replaceAll("[\\*]", "").trim();
-
-                    java.util.List<String> labels = new java.util.ArrayList<>();
-                    labels.add(cleanResult);
-                    mainHandler.post(() -> callback.onLabelsDetected(labels, cleanResult));
-                } else {
-                    mainHandler.post(() -> callback.onLabelsDetected(new java.util.ArrayList<>(), "HF Error"));
-                }
+                com.example.stockit.util.SharedBridge.identify(bytes, (name, confidence, serial, error) -> {
+                    String label = name != null ? name : "Objet IT";
+                    String detail = error != null
+                            ? L("IA indisponible : %@", error)
+                            : (serial != null && !serial.isEmpty() ? label + " (S/N " + serial + ")" : label);
+                    mainHandler.post(() -> callback.onLabelsDetected(
+                            new java.util.ArrayList<>(java.util.Collections.singletonList(label)), detail));
+                });
             } catch (Exception e) {
-                android.util.Log.e("MainController", "Gemini Vision Error: " + e.getMessage());
+                android.util.Log.w("MainController", "Vision error", e);
                 mainHandler.post(() -> callback.onLabelsDetected(new java.util.ArrayList<>(), "Erreur"));
             }
         });

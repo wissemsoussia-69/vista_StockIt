@@ -40,7 +40,9 @@ import java.util.Map;
 public final class Auth0Manager {
 
     private static final String TAG = "Auth0Manager";
-    private static final String SCOPE = "openid profile email offline_access";
+    // Pas de refresh token persistant : offline_access retiré (TM-25, même décision
+    // que l'app iOS). Les tokens sont effacés à chaque lancement (clearLocalCredentials).
+    private static final String SCOPE = "openid profile email";
 
     private static volatile Auth0Manager INSTANCE;
 
@@ -245,13 +247,32 @@ public final class Auth0Manager {
         builder.start(activity, new Callback<Credentials, AuthenticationException>() {
                     @Override
                     public void onSuccess(Credentials result) {
+                        // TM-24 : re-vérification des claims de l'ID token avant d'accepter la session.
+                        String reject = validateIdTokenClaims(result,
+                                appContext.getString(R.string.com_auth0_domain),
+                                appContext.getString(R.string.com_auth0_client_id));
+                        if (reject != null) {
+                            Log.w(TAG, "ID token refusé : " + reject);
+                            try {
+                                credentialsManager.clearCredentials();
+                            } catch (Throwable ignored) { }
+                            callback.onError(AppLanguage.L("Session refusée (jeton invalide : %@)", reject));
+                            return;
+                        }
                         try {
                             credentialsManager.saveCredentials(result);
                         } catch (Throwable t) {
                             Log.w(TAG, "saveCredentials a échoué : " + t.getMessage());
                         }
                         String[] info = syncSession(result);
-                        callback.onSuccess(info[0], info[1], info[2]);
+                        // Identité stable : le sujet Auth0 (« sub »), jamais le nom affiché (TM-22).
+                        String subject = null;
+                        try {
+                            com.auth0.android.result.UserProfile p = result.getUser();
+                            if (p != null) subject = p.getId();
+                        } catch (Throwable ignored) { }
+                        if (subject == null || subject.trim().isEmpty()) subject = extractSubjectFromIdToken(result);
+                        callback.onSuccess(info[0], info[1], info[2], subject);
                     }
 
                     @Override
@@ -347,15 +368,9 @@ public final class Auth0Manager {
                 profile != null ? profile.getName() : null,
                 email,
                 "vista.user");
+        // extractRole applique déjà le rôle par défaut (borné USER/TECHNICIEN
+        // par RoleResolver) : aucune surcharge directe de la configuration.
         String role = extractRole(profile);
-        // Employé Okta sans groupe StockIT reconnu → rôle par défaut configuré
-        // (STOCKIT_SSO_DEFAULT_ROLE, identique iOS).
-        if ("USER".equals(role)) {
-            try {
-                String def = SharedBridge.ssoDefaultRole();
-                if (!TextUtils.isEmpty(def)) role = def;
-            } catch (Throwable ignored) { }
-        }
 
         SessionManager.get(appContext).saveSsoSession(username, email, role);
         return new String[] { username, email, role };
@@ -363,43 +378,136 @@ public final class Auth0Manager {
 
     /**
      * Cherche un rôle dans les extra-claims (roles / groups) du profil Auth0.
-     * Convention Vista : les rôles sont poussés via une "Post Login Action" Auth0
-     * dans un claim custom {@code https://vista.com/roles} ou {@code roles}.
+     *
+     * Correspondance EXACTE avec une liste fermée de groupes (plus aucune recherche
+     * de sous-chaîne) : groupes `stockit-admin`, `stockit-manager`, `stockit-technicien`
+     * (alias -tech / -technician) dans tout claim ; noms nus ADMIN / MANAGER /
+     * TECHNICIEN uniquement dans le claim namespacé `https://vista.com/roles`.
+     * Le rôle le plus élevé l'emporte ; le rôle par défaut ne peut jamais être
+     * ADMIN ou MANAGER (cf. RoleResolver du module partagé, couvert par AuthSecurityTest).
      */
-    private static String extractRole(@Nullable UserProfile profile) {
+    public static String extractRole(@Nullable UserProfile profile) {
         if (profile == null) return "USER";
         Map<String, Object> extra = profile.getExtraInfo();
         if (extra == null || extra.isEmpty()) return "USER";
 
-        String[] candidateKeys = {
-                "https://vista.com/roles",
-                "https://vista.com/groups",
-                "roles",
-                "groups"
-        };
-        for (String key : candidateKeys) {
-            Object value = extra.get(key);
-            String role = matchRole(value);
-            if (role != null) return role;
+        // Conversion en Map<String, String> pour RoleResolver (listes jointes par des virgules).
+        Map<String, String> claims = new java.util.HashMap<>();
+        for (String key : CANDIDATE_KEYS) {
+            String text = flatten(extra.get(key));
+            if (!text.isEmpty()) claims.put(key, text);
         }
+        if (claims.isEmpty()) return "USER";
+        return com.example.stockit.shared.session.RoleResolver.INSTANCE.resolve(claims, defaultSsoRole());
+    }
+
+    private static final String[] CANDIDATE_KEYS = {
+            "https://vista.com/roles",
+            "https://vista.com/groups",
+            "roles",
+            "groups"
+    };
+
+    /** Valeur de claim → texte (liste jointe par des virgules, null → vide). */
+    private static String flatten(Object value) {
+        if (value == null) return "";
+        if (value instanceof List<?>) {
+            StringBuilder sb = new StringBuilder();
+            for (Object item : (List<?>) value) {
+                if (item == null) continue;
+                if (sb.length() > 0) sb.append(',');
+                sb.append(String.valueOf(item));
+            }
+            return sb.toString();
+        }
+        return String.valueOf(value);
+    }
+
+    /** Rôle par défaut (STOCKIT_SSO_DEFAULT_ROLE) : USER ou TECHNICIEN uniquement. */
+    private static String defaultSsoRole() {
+        try {
+            String def = SharedBridge.ssoDefaultRole();
+            if (def != null && !def.trim().isEmpty()) return def.trim().toUpperCase(Locale.ROOT);
+        } catch (Throwable ignored) { }
         return "USER";
     }
 
+    /**
+     * Rôle d'une valeur de claim (liste, map ou chaîne) : même politique EXACTE que
+     * {@link #extractRole} — groupes connus uniquement, noms nus dans le claim
+     * namespacé uniquement. Public statique pour les tests (Auth0RoleMappingTest).
+     */
     @Nullable
-    private static String matchRole(@Nullable Object value) {
+    public static String matchRole(@Nullable Object value) {
         if (value == null) return null;
-        if (value instanceof List<?>) {
-            for (Object item : (List<?>) value) {
-                String r = matchRole(item);
-                if (r != null) return r;
+        // Une Map de claims est résolue directement (clés candidates uniquement).
+        if (value instanceof Map) {
+            Map<?, ?> m = (Map<?, ?>) value;
+            Map<String, String> claims = new java.util.HashMap<>();
+            for (String key : CANDIDATE_KEYS) {
+                String text = flatten(m.get(key));
+                if (!text.isEmpty()) claims.put(key, text);
             }
+            if (claims.isEmpty()) return null;
+            String r = com.example.stockit.shared.session.RoleResolver.INSTANCE.resolve(claims, "USER");
+            return "USER".equals(r) ? null : r;
+        }
+        // Valeur brute : traitée comme un claim « groups » (noms de groupes exacts).
+        String text = flatten(value);
+        if (text.isEmpty()) return null;
+        Map<String, String> groups = new java.util.HashMap<>();
+        groups.put("groups", text);
+        String r = com.example.stockit.shared.session.RoleResolver.INSTANCE.resolve(groups, "USER");
+        return "USER".equals(r) ? null : r;
+    }
+
+    /** Sujet (« sub ») décodé du payload de l'ID token (base64url, segment du milieu). */
+    private static String extractSubjectFromIdToken(@NonNull Credentials credentials) {
+        try {
+            String idToken = credentials.getIdToken();
+            if (idToken == null) return null;
+            String[] parts = idToken.split("\\.");
+            if (parts.length < 2) return null;
+            byte[] payload = java.util.Base64.getUrlDecoder().decode(parts[1]);
+            org.json.JSONObject claims = new org.json.JSONObject(new String(payload, java.nio.charset.StandardCharsets.UTF_8));
+            return claims.optString("sub", null);
+        } catch (Throwable t) {
+            Log.w(TAG, "ID token illisible : " + t.getMessage());
             return null;
         }
-        String v = value.toString().toUpperCase(Locale.ROOT);
-        if (v.contains("ADMIN")) return "ADMIN";
-        if (v.contains("MANAGER")) return "MANAGER";
-        if (v.contains("TECHNICIEN") || v.contains("TECH")) return "TECHNICIEN";
-        return null;
+    }
+
+    /**
+     * Défense en profondeur (TM-24) : re-vérification des claims de l'ID token —
+     * émetteur = tenant configuré, audience = client id, expiration (marge 60 s),
+     * sujet présent. Le SDK Auth0 valide la signature ; on revalide ici les claims
+     * avant d'accepter la session (même contrôle que l'app iOS, cf. IdTokenValidator).
+     *
+     * @return null si valide, sinon la raison du refus.
+     */
+    @Nullable
+    public static String validateIdTokenClaims(@Nullable Credentials credentials, @NonNull String domain, @NonNull String clientId) {
+        if (credentials == null) return "missing_credentials";
+        try {
+            String idToken = credentials.getIdToken();
+            if (idToken == null) return "missing_id_token";
+            String[] parts = idToken.split("\\.");
+            if (parts.length < 2) return "malformed_id_token";
+            byte[] payload = java.util.Base64.getUrlDecoder().decode(parts[1]);
+            org.json.JSONObject o = new org.json.JSONObject(new String(payload, java.nio.charset.StandardCharsets.UTF_8));
+            Map<String, String> claims = new java.util.HashMap<>();
+            for (java.util.Iterator<String> it = o.keys(); it.hasNext(); ) {
+                String k = it.next();
+                Object v = o.opt(k);
+                if (v != null && !(v instanceof org.json.JSONObject) && !(v instanceof org.json.JSONArray)) {
+                    claims.put(k, String.valueOf(v));
+                }
+            }
+            return com.example.stockit.shared.session.IdTokenValidator.INSTANCE
+                    .validate(claims, domain, clientId, System.currentTimeMillis() / 1000);
+        } catch (Throwable t) {
+            return "malformed_id_token";
+        }
     }
 
     private static String firstNonEmpty(String... values) {
@@ -419,7 +527,7 @@ public final class Auth0Manager {
     }
 
     public interface SignInCallback {
-        void onSuccess(String username, @Nullable String email, String role);
+        void onSuccess(String username, @Nullable String email, String role, @Nullable String subject);
         void onError(String message);
     }
 }

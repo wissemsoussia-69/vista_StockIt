@@ -123,7 +123,7 @@ public final class StockItReporter {
             if (cb != null) cb.onResult(true, "test_mode");
             return;
         }
-        final String url    = BuildConfig.STOCKIT_WEBHOOK_URL;
+        final String url = BuildConfig.STOCKIT_WEBHOOK_URL;
         final String secret = BuildConfig.STOCKIT_WEBHOOK_SECRET;
 
         if (TextUtils.isEmpty(url)) {
@@ -137,39 +137,54 @@ public final class StockItReporter {
                 + "\"email\":"   + jsonQuote(email)   + ","
                 + "\"barcode\":" + jsonQuote(barcode) + ","
                 + "\"message\":" + jsonQuote(message) + ","
-                + "\"secret\":"  + jsonQuote(secret)
+                + "\"event_id\":\"" + java.util.UUID.randomUUID() + "\""
                 + "}";
+
+        String ts = String.valueOf(System.currentTimeMillis() / 1000);
+        String sent = com.example.stockit.util.WebhookSecurity.shouldSendBodySecret(secret)
+                ? withLegacySecret(json, secret) : json;
 
         Request.Builder rb = new Request.Builder()
                 .url(url)
-                .post(RequestBody.create(json, JSON))
+                .post(RequestBody.create(sent, JSON))
                 .header("Accept", "application/json");
-        // Le secret est aussi dans le body (compatibilité workflow n8n), mais on
-        // le duplique en header pour permettre au workflow d'authentifier avant
-        // de lire le corps (défense en profondeur).
-        if (!TextUtils.isEmpty(secret)) {
-            rb.header("X-App-Secret", secret);
+        // Authentification + intégrité : secret en header et signature HMAC du corps
+        // (cf. WebhookSecurity). Le secret n'est jamais stocké, seulement ajouté à l'envoi.
+        for (java.util.Map.Entry<String, String> h : com.example.stockit.util.WebhookSecurity.headers(secret, ts, sent).entrySet()) {
+            rb.header(h.getKey(), h.getValue());
         }
 
         CLIENT.newCall(rb.build()).enqueue(new Callback() {
             @Override public void onFailure(Call call, IOException e) {
-                Log.e(TAG, "Webhook StockIT réseau KO : " + e.getMessage());
-                if (cb != null) cb.onResult(false, e.getClass().getSimpleName() + ": " + e.getMessage());
+                Log.e(TAG, "Webhook StockIT réseau KO");
+                if (cb != null) cb.onResult(false, e.getClass().getSimpleName());
             }
 
             @Override public void onResponse(Call call, Response resp) throws IOException {
                 String body = resp.body() != null ? resp.body().string() : "";
-                Log.i(TAG, "Webhook StockIT HTTP " + resp.code() + " -> " + trimForLog(body));
+                Log.i(TAG, "Webhook StockIT HTTP " + resp.code());
                 if (cb != null) {
                     if (resp.isSuccessful()) {
-                        cb.onResult(true, body);
+                        cb.onResult(true, "HTTP " + resp.code());
                     } else {
-                        cb.onResult(false, "HTTP " + resp.code() + " " + trimForLog(body));
+                        cb.onResult(false, "HTTP " + resp.code());
                     }
                 }
                 resp.close();
             }
         });
+    }
+
+    /** Compatibilité n8n : le secret du corps n'est ajouté qu'au moment de l'envoi. */
+    private static String withLegacySecret(String body, String secret) {
+        if (secret == null || secret.trim().isEmpty()) return body;
+        try {
+            org.json.JSONObject o = new org.json.JSONObject(body);
+            o.put("secret", secret);
+            return o.toString();
+        } catch (Exception e) {
+            return body;
+        }
     }
 
     // ------------------------------------------------------------------

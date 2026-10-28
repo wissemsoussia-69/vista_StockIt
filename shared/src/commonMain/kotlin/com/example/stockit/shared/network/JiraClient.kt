@@ -3,6 +3,7 @@ package com.example.stockit.shared.network
 import com.example.stockit.shared.config.StockItConfig
 import com.example.stockit.shared.model.JiraTicket
 import com.example.stockit.shared.model.OpResult
+import com.example.stockit.shared.security.JiraKeys
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -90,9 +91,9 @@ object JiraClient {
                 val key = runCatching { Http.json.parseToJsonElement(payload).jsonObject.str("key") }.getOrNull()
                 OpResult(true, key ?: "OK")
             } else {
-                OpResult(false, "HTTP ${resp.status.value} ${payload.trimForLog()}")
+                OpResult(false, errorSummary(resp.status.value, payload))
             }
-        }.getOrElse { OpResult(false, "${it::class.simpleName}: ${it.message}") }
+        }.getOrElse { OpResult(false, it::class.simpleName ?: "network_error") }
     }
 
     /** Tickets ouverts du projet configuré, triés priorité DESC puis échéance ASC. */
@@ -115,19 +116,20 @@ object JiraClient {
             }
             val payload = resp.bodyAsText()
             if (!resp.status.isSuccess()) {
-                return@runCatching JiraSearchResult(null, "HTTP ${resp.status.value} ${payload.trimForLog(150)}")
+                return@runCatching JiraSearchResult(null, errorSummary(resp.status.value, payload))
             }
             val issues = Http.json.parseToJsonElement(payload).jsonObject["issues"] as? JsonArray
             JiraSearchResult(issues?.mapNotNull { (it as? JsonObject)?.let(::parseIssue) } ?: emptyList(), null)
-        }.getOrElse { JiraSearchResult(null, "${it::class.simpleName}: ${it.message}") }
+        }.getOrElse { JiraSearchResult(null, it::class.simpleName ?: "network_error") }
     }
 
     /** Récupère un ticket par sa clé (validation d'une saisie manuelle). */
     @Throws(Throwable::class)
     suspend fun getIssue(key: String): JiraIssueResult {
         if (!StockItConfig.isJiraConfigured) return JiraIssueResult(null, "jira_credentials_missing")
+        val safeKey = JiraKeys.normalize(key) ?: return JiraIssueResult(null, "invalid_issue_key")
         return runCatching {
-            val resp = Http.client.get("${base()}/rest/api/3/issue/${key.trim()}") {
+            val resp = Http.client.get("${base()}/rest/api/3/issue/$safeKey") {
                 parameter("fields", FIELDS)
                 header("Authorization", basicAuth())
                 header("Accept", "application/json")
@@ -135,7 +137,7 @@ object JiraClient {
             val payload = resp.bodyAsText()
             if (!resp.status.isSuccess()) return@runCatching JiraIssueResult(null, "HTTP ${resp.status.value}")
             JiraIssueResult(parseIssue(Http.json.parseToJsonElement(payload).jsonObject), null)
-        }.getOrElse { JiraIssueResult(null, "${it::class.simpleName}: ${it.message}") }
+        }.getOrElse { JiraIssueResult(null, it::class.simpleName ?: "network_error") }
     }
 
     /**
@@ -145,7 +147,8 @@ object JiraClient {
     @Throws(Throwable::class)
     suspend fun addComment(key: String, text: String): OpResult {
         if (!StockItConfig.isJiraConfigured) return OpResult(false, "jira_credentials_missing")
-        if (key.isBlank() || key.equals("NO-TICKET", ignoreCase = true)) return OpResult(false, "no_ticket")
+        if (key.isBlank() || key.equals(JiraKeys.NO_TICKET, ignoreCase = true)) return OpResult(false, "no_ticket")
+        val safeKey = JiraKeys.normalize(key) ?: return OpResult(false, "invalid_issue_key")
         if (StockItConfig.testMode) return OpResult(true, "test_mode")
         return runCatching {
             val body = buildJsonObject {
@@ -162,18 +165,32 @@ object JiraClient {
                     }
                 }
             }.toString()
-            val resp = Http.client.post("${base()}/rest/api/3/issue/${key.trim()}/comment") {
+            val resp = Http.client.post("${base()}/rest/api/3/issue/$safeKey/comment") {
                 header("Authorization", basicAuth())
                 header("Accept", "application/json")
                 contentType(ContentType.Application.Json)
                 setBody(body)
             }
-            if (resp.status.isSuccess()) OpResult(true, key)
-            else OpResult(false, "HTTP ${resp.status.value} ${resp.bodyAsText().trimForLog(150)}")
-        }.getOrElse { OpResult(false, "${it::class.simpleName}: ${it.message}") }
+            if (resp.status.isSuccess()) OpResult(true, safeKey)
+            else OpResult(false, errorSummary(resp.status.value, resp.bodyAsText()))
+        }.getOrElse { OpResult(false, it::class.simpleName ?: "network_error") }
     }
 
-    fun browseUrl(key: String): String = "${base()}/browse/$key"
+    fun browseUrl(key: String): String = "${base()}/browse/" + (JiraKeys.normalize(key) ?: "")
+
+    /**
+     * Erreur affichable : code HTTP + messages fonctionnels de Jira (`errorMessages`, `errors`),
+     * jamais le corps brut (traces, identifiants internes).
+     */
+    internal fun errorSummary(status: Int, payload: String): String {
+        val messages = runCatching {
+            val o = Http.json.parseToJsonElement(payload).jsonObject
+            val list = (o["errorMessages"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty()
+            val fields = (o["errors"] as? JsonObject)?.map { (k, v) -> "$k: ${(v as? JsonPrimitive)?.contentOrNull ?: ""}" }.orEmpty()
+            list + fields
+        }.getOrDefault(emptyList())
+        return ("HTTP $status " + messages.joinToString("; ")).trim().trimForLog(200)
+    }
 
     // ---------------- Parsing ----------------
 

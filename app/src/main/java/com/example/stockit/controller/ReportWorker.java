@@ -19,6 +19,14 @@ public class ReportWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
+        // TM-30 : l'inventaire complet ne part jamais sans session authentifiée.
+        com.example.stockit.util.SessionManager sm =
+                com.example.stockit.util.SessionManager.get(getApplicationContext());
+        if (sm == null || !sm.isLoggedIn()) {
+            Log.i("ReportWorker", "Aucune session : rapport quotidien ignoré.");
+            return Result.success();
+        }
+
         String type = getInputData().getString("REPORT_TYPE");
         String finalType = (type != null) ? type : "DAILY";
 
@@ -34,7 +42,7 @@ public class ReportWorker extends Worker {
         StringBuilder csv = new StringBuilder("ID,Nom,Quantite,Prix\n");
         for (Product p : products) {
             csv.append(p.getId()).append(",")
-               .append(p.getName()).append(",")
+               .append(com.example.stockit.util.Csv.cell(p.getName())).append(",")
                .append(p.getQuantity()).append(",")
                .append(p.getUnitPrice()).append("\n");
         }

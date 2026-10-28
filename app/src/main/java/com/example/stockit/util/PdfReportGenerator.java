@@ -57,8 +57,14 @@ public class PdfReportGenerator {
 
         document.finishPage(page);
 
-        // Sauvegarde
-        File file = new File(context.getExternalFilesDir(null), "Rapport_Stock_" + System.currentTimeMillis() + ".pdf");
+        // TM-36 : le PDF part dans le dossier couvert par le FileProvider
+        // (external-files/Pictures) — plus de fichier hors du périmètre de partage.
+        File dir = new File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES), "reports");
+        if (!dir.exists()) dir.mkdirs();
+        // Rétention bornée : on ne garde que le rapport du mois en cours.
+        File[] olds = dir.listFiles();
+        if (olds != null) for (File old : olds) old.delete();
+        File file = new File(dir, "Rapport_Stock_" + System.currentTimeMillis() + ".pdf");
         try {
             document.writeTo(new FileOutputStream(file));
             Toast.makeText(context, AppLanguage.L("PDF généré avec succès"), Toast.LENGTH_SHORT).show();

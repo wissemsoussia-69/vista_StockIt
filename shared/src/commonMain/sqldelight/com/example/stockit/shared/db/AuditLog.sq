@@ -1,3 +1,5 @@
+-- hash : SHA-256 chaîné (hash de l'entrée précédente + contenu) — toute modification
+-- ou suppression d'une entrée passée casse la chaîne (cf. StockItRepository.verifyAuditChain).
 CREATE TABLE audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     userId TEXT,
@@ -5,11 +7,18 @@ CREATE TABLE audit_logs (
     details TEXT,
     timestamp INTEGER NOT NULL,
     ipAddress TEXT,
-    device TEXT
+    device TEXT,
+    hash TEXT
 );
 
 getAll:
 SELECT * FROM audit_logs ORDER BY timestamp DESC;
 
+chain:
+SELECT * FROM audit_logs WHERE hash IS NOT NULL ORDER BY id ASC;
+
+lastHash:
+SELECT hash FROM audit_logs WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1;
+
 insert:
-INSERT INTO audit_logs(userId, action, details, timestamp, ipAddress, device) VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO audit_logs(userId, action, details, timestamp, ipAddress, device, hash) VALUES (?, ?, ?, ?, ?, ?, ?);

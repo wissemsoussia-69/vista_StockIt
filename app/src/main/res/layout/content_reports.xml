@@ -93,7 +93,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/reports_category_distribution" android:textStyle="bold" android:textColor="#333333" />
-                <com.github.mikephil.charting.charts.PieChart
+                <com.example.stockit.util.CategoryPieView
                     android:id="@+id/pieChart"
                     android:layout_width="match_parent"
                     android:layout_height="300dp"
@@ -113,7 +113,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/reports_monthly_movements" android:textStyle="bold" android:textColor="#333333" />
-                <com.github.mikephil.charting.charts.BarChart
+                <com.example.stockit.util.SparkLineView
                     android:id="@+id/barChart"
                     android:layout_width="match_parent"
                     android:layout_height="300dp"
@@ -133,7 +133,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/reports_stock_evolution" android:textStyle="bold" android:textColor="#333333" />
-                <com.github.mikephil.charting.charts.LineChart
+                <com.example.stockit.util.SparkLineView
                     android:id="@+id/lineChart"
                     android:layout_width="match_parent"
                     android:layout_height="300dp"
@@ -153,7 +153,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/reports_performance_by_zone" android:textStyle="bold" android:textColor="#333333" />
-                <com.github.mikephil.charting.charts.RadarChart
+                <com.example.stockit.util.SparkLineView
                     android:id="@+id/radarChart"
                     android:layout_width="match_parent"
                     android:layout_height="300dp"

@@ -79,7 +79,19 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void enableLocalFallbackUi() {
-        loadProfiles();
+        // TM-08 : aucun compte par défaut. En Debug sans compte local, on provisionne
+        // un compte « demo » avec un mot de passe aléatoire (affiché pré-rempli) pour
+        // la démo hors ligne — plus aucune credential en dur dans le code.
+        if (controller != null) {
+            controller.getUsers(users -> {
+                boolean hasLocal = false;
+                for (com.example.stockit.model.User u : users) {
+                    if (u.getProvider() == null || "local".equals(u.getProvider())) { hasLocal = true; break; }
+                }
+                if (!hasLocal) provisionDemoAccount();
+                else loadProfiles();
+            });
+        }
 
         loginButton.setOnClickListener(v -> {
             String u = usernameEditText.getText().toString();
@@ -88,12 +100,34 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         biometricButton.setOnClickListener(v -> {
-            // Démo biométrique : profil admin local (fallback hors ligne).
-            User admin = new User("admin", "admin123", "ADMIN");
-            showBiometricPromptForUser(admin);
+            // Démo biométrique : premier compte local (fallback hors ligne).
+            controller.getUsers(users -> {
+                com.example.stockit.model.User local = null;
+                for (com.example.stockit.model.User u : users) {
+                    if (u.getProvider() == null || "local".equals(u.getProvider())) { local = u; break; }
+                }
+                if (local != null) showBiometricPromptForUser(local);
+            });
         });
 
         checkBiometricSupport(biometricButton);
+    }
+
+    /** Provisionne le compte de démo Debug (mot de passe aléatoire, pré-rempli). */
+    private void provisionDemoAccount() {
+        String password = com.example.stockit.util.LoginGuard.class.getSimpleName()
+                + "-" + new java.security.SecureRandom().ints(8, 'a', 'z')
+                        .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+                        .toString();
+        controller.provisionLocalUser("demo", password, "MANAGER", (ok, user) -> {
+            if (ok) {
+                if (usernameEditText != null) usernameEditText.setText("demo");
+                if (passwordEditText != null) passwordEditText.setText(password);
+                loadProfiles();
+            } else {
+                loadProfiles();
+            }
+        });
     }
 
     private void hideLocalFallbackUi() {
@@ -130,12 +164,12 @@ public class LoginActivity extends AppCompatActivity {
         com.example.stockit.util.AppSession.allowExternal();
         oktaAuth.signIn(this, new Auth0Manager.SignInCallback() {
             @Override
-            public void onSuccess(String username, @Nullable String email, String role) {
+            public void onSuccess(String username, @Nullable String email, String role, @Nullable String subject) {
                 setLoading(false);
-                // Persiste l'utilisateur SSO dans Room afin que MainController.currentUser
-                // soit rempli et que les vérifications role-based (isAdmin, canEditStock)
-                // fonctionnent normalement pendant toute la session.
-                controller.loginSso(username, role, (success, dbUser) -> {
+                // Persiste l'utilisateur SSO dans Room (clé = sujet Auth0 immuable) afin que
+                // MainController.currentUser soit rempli et que les vérifications role-based
+                // (isAdmin, canEditStock) fonctionnent normalement pendant toute la session.
+                controller.loginSso(subject, username, role, (success, dbUser) -> {
                     if (!success) {
                         oktaStatusText.setVisibility(View.VISIBLE);
                         oktaStatusText.setText(getString(R.string.sso_error, L("base locale indisponible")));
@@ -160,18 +194,18 @@ public class LoginActivity extends AppCompatActivity {
 
     private void loadProfiles() {
         controller.getUsers(users -> {
-            if (users.size() < 5) { // Si l'équipe n'est pas là au complet
-                android.util.Log.d("LoginActivity", "Team incomplete, triggering seed...");
-                controller.login("admin", "admin123", (success, user) -> {
-                    loadProfiles(); // On recharge pour voir tout le monde
-                });
-                return;
-            }
-
+            // TM-08 : plus de compte semé — la liste reflète les comptes réels
+            // (locaux provisionnés en Debug, comptes SSO existants).
             android.util.Log.d("LoginActivity", "Profiles loaded: " + users.size());
             profileRecyclerView.setLayoutManager(new GridLayoutManager(this, 3));
             profileRecyclerView.setAdapter(new ProfileAdapter(users, user -> {
-                showBiometricPromptForUser(user);
+                // La biométrie ne débloque un compte QUE s'il existe déjà ; le
+                // mot de passe reste vérifié par performLocalLogin.
+                if ("local".equals(user.getProvider() == null ? "local" : user.getProvider())) {
+                    showBiometricPromptForUser(user);
+                } else {
+                    Toast.makeText(this, L("Compte SSO : connectez-vous via Okta"), Toast.LENGTH_SHORT).show();
+                }
             }));
         });
     }
@@ -180,8 +214,9 @@ public class LoginActivity extends AppCompatActivity {
         int can = BiometricManager.from(this).canAuthenticate(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
         if (can != BiometricManager.BIOMETRIC_SUCCESS) {
-            // Aucun verrouillage configuré sur l'appareil : mode démo (build debug uniquement).
-            performLocalLogin(user.getUsername(), user.getPassword());
+            // Aucun verrouillage configuré sur l'appareil : la biométrie ne peut pas
+            // valider l'identité — le mot de passe (saisi) reste obligatoire.
+            Toast.makeText(this, L("Verrouillez l'appareil pour utiliser la biométrie, ou saisissez le mot de passe"), Toast.LENGTH_LONG).show();
             return;
         }
         Executor executor = ContextCompat.getMainExecutor(this);
@@ -189,7 +224,10 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                 super.onAuthenticationSucceeded(result);
-                performLocalLogin(user.getUsername(), user.getPassword());
+                // La biométrie a validé l'identité (écran de verrouillage de l'appareil) :
+                // la session est ouverte pour ce compte local — le mot de passe haché
+                // n'est jamais utilisé ni exposé.
+                openLocalSession(user);
             }
 
             @Override
@@ -206,6 +244,13 @@ public class LoginActivity extends AppCompatActivity {
                 .build();
 
         biometricPrompt.authenticate(promptInfo);
+    }
+
+    /** Ouvre la session locale sans mot de passe (identité validée par la biométrie). */
+    private void openLocalSession(com.example.stockit.model.User user) {
+        SessionManager.get(this).saveLocalSession(user.getUsername(), user.getRole());
+        com.example.stockit.controller.MainController.setSessionUser(user);
+        openMain();
     }
 
     private void performLocalLogin(String u, String p) {

@@ -71,17 +71,33 @@ object KitRules {
     }
 }
 
+/** Rôles StockIT. Toute autre valeur (token, base, config) est ramenée à USER (lecture seule). */
+object Roles {
+    const val ADMIN = "ADMIN"
+    const val MANAGER = "MANAGER"
+    const val TECHNICIEN = "TECHNICIEN"
+    const val USER = "USER"
+    val ALL = listOf(ADMIN, MANAGER, TECHNICIEN, USER)
+
+    fun normalize(role: String?): String = role?.trim()?.uppercase()?.takeIf { it in ALL } ?: USER
+}
+
+/** Compte StockIT. Aucune donnée d'authentification (hash de mot de passe) n'est exposée hors du dépôt. */
 data class User(
     val id: Long = 0,
     val username: String,
-    val password: String,
     val role: String,
     val points: Int = 0,
     val level: Int = 1,
     val badges: String = "",
+    /** "local" (accès de secours hors ligne) ou "auth0" (Vista SSO). */
+    val provider: String = "local",
 ) {
-    val isAdmin: Boolean get() = role == "ADMIN"
-    val canEditStock: Boolean get() = role == "ADMIN" || role == "MANAGER"
+    val isAdmin: Boolean get() = role == Roles.ADMIN
+    /** Création / modification / suppression du catalogue. */
+    val canEditStock: Boolean get() = role == Roles.ADMIN || role == Roles.MANAGER
+    /** Mouvements de stock (+/−, sorties sur ticket, réceptions). USER = lecture seule. */
+    val canAdjustStock: Boolean get() = canEditStock || role == Roles.TECHNICIEN
 }
 
 data class StockMovement(

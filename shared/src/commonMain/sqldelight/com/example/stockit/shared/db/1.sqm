@@ -1,0 +1,19 @@
+-- Schéma 1 → 2 (correctifs de sécurité, cf. THREAT_MODEL.md T-01, T-02, T-05, T-08, T-16).
+
+-- Identité SSO liée au `sub` Auth0, plus au nom affiché.
+ALTER TABLE users ADD COLUMN provider TEXT NOT NULL DEFAULT 'local';
+ALTER TABLE users ADD COLUMN authSubject TEXT;
+CREATE UNIQUE INDEX users_auth_subject ON users(authSubject);
+UPDATE users SET provider = 'auth0' WHERE password = 'sso-auth0';
+
+-- Compte de démo admin/admin123 : plus jamais administrateur.
+UPDATE users SET role = 'USER' WHERE username = 'admin' AND password = 'admin123' AND provider = 'local';
+
+-- Aucun mot de passe en clair ni prévisible ne reste utilisable (admin123, pass123, sso-auth0…).
+UPDATE users SET password = '' WHERE password NOT LIKE 'pbkdf2-sha256$%';
+
+-- Webhooks : backoff entre deux essais.
+ALTER TABLE outbox ADD COLUMN nextAttemptAt INTEGER NOT NULL DEFAULT 0;
+
+-- Journal d'audit chaîné.
+ALTER TABLE audit_logs ADD COLUMN hash TEXT;

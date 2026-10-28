@@ -72,6 +72,9 @@ public class PackageLabelActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // TM-33 : captures d'écran / aperçu multitâche désactivés sur cet écran.
+        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE);
         setContentView(R.layout.activity_package_label);
 
         preview   = findViewById(R.id.plPreview);

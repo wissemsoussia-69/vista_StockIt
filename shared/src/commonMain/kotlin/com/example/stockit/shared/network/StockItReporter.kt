@@ -3,6 +3,10 @@ package com.example.stockit.shared.network
 import com.example.stockit.shared.StockIt
 import com.example.stockit.shared.config.StockItConfig
 import com.example.stockit.shared.model.OpResult
+import com.example.stockit.shared.platform.nowMs
+import com.example.stockit.shared.security.WebhookSigner
+import com.example.stockit.shared.security.randomId
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -10,7 +14,11 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
 /**
@@ -62,14 +70,10 @@ object StockItReporter {
                 put("user", s?.username ?: "stockit-system")
                 put("user_email", s?.email?.takeIf { it.isNotBlank() } ?: StockItConfig.defaultRecipientEmail)
                 put("source", "ios")
-                put("secret", StockItConfig.stockitWebhookSecret)
+                put("event_id", randomId())
             }.toString()
-            val resp = Http.client.post(url) {
-                contentType(ContentType.Application.Json)
-                if (StockItConfig.stockitWebhookSecret.isNotBlank()) header("X-App-Secret", StockItConfig.stockitWebhookSecret)
-                setBody(body)
-            }
-            OpResult(resp.status.isSuccess(), resp.bodyAsText().trimForLog())
+            val resp = signedPost(url, body)
+            OpResult(resp.status.isSuccess(), "HTTP ${resp.status.value}")
         }.getOrElse { OpResult(false, it.message) }
     }
 
@@ -86,7 +90,7 @@ object StockItReporter {
             put("assetTag", assetTag)
             put("status", status)
             put("note", note ?: "")
-            put("secret", StockItConfig.stockitWebhookSecret)
+            put("event_id", randomId())
             put("context", buildJsonObject {
                 put("product", product ?: "")
                 put("qty", qty)
@@ -97,23 +101,49 @@ object StockItReporter {
         }.toString()
     }
 
+    /**
+     * POST JSON vers n8n, signé : `X-StockIT-Timestamp` + `X-StockIT-Signature` (HMAC-SHA256 du
+     * timestamp et du corps envoyé, cf. [WebhookSigner]). Le secret n'est ajouté qu'ici, au moment de
+     * l'envoi — jamais dans ce qui est mis en file d'attente. Compatibilité : tant que les workflows
+     * n8n vérifient encore l'ancien champ, `X-App-Secret` et `secret` (si [StockItConfig.webhookLegacyBodySecret]) sont envoyés.
+     */
+    internal suspend fun signedPost(url: String, body: String): HttpResponse {
+        val secret = StockItConfig.stockitWebhookSecret
+        val sent = if (secret.isNotBlank() && StockItConfig.webhookLegacyBodySecret) withLegacySecret(body, secret) else body
+        val ts = (nowMs() / 1000).toString()
+        return Http.client.post(url) {
+            contentType(ContentType.Application.Json)
+            header("Accept", "application/json")
+            if (secret.isNotBlank()) {
+                header("X-App-Secret", secret)
+                header("X-StockIT-Timestamp", ts)
+                header("X-StockIT-Signature", WebhookSigner.sign(secret, ts, sent))
+            }
+            setBody(sent)
+        }
+    }
+
+    private fun withLegacySecret(body: String, secret: String): String = runCatching {
+        val o = Http.json.parseToJsonElement(body).jsonObject
+        JsonObject(o + ("secret" to JsonPrimitive(secret))).toString()
+    }.getOrDefault(body)
+
     /** POST JSON brut ; utilisé par la file d'attente. success=false si HTTP ≠ 2xx ou réponse {ok:false}. */
     internal suspend fun postJson(url: String, body: String): OpResult = if (StockItConfig.testMode) OpResult(true, "test_mode") else runCatching {
-        val resp = Http.client.post(url) {
-            contentType(ContentType.Application.Json)
-            if (StockItConfig.stockitWebhookSecret.isNotBlank()) header("X-App-Secret", StockItConfig.stockitWebhookSecret)
-            setBody(body)
-        }
-        val text = resp.bodyAsText()
-        val okFlag = !text.replace(" ", "").contains("\"ok\":false")
-        OpResult(resp.status.isSuccess() && okFlag, "HTTP ${resp.status.value} ${text.trimForLog(200)}")
-    }.getOrElse { OpResult(false, it.message ?: it::class.simpleName) }
+        val resp = signedPost(url, body)
+        val ok = resp.status.isSuccess() && !reportsFailure(resp.bodyAsText())
+        OpResult(ok, "HTTP ${resp.status.value}")
+    }.getOrElse { OpResult(false, it::class.simpleName ?: "network_error") }
+
+    /** Accusé n8n explicite `{"ok": false}`. */
+    private fun reportsFailure(text: String): Boolean = runCatching {
+        (Http.json.parseToJsonElement(text).jsonObject["ok"] as? JsonPrimitive)?.booleanOrNull == false
+    }.getOrDefault(false)
 
     @Throws(Throwable::class)
     suspend fun sendReport(user: String?, email: String?, barcode: String?, message: String?): OpResult {
         if (StockItConfig.testMode) return OpResult(true, "test_mode")
         val url = StockItConfig.stockitWebhookUrl
-        val secret = StockItConfig.stockitWebhookSecret
         if (url.isBlank()) return OpResult(false, "webhook_not_configured")
         return runCatching {
             val body = buildJsonObject {
@@ -121,17 +151,11 @@ object StockItReporter {
                 put("email", email ?: "")
                 put("barcode", barcode ?: "")
                 put("message", message ?: "")
-                put("secret", secret)
+                put("event_id", randomId())
             }.toString()
-            val resp = Http.client.post(url) {
-                contentType(ContentType.Application.Json)
-                header("Accept", "application/json")
-                if (secret.isNotBlank()) header("X-App-Secret", secret)
-                setBody(body)
-            }
-            val text = resp.bodyAsText()
-            if (resp.status.isSuccess()) OpResult(true, text)
-            else OpResult(false, "HTTP ${resp.status.value} ${text.trimForLog()}")
-        }.getOrElse { OpResult(false, "${it::class.simpleName}: ${it.message}") }
+            val resp = signedPost(url, body)
+            if (resp.status.isSuccess()) OpResult(true, "HTTP ${resp.status.value}")
+            else OpResult(false, "HTTP ${resp.status.value}")
+        }.getOrElse { OpResult(false, it::class.simpleName ?: "network_error") }
     }
 }

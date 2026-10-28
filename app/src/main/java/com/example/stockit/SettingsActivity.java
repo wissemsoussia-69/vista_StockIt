@@ -26,11 +26,14 @@ public class SettingsActivity extends SimpleScreenActivity {
     public static final String PREFS = "stockit_settings";
     public static final String KEY_DARK = "dark_mode";
 
+    private MainController controller;
+
     @Override protected String screenTitle() { return "Paramètres"; }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        controller = new MainController(this);
 
         // --- Préférences
         LinearLayout prefs = section("Préférences");
@@ -74,9 +77,12 @@ public class SettingsActivity extends SimpleScreenActivity {
         testSw.setText(L("🧪 Mode test"));
         testSw.setChecked(SharedBridge.isTestMode(this));
         testSw.setOnCheckedChangeListener((b, on) -> {
-            SharedBridge.setTestMode(this, on);
-            AppSession.updateTestBanner(this);
-            Toast.makeText(this, L(on ? "Mode test activé" : "Mode test désactivé"), Toast.LENGTH_SHORT).show();
+            // TM-17 : réservé à l'ADMIN, tracé dans l'audit, jamais persisté
+            // au-delà de la session (désactivé au retour sur l'écran de login).
+            controller.setTestMode(on, () -> {
+                testSw.setChecked(SharedBridge.isTestMode(this));
+                AppSession.updateTestBanner(this);
+            });
         });
         test.addView(testSw);
         text(test, "Aucun ticket Jira créé, aucun message Slack, aucun e-mail ni webhook n8n. "

@@ -15,10 +15,7 @@ object StockItConfig {
 
     /** Option B : Claude direct (api.anthropic.com), utilisé si Cimpress n'est pas configuré. */
     var claudeApiKey: String = GeneratedConfig.CLAUDE_API_KEY
-    var claudeModel: String = GeneratedConfig.CLAUDE_MODEL.ifBlank { "claude-3-5-sonnet-latest" }
-
-    var portkeyApiKey: String = GeneratedConfig.PORTKEY_API_KEY
-    var geminiApiKey: String = GeneratedConfig.GEMINI_API_KEY
+    var claudeModel: String = GeneratedConfig.CLAUDE_MODEL.ifBlank { "claude-sonnet-4-5" }
 
     var slackWebhookUrl: String = GeneratedConfig.SLACK_WEBHOOK_URL
     var slackBotToken: String = GeneratedConfig.SLACK_BOT_TOKEN
@@ -43,9 +40,6 @@ object StockItConfig {
     /** Valeur « Geo Location » des objets créés (alignée sur les objets existants). */
     var jiraAssetsLocation: String = GeneratedConfig.JIRA_ASSETS_LOCATION.ifBlank { "Tunis" }
 
-    var huggingFaceToken: String = GeneratedConfig.HUGGING_FACE_TOKEN
-    var sendgridApiKey: String = GeneratedConfig.SENDGRID_API_KEY
-
     var stockitWebhookUrl: String = GeneratedConfig.STOCKIT_WEBHOOK_URL
     var stockitWebhookSecret: String = GeneratedConfig.STOCKIT_WEBHOOK_SECRET
 
@@ -57,7 +51,10 @@ object StockItConfig {
     /** Webhook n8n du statut des actifs (POST /webhook/stockit/asset-status). */
     var stockitAssetStatusWebhookUrl: String = GeneratedConfig.STOCKIT_ASSET_STATUS_WEBHOOK_URL
 
-    /** Rôle attribué à un employé Okta sans groupe StockIT reconnu (USER = lecture seule). */
+    /**
+     * Rôle attribué à un employé Okta sans groupe StockIT reconnu : USER (lecture seule) ou TECHNICIEN.
+     * ADMIN / MANAGER ne peuvent jamais être attribués par défaut (cf. RoleResolver).
+     */
     var ssoDefaultRole: String = GeneratedConfig.STOCKIT_SSO_DEFAULT_ROLE.ifBlank { "USER" }
 
     /**
@@ -72,6 +69,18 @@ object StockItConfig {
      * Activable dans Paramètres de l'app.
      */
     var testMode: Boolean = false
+
+    /**
+     * Accès de secours par identifiant / mot de passe local. Toujours false en Release ;
+     * l'app iOS ne l'active qu'en build Debug (développement, tests UI).
+     */
+    var localLoginEnabled: Boolean = false
+
+    /**
+     * Compatibilité n8n : ajoute encore `secret` dans le corps des webhooks (en plus de la signature HMAC).
+     * À passer à "false" (STOCKIT_WEBHOOK_LEGACY_BODY_SECRET) dès que les workflows vérifient X-StockIT-Signature.
+     */
+    var webhookLegacyBodySecret: Boolean = !GeneratedConfig.STOCKIT_WEBHOOK_LEGACY_BODY_SECRET.equals("false", ignoreCase = true)
 
     /**
      * Langue de l'interface ("fr" ou "en"), choisie dans Paramètres.
@@ -98,8 +107,6 @@ object StockItConfig {
             "CIMPRESS_GATEWAY_KEY" -> cimpressGatewayKey = value
             "GATEWAY_URL" -> gatewayUrl = value
             "CIMPRESS_VISION_MODEL" -> cimpressVisionModel = value
-            "PORTKEY_API_KEY" -> portkeyApiKey = value
-            "GEMINI_API_KEY" -> geminiApiKey = value
             "SLACK_WEBHOOK_URL" -> slackWebhookUrl = value
             "SLACK_BOT_TOKEN" -> slackBotToken = value
             "JIRA_USER_EMAIL" -> jiraUserEmail = value
@@ -109,8 +116,6 @@ object StockItConfig {
             "JIRA_ISSUE_TYPE" -> jiraIssueType = value
             "JIRA_COST_CENTER" -> jiraCostCenter = value
             "JIRA_COMPONENT" -> jiraComponent = value
-            "HUGGING_FACE_TOKEN" -> huggingFaceToken = value
-            "SENDGRID_API_KEY" -> sendgridApiKey = value
             "STOCKIT_WEBHOOK_URL" -> stockitWebhookUrl = value
             "STOCKIT_WEBHOOK_SECRET" -> stockitWebhookSecret = value
             "AUTH0_AUDIENCE" -> auth0Audience = value

@@ -59,7 +59,6 @@ public final class WebhookOutbox {
         SessionManager s = SessionManager.get(app);
         final String user = !TextUtils.isEmpty(s.getUsername()) ? s.getUsername() : "stockit-system";
         final String email = !TextUtils.isEmpty(s.getEmail()) ? s.getEmail() : com.example.stockit.BuildConfig.STOCKIT_DEFAULT_EMAIL;
-        final String secret = SharedBridge.webhookSecret();
 
         EXEC.execute(() -> {
             try {
@@ -71,7 +70,7 @@ public final class WebhookOutbox {
                     o.put("reason", reason == null ? "" : reason);
                     o.put("ticket_id", ticketId == null ? "" : ticketId);
                     o.put("timestamp", ts); o.put("user", user); o.put("user_email", email);
-                    o.put("source", "android"); o.put("secret", secret);
+                    o.put("source", "android"); o.put("event_id", java.util.UUID.randomUUID().toString());
                     sendOrQueue(app, eventUrl, o.toString());
                 }
                 String assetUrl = SharedBridge.assetStatusWebhookUrl();
@@ -86,7 +85,8 @@ public final class WebhookOutbox {
                     o.put("source", "stockit-android"); o.put("at", ts); o.put("assetTag", tag);
                     o.put("status", "IN".equals(type) ? "IN_STOCK" : "OUT");
                     o.put("note", reason == null ? "" : reason);
-                    o.put("secret", secret); o.put("context", ctxObj);
+                    o.put("event_id", java.util.UUID.randomUUID().toString());
+                    o.put("context", ctxObj);
                     sendOrQueue(app, assetUrl, o.toString());
                 }
             } catch (Exception e) {
@@ -107,9 +107,13 @@ public final class WebhookOutbox {
     @Nullable
     private static String post(String url, String body) {
         try {
-            Request.Builder rb = new Request.Builder().url(url).post(RequestBody.create(body, JSON));
             String secret = SharedBridge.webhookSecret();
-            if (!TextUtils.isEmpty(secret)) rb.header("X-App-Secret", secret);
+            String ts = String.valueOf(System.currentTimeMillis() / 1000);
+            String sent = com.example.stockit.util.WebhookSecurity.shouldSendBodySecret(secret) ? withLegacySecret(body, secret) : body;
+            Request.Builder rb = new Request.Builder().url(url).post(RequestBody.create(sent, JSON));
+            for (java.util.Map.Entry<String, String> h : com.example.stockit.util.WebhookSecurity.headers(secret, ts, sent).entrySet()) {
+                rb.header(h.getKey(), h.getValue());
+            }
             try (Response r = CLIENT.newCall(rb.build()).execute()) {
                 String text = r.body() != null ? r.body().string() : "";
                 boolean okFlag = !text.replace(" ", "").contains("\"ok\":false");
@@ -117,6 +121,18 @@ public final class WebhookOutbox {
             }
         } catch (Exception e) {
             return e.getClass().getSimpleName() + ": " + e.getMessage();
+        }
+    }
+
+    /** Ajoute le champ « secret » au corps au moment de l'envoi uniquement (jamais au repos). */
+    private static String withLegacySecret(String body, String secret) {
+        if (secret == null || secret.trim().isEmpty()) return body;
+        try {
+            org.json.JSONObject o = new org.json.JSONObject(body);
+            o.put("secret", secret);
+            return o.toString();
+        } catch (Exception e) {
+            return body;
         }
     }
 
@@ -140,7 +156,9 @@ public final class WebhookOutbox {
         try {
             JSONArray arr = load(app);
             JSONObject o = new JSONObject();
-            o.put("url", url); o.put("body", body); o.put("error", err); o.put("at", System.currentTimeMillis());
+            o.put("url", url); o.put("body", com.example.stockit.util.WebhookSecurity.stripSecret(body));
+            o.put("error", err); o.put("at", System.currentTimeMillis());
+            o.put("attempts", 0); o.put("nextAttemptAt", 0L);
             arr.put(o);
             // Borne la file (évite une croissance infinie hors ligne).
             while (arr.length() > 200) arr.remove(0);
@@ -161,13 +179,23 @@ public final class WebhookOutbox {
             JSONArray arr = load(app);
             JSONArray remaining = new JSONArray();
             boolean test = SharedBridge.isTestMode(app);
+            boolean loggedIn = SessionManager.get(app) != null && SessionManager.get(app).isLoggedIn();
+            long now = System.currentTimeMillis();
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject o = arr.optJSONObject(i);
                 if (o == null) continue;
                 if (test) { remaining.put(o); continue; }
+                // Renvoi uniquement si une session existe et que le délai de backoff est passé.
+                if (o.optLong("nextAttemptAt", 0L) > now) { remaining.put(o); continue; }
+                if (!loggedIn) { remaining.put(o); continue; }
                 String err = post(o.optString("url"), o.optString("body"));
                 if (err != null) {
-                    try { o.put("error", err); } catch (Exception ignored) {}
+                    int attempts = o.optInt("attempts", 0) + 1;
+                    try {
+                        o.put("error", err);
+                        o.put("attempts", attempts);
+                        o.put("nextAttemptAt", now + com.example.stockit.util.WebhookSecurity.backoffMs(attempts));
+                    } catch (Exception ignored) { }
                     remaining.put(o);
                 }
             }

@@ -57,6 +57,14 @@ public final class AuthBearerInterceptor implements Interceptor {
             return chain.proceed(original);
         }
 
+        // TM-10 : le Bearer Auth0 n'est attaché QU'AU host du backend réclamations
+        // configuré — jamais à un autre host (ex. si une URL est détournée).
+        String apiHost = hostOf(apiBaseUrl());
+        String requestHost = original.url() != null ? original.url().host() : null;
+        if (apiHost == null || !apiHost.equals(requestHost)) {
+            return chain.proceed(original);
+        }
+
         String token = fetchAccessTokenBlocking();
         if (token == null || token.isEmpty()) {
             // Pas de session SSO valide : on laisse passer la requête sans Bearer.
@@ -68,6 +76,24 @@ public final class AuthBearerInterceptor implements Interceptor {
                 .header("Authorization", "Bearer " + token)
                 .build();
         return chain.proceed(authed);
+    }
+
+    /** Host du backend réclamations (config ou 10.0.2.2 par défaut). */
+    private String apiBaseUrl() {
+        try {
+            String cfg = com.example.stockit.util.SharedBridge.apiBaseUrl();
+            if (cfg != null && cfg.startsWith("http")) return cfg;
+        } catch (Throwable ignored) { }
+        return "http://10.0.2.2/api/";
+    }
+
+    private static String hostOf(String url) {
+        try {
+            okhttp3.HttpUrl parsed = okhttp3.HttpUrl.parse(url == null ? "" : url);
+            return parsed != null ? parsed.host() : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**

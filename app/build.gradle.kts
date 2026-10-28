@@ -50,10 +50,7 @@ android {
         resValue("string", "com_auth0_domain", env("AUTH0_DOMAIN", ""))
         resValue("string", "com_auth0_client_id", env("AUTH0_CLIENT_ID", ""))
         resValue("string", "com_auth0_connection", env("AUTH0_CONNECTION", ""))
-        buildConfigField("String", "PORTKEY_API_KEY",   "\"${env("PORTKEY_API_KEY",   "")}\"")
-        buildConfigField("String", "GEMINI_API_KEY",    "\"${env("GEMINI_API_KEY",    "")}\"")
         buildConfigField("String", "SLACK_BOT_TOKEN",   "\"${env("SLACK_BOT_TOKEN",   "")}\"")
-        buildConfigField("String", "SENDGRID_API_KEY",  "\"${env("SENDGRID_API_KEY",  "")}\"")
         buildConfigField("String", "JIRA_API_TOKEN",    "\"${env("JIRA_API_TOKEN",    "")}\"")
         buildConfigField("String", "JIRA_USER_EMAIL",   "\"${env("JIRA_USER_EMAIL",   "")}\"")
         buildConfigField("String", "JIRA_BASE_URL",     "\"${env("JIRA_BASE_URL",     "")}\"")
@@ -61,7 +58,6 @@ android {
         buildConfigField("String", "JIRA_ISSUE_TYPE",   "\"${env("JIRA_ISSUE_TYPE",   "")}\"")
         buildConfigField("String", "JIRA_COST_CENTER",  "\"${env("JIRA_COST_CENTER",  "")}\"")
         buildConfigField("String", "JIRA_COMPONENT",    "\"${env("JIRA_COMPONENT",    "")}\"")
-        buildConfigField("String", "HUGGING_FACE_TOKEN","\"${env("HUGGING_FACE_TOKEN","")}\"")
 
         // --- Passerelle IA principale : Cimpress Gateway (Vistaprint) ---
         buildConfigField("String", "GATEWAY_URL",             "\"${env("GATEWAY_URL",             "")}\"")
@@ -101,11 +97,12 @@ android {
         )
     }
 
-    useLibrary("org.apache.http.legacy")
-
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // TM-16 : minification + shrink activés (les secrets compilés restent
+            // extraisibles, mais nettement moins lisibles — la vraie parade est un BFF).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -157,23 +154,23 @@ dependencies {
     implementation("com.itextpdf:itext7-core:9.0.0")
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
-    implementation(libs.firebase.firestore)
     implementation(libs.androidx.work.runtime)
     implementation(libs.google.material)
-    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
-    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+    implementation("com.itextpdf:itext7-core:9.0.0")
     implementation(libs.androidx.recyclerview)
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation(libs.androidx.cardview)
-    implementation(libs.sendgrid.java)
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.androidx.room.runtime)
     annotationProcessor(libs.androidx.room.compiler)
-    // Auth0 Android SDK — Vista SSO (Universal Login via Chrome Custom Tabs)
-    implementation("com.auth0.android:auth0:3.+")
+    // Auth0 Android SDK — Vista SSO (Universal Login via Chrome Custom Tabs).
+    // TM-31 : version épinglée (pas de 3.+ flottant).
+    implementation("com.auth0.android:auth0:3.21.3")
     testImplementation(libs.junit)
+    // org.json réel pour les tests unitaires JVM (le stub android.jar lève « not mocked »).
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
 }

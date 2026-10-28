@@ -58,28 +58,32 @@ public final class SlackNotifier {
         }, "slack-notifier").start();
     }
 
-    private static boolean usable(String url) {
-        return !TextUtils.isEmpty(url)
-                && (url.startsWith("http://") || url.startsWith("https://"))
+    /** URL utilisable = HTTPS uniquement (TM-10 : le jeton ne voyage jamais en clair). Pur Java : testable JVM. */
+    public static boolean usable(String url) {
+        return url != null
+                && !url.trim().isEmpty()
+                && url.startsWith("https://")
                 && !url.contains("REPLACE") && !url.contains("REMPLACE");
     }
 
     /** @return {"ok"|"ko", détail}. */
     private static String[] deliver(String message) {
         try {
+            String safe = com.example.stockit.util.SlackText.escape(message);
             String relay = SharedBridge.slackRelayUrl();
             if (usable(relay)) {
                 SessionManager s = SessionManager.get(null);
                 JSONObject o = new JSONObject();
-                o.put("type", typeOf(message));
-                o.put("message", message);
+                o.put("type", typeOf(safe));
+                o.put("message", safe);
                 o.put("user", s != null && s.getUsername() != null ? s.getUsername() : "stockit-system");
                 o.put("user_email", s != null && s.getEmail() != null ? s.getEmail() : "");
                 o.put("source", "android");
                 o.put("timestamp", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.US).format(new Date()));
-                o.put("secret", SharedBridge.webhookSecret());
+                String secret = SharedBridge.webhookSecret();
+                if (com.example.stockit.util.WebhookSecurity.shouldSendBodySecret(secret) && !TextUtils.isEmpty(secret)) o.put("secret", secret);
                 Request.Builder rb = new Request.Builder().url(relay).post(RequestBody.create(o.toString(), JSON));
-                if (!TextUtils.isEmpty(SharedBridge.webhookSecret())) rb.header("X-App-Secret", SharedBridge.webhookSecret());
+                if (!TextUtils.isEmpty(secret)) rb.header("X-App-Secret", secret);
                 try (Response resp = CLIENT.newCall(rb.build()).execute()) {
                     String text = resp.body() != null ? resp.body().string() : "";
                     boolean ok = resp.isSuccessful() && text.replace(" ", "").contains("\"ok\":true");
@@ -90,7 +94,7 @@ public final class SlackNotifier {
             String url = BuildConfig.SLACK_WEBHOOK_URL;
             if (usable(url)) {
                 JSONObject o = new JSONObject();
-                o.put("text", message);
+                o.put("text", safe);
                 Request request = new Request.Builder().url(url).post(RequestBody.create(o.toString(), JSON)).build();
                 try (Response resp = CLIENT.newCall(request).execute()) {
                     if (resp.isSuccessful()) return new String[]{"ok", "HTTP " + resp.code()};
@@ -100,17 +104,17 @@ public final class SlackNotifier {
             if (!TextUtils.isEmpty(token)) {
                 JSONObject o = new JSONObject();
                 o.put("channel", SharedBridge.slackChannel());
-                o.put("text", message);
+                o.put("text", safe);
                 Request request = new Request.Builder().url("https://slack.com/api/chat.postMessage")
                         .header("Authorization", "Bearer " + token)
                         .post(RequestBody.create(o.toString(), JSON)).build();
                 try (Response resp = CLIENT.newCall(request).execute()) {
                     String text = resp.body() != null ? resp.body().string() : "";
                     boolean ok = resp.isSuccessful() && text.contains("\"ok\":true");
-                    return new String[]{ok ? "ok" : "ko", ok ? "bot" : text};
+                    return new String[]{ok ? "ok" : "ko", ok ? "bot" : "HTTP " + resp.code()};
                 }
             }
-            Log.w(TAG, "Slack non configuré — message ignoré : " + message);
+            Log.w(TAG, "Slack non configuré — message ignoré");
             return new String[]{"ko", "slack_not_configured"};
         } catch (Throwable t) {
             Log.e(TAG, "Slack error (silencée)", t);

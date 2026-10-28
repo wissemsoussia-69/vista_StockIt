@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  StockIT — network security config (TM-10) :
+  pas de trafic en clair par défaut. Le cleartext n'est toléré que pour le
+  backend de développement (émulateur 10.0.2.2 / localhost) et uniquement en
+  build Debug (le fichier debug variant est fourni par app/src/debug).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

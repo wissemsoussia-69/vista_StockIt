@@ -23,27 +23,34 @@ import kotlinx.serialization.json.put
 object SlackNotifier {
 
     private fun webhookUsable(url: String): Boolean =
-        url.isNotBlank() &&
-            (url.startsWith("http://") || url.startsWith("https://")) &&
+        url.isNotBlank() && url.startsWith("https://") &&
             !url.contains("REPLACE") && !url.contains("REMPLACE")
+
+    /**
+     * Les textes viennent en partie des utilisateurs (noms de produits, codes scannés, réponses IA) :
+     * `&`, `<`, `>` sont échappés pour neutraliser `<!channel>`, `<!here>`, `<@U…>` et les liens déguisés.
+     * Le gras (*…*) et les emojis (:x:) restent permis.
+     */
+    fun escape(text: String): String = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     /** Envoi d'un message (type déduit de l'emoji en tête). Ne lève jamais. */
     @Throws(Throwable::class)
     suspend fun send(message: String): OpResult {
         if (StockItConfig.testMode) return OpResult(true, "test_mode")
-        if (webhookUsable(StockItConfig.stockitSlackWebhookUrl)) return sendViaRelay(typeOf(message), message)
+        val text = escape(message)
+        if (webhookUsable(StockItConfig.stockitSlackWebhookUrl)) return sendViaRelay(typeOf(text), text)
         val url = StockItConfig.slackWebhookUrl
         if (!webhookUsable(url)) {
             return if (StockItConfig.slackBotToken.isNotBlank()) postAsBot(message) else OpResult(false, "slack_not_configured")
         }
         return runCatching {
-            val body = buildJsonObject { put("text", message) }.toString()
+            val body = buildJsonObject { put("text", text) }.toString()
             val resp = Http.client.post(url) {
                 contentType(ContentType.Application.Json)
                 setBody(body)
             }
             OpResult(resp.status.isSuccess(), "HTTP ${resp.status.value}")
-        }.getOrElse { OpResult(false, "${it::class.simpleName}: ${it.message}") }
+        }.getOrElse { OpResult(false, it::class.simpleName ?: "network_error") }
     }
 
     /**
@@ -52,7 +59,7 @@ object SlackNotifier {
      */
     @Throws(Throwable::class)
     suspend fun sendTest(user: String?): OpResult {
-        val msg = "ℹ️ [StockIT iOS] Test de connexion Slack" + (user?.let { " par $it" } ?: "") + " — merci d'ignorer."
+        val msg = "ℹ️ [StockIT iOS] Test de connexion Slack" + (user?.let { " par ${escape(it)}" } ?: "") + " — merci d'ignorer."
         return if (webhookUsable(StockItConfig.stockitSlackWebhookUrl)) sendViaRelay("info", msg)
         else OpResult(false, tr("STOCKIT_SLACK_WEBHOOK_URL non configuré", "STOCKIT_SLACK_WEBHOOK_URL not configured"))
     }
@@ -75,28 +82,24 @@ object SlackNotifier {
             put("source", "ios")
             put("timestamp", com.example.stockit.shared.platform.formatEpoch(
                 com.example.stockit.shared.platform.nowMs(), "yyyy-MM-dd'T'HH:mm:ssZ"))
-            put("secret", StockItConfig.stockitWebhookSecret)
         }.toString()
-        val resp = Http.client.post(StockItConfig.stockitSlackWebhookUrl) {
-            contentType(ContentType.Application.Json)
-            if (StockItConfig.stockitWebhookSecret.isNotBlank()) header("X-App-Secret", StockItConfig.stockitWebhookSecret)
-            setBody(body)
-        }
+        val resp = StockItReporter.signedPost(StockItConfig.stockitSlackWebhookUrl, body)
         val text = resp.bodyAsText()
         val ok = resp.status.isSuccess() && text.replace(" ", "").contains("\"ok\":true")
-        OpResult(ok, if (ok) tr("Message envoyé", "Message sent") else "HTTP ${resp.status.value} ${text.trimForLog(200)}")
-    }.getOrElse { OpResult(false, "${it::class.simpleName}: ${it.message}") }
+        OpResult(ok, if (ok) tr("Message envoyé", "Message sent") else "HTTP ${resp.status.value}")
+    }.getOrElse { OpResult(false, it::class.simpleName ?: "network_error") }
 
     /** Envoi via le bot Slack (chat.postMessage) sur #etx-alerts. */
     @Throws(Throwable::class)
     suspend fun postAsBot(message: String, channel: String = StockItConfig.slackChannelId): OpResult {
         if (StockItConfig.testMode) return OpResult(true, "test_mode")
+        val text = escape(message)
         val token = StockItConfig.slackBotToken
         if (token.isBlank()) return OpResult(false, "bot_token_missing")
         return runCatching {
             val body = buildJsonObject {
                 put("channel", channel)
-                put("text", message)
+                put("text", text)
             }.toString()
             val resp = Http.client.post("https://slack.com/api/chat.postMessage") {
                 header("Authorization", "Bearer $token")
@@ -104,7 +107,8 @@ object SlackNotifier {
                 setBody(body)
             }
             val text = resp.bodyAsText()
-            OpResult(resp.status.isSuccess() && text.contains("\"ok\":true"), text.trimForLog())
-        }.getOrElse { OpResult(false, it.message) }
+            val ok = resp.status.isSuccess() && text.contains("\"ok\":true")
+            OpResult(ok, if (ok) "ok" else "HTTP ${resp.status.value} " + (Regex("\"error\":\"([a-z_]+)\"").find(text)?.groupValues?.get(1) ?: ""))
+        }.getOrElse { OpResult(false, it::class.simpleName ?: "network_error") }
     }
 }

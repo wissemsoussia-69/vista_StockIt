@@ -48,6 +48,9 @@ object JiraAssetsClient {
     /** Nombre maximum d'objets créés / sortis en une opération (évite d'inonder la CMDB). */
     const val MAX_UNITS = 50
 
+    /** Pagination plafonnée par type d'objet ; au-delà le résultat est marqué incomplet. */
+    private const val MAX_FETCH_PER_TYPE = 5000
+
     private var workspaceId: String? = null
     private val attributeCache = mutableMapOf<String, Map<String, String>>()
 
@@ -170,7 +173,7 @@ object JiraAssetsClient {
 
     // ------------------------------------------------------------------ lecture (synchronisation)
 
-    data class FetchResult(val units: List<com.example.stockit.shared.ai.AssetGrouping.AssetUnit>?, val error: String?)
+    data class FetchResult(val units: List<com.example.stockit.shared.ai.AssetGrouping.AssetUnit>?, val error: String?, val complete: Boolean = true)
 
     /**
      * Lit TOUS les objets des types configurés (périphériques, ordinateurs, écrans) du schéma,
@@ -185,6 +188,7 @@ object JiraAssetsClient {
                 StockItConfig.jiraAssetsTypePeripherals, StockItConfig.jiraAssetsTypeComputers, StockItConfig.jiraAssetsTypeMonitors,
             ).filter { it.isNotBlank() }.distinct()
             val out = mutableListOf<com.example.stockit.shared.ai.AssetGrouping.AssetUnit>()
+            var complete = true
             for (typeId in types) {
                 val byId = attributes(typeId).entries.associate { (name, id) -> id to name } // id → nom (minuscules)
                 var start = 0
@@ -229,10 +233,11 @@ object JiraAssetsClient {
                     }
                     val total = root.int("total", values.size)
                     start += values.size
-                    if (values.isEmpty() || start >= total || start >= 5000) break
+                    if (values.isEmpty() || start >= total) break
+                    if (start >= MAX_FETCH_PER_TYPE) { complete = false; break }
                 }
             }
-            FetchResult(out, null)
+            FetchResult(out, null, complete)
         }.getOrElse { FetchResult(null, "${it::class.simpleName}: ${it.message}") }
     }
 

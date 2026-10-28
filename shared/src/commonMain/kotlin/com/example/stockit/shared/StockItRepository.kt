@@ -34,6 +34,14 @@ import com.example.stockit.shared.network.SlackNotifier
 import com.example.stockit.shared.network.StockItApi
 import com.example.stockit.shared.network.StockItReporter
 import com.example.stockit.shared.config.StockItConfig
+import com.example.stockit.shared.model.Roles
+import com.example.stockit.shared.network.Http
+import com.example.stockit.shared.security.InputRules
+import com.example.stockit.shared.security.JiraKeys
+import com.example.stockit.shared.security.PasswordHasher
+import com.example.stockit.shared.security.Sha256
+import com.example.stockit.shared.security.randomId
+import com.example.stockit.shared.security.toHex
 import com.example.stockit.shared.platform.formatEpoch
 import com.example.stockit.shared.platform.nowMs
 import kotlin.random.Random
@@ -43,7 +51,9 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
 /**
@@ -74,87 +84,149 @@ class StockItRepository internal constructor(
 
     // =========================================================== AUTH
 
-    /** Login local (mode démo hors ligne). Seed l'équipe Vistaprint si besoin. */
-    @Throws(Throwable::class)
-    suspend fun login(username: String, password: String): User? = withContext(io) {
-        seedUsersIfNeeded()
-        var user = db.userQueries.login(username, password).executeAsOneOrNull()?.toModel()
-        if (user == null && username == "admin" && password == "admin123") {
-            user = User(username = "admin", password = "admin123", role = "ADMIN")
-        }
-        if (user != null) {
-            currentUser = user
-            audit("LOGIN", "Utilisateur connecté: $username")
-        }
-        user
-    }
+    /** Échecs de connexion locale récents, par nom d'utilisateur (anti force brute). */
+    private val failedLogins = mutableMapOf<String, MutableList<Long>>()
 
-    /** Enregistre/actualise un utilisateur authentifié via SSO Auth0. */
+    /**
+     * Accès de secours hors ligne (comptes locaux). Désactivé sauf si l'app l'autorise
+     * explicitement ([StockItConfig.localLoginEnabled], builds Debug uniquement).
+     * Aucun compte par défaut, aucun mot de passe en clair : vérification PBKDF2.
+     */
     @Throws(Throwable::class)
-    suspend fun loginSso(username: String, role: String?): User = withContext(io) {
-        val existing = db.userQueries.findByUsername(username).executeAsOneOrNull()?.toModel()
-        val user = if (existing != null) {
-            if (role != null && role != existing.role) {
-                val u = existing.copy(role = role)
-                updateUserRow(u)
-                u
-            } else existing
-        } else {
-            db.userQueries.register(username, "sso-auth0", role ?: "USER", 0, 1, "")
-            db.userQueries.findByUsername(username).executeAsOne().toModel()
-        }
-        currentUser = user
-        audit("LOGIN_SSO", "Connexion SSO Auth0 : $username")
-        user
-    }
-
-    /** Restaure l'utilisateur courant depuis la session persistée (relance de l'app). */
-    @Throws(Throwable::class)
-    suspend fun restoreSession(username: String, role: String?): User = withContext(io) {
-        val u = db.userQueries.findByUsername(username).executeAsOneOrNull()?.toModel()
-            ?: run {
-                db.userQueries.register(username, "sso-auth0", role ?: "USER", 0, 1, "")
-                db.userQueries.findByUsername(username).executeAsOne().toModel()
+    suspend fun login(username: String, password: String): User? {
+        if (!StockItConfig.localLoginEnabled) return null
+        val name = username.trim()
+        val row = withContext(io) {
+            if (isLockedOut(name)) {
+                audit("LOGIN_LOCKED", "Connexion refusée (trop d'échecs) : $name", actor = name)
+                return@withContext null
             }
-        currentUser = u
-        u
+            db.userQueries.findLocalByUsername(name).executeAsOneOrNull()
+        } ?: return null
+        // PBKDF2 est volontairement coûteux : hors du dispatcher base de données.
+        val ok = withContext(Dispatchers.Default) { PasswordHasher.verify(password, row.password) }
+        return withContext(io) {
+            if (!ok) {
+                failedLogins.getOrPut(name.lowercase()) { mutableListOf() } += nowMs()
+                audit("LOGIN_FAILED", "Échec de connexion locale : $name", actor = name)
+                return@withContext null
+            }
+            failedLogins.remove(name.lowercase())
+            val user = row.toModel()
+            currentUser = user
+            audit("LOGIN", "Utilisateur connecté: ${user.username}")
+            user
+        }
+    }
+
+    private fun isLockedOut(name: String): Boolean {
+        val now = nowMs()
+        val recent = failedLogins[name.lowercase()]?.apply { removeAll { now - it > LOCKOUT_WINDOW_MS } } ?: return false
+        return recent.size >= MAX_FAILED_LOGINS
+    }
+
+    /**
+     * Crée (ou réinitialise) un compte local — environnement de développement / tests UI uniquement.
+     * Refusé si l'accès local est désactivé, si le nom appartient à un compte SSO, ou si le mot de passe est faible.
+     */
+    @Throws(Throwable::class)
+    suspend fun provisionLocalUser(username: String, password: String, role: String): Boolean {
+        if (!StockItConfig.localLoginEnabled) return false
+        val name = username.trim()
+        if (name.isEmpty() || password.length < 10) return false
+        val hash = withContext(Dispatchers.Default) { PasswordHasher.hash(password) }
+        val r = Roles.normalize(role)
+        return withContext(io) {
+            val existing = db.userQueries.findByUsername(name).executeAsOneOrNull()
+            when {
+                existing == null -> db.userQueries.insertLocal(name, hash, r)
+                existing.provider == "local" -> db.userQueries.setLocalCredentials(hash, r, existing.id)
+                else -> return@withContext false
+            }
+            audit("PROVISION_LOCAL_USER", "Compte local $name ($r)", actor = "system")
+            true
+        }
+    }
+
+    /**
+     * Utilisateur authentifié par Vista SSO. L'identité est le `sub` Auth0 (immuable),
+     * jamais le nom affiché : un employé nommé « admin » ne récupère pas un compte existant.
+     * Seuls les rôles connus sont acceptés (sinon USER). Les comptes locaux ne sont jamais modifiés.
+     */
+    @Throws(Throwable::class)
+    suspend fun loginSso(subject: String, username: String, role: String?): User = withContext(io) {
+        require(subject.isNotBlank()) { "missing Auth0 subject" }
+        val r = Roles.normalize(role)
+        val name = username.trim().ifEmpty { "vista.user" }
+        val row = db.transactionWithResult {
+            val bound = db.userQueries.findBySubject(subject).executeAsOneOrNull()
+                ?: db.userQueries.findLegacySso(name).executeAsOneOrNull()?.also { db.userQueries.bindSubject(subject, it.id) }
+            if (bound != null) {
+                if (bound.role != r) db.userQueries.updateProfile(r, bound.points, bound.level, bound.badges, bound.id)
+                db.userQueries.findById(bound.id).executeAsOne()
+            } else {
+                db.userQueries.insertSso(uniqueUsername(name, subject), r, subject)
+                db.userQueries.findBySubject(subject).executeAsOne()
+            }
+        }
+        val user = row.toModel()
+        currentUser = user
+        audit("LOGIN_SSO", "Connexion SSO Auth0 : ${user.username} (${user.role})")
+        user
+    }
+
+    /** Nom affiché unique : « Sam », sinon « Sam (a1b2c3) » d'après le sub. */
+    private fun uniqueUsername(name: String, subject: String): String {
+        if (db.userQueries.findByUsername(name).executeAsOneOrNull() == null) return name
+        val suffix = subject.filter { it.isLetterOrDigit() }.takeLast(6)
+        var candidate = "$name ($suffix)"
+        var i = 2
+        while (db.userQueries.findByUsername(candidate).executeAsOneOrNull() != null) candidate = "$name ($suffix-${i++})"
+        return candidate
     }
 
     fun logout() {
         currentUser = null
-    }
-
-    private fun seedUsersIfNeeded() {
-        if (db.userQueries.count().executeAsOne() < 5) {
-            listOf(
-                Triple("admin", "admin123", "ADMIN"),
-                Triple("Nadhem", "pass123", "TECHNICIEN"),
-                Triple("Nour", "pass123", "TECHNICIEN"),
-                Triple("Eya", "pass123", "TECHNICIEN"),
-                Triple("Majdi", "pass123", "TECHNICIEN"),
-                Triple("Zied", "pass123", "TECHNICIEN"),
-            ).forEach { (u, p, r) -> db.userQueries.register(u, p, r, 0, 1, "") }
-        }
+        // Le mode test ne survit jamais à la session de l'administrateur qui l'a activé.
+        StockItConfig.testMode = false
     }
 
     // =========================================================== USERS
 
+    /** Administration des comptes : ADMIN uniquement. */
     @Throws(Throwable::class)
     suspend fun getUsers(): List<User> = withContext(io) {
-        seedUsersIfNeeded()
+        if (!isAdmin) return@withContext emptyList()
         db.userQueries.getAll().executeAsList().map { it.toModel() }
     }
 
     @Throws(Throwable::class)
     suspend fun deleteUser(user: User): Boolean = withContext(io) {
-        if (!isAdmin) return@withContext false
+        val me = currentUser ?: return@withContext false
+        if (!me.isAdmin || user.id == me.id) return@withContext false
         db.userQueries.delete(user.id)
+        audit("DELETE_USER", "Compte supprimé : ${user.username}")
         true
     }
 
     @Throws(Throwable::class)
     suspend fun getLeaderboard(): List<User> = withContext(io) {
+        if (currentUser == null) return@withContext emptyList()
         db.userQueries.getAll().executeAsList().map { it.toModel() }.sortedByDescending { it.points }
+    }
+
+    // =========================================================== MODE TEST
+
+    /**
+     * Mode test (aucune écriture externe) : ADMIN uniquement, tracé dans l'audit,
+     * désactivé automatiquement à la déconnexion.
+     */
+    @Throws(Throwable::class)
+    suspend fun setTestMode(enabled: Boolean): Boolean = withContext(io) {
+        if (!isAdmin) return@withContext false
+        StockItConfig.testMode = enabled
+        audit(if (enabled) "TEST_MODE_ON" else "TEST_MODE_OFF", "Mode test ${if (enabled) "activé" else "désactivé"}")
+        true
     }
 
     // =========================================================== CATEGORIES
@@ -206,8 +278,11 @@ class StockItRepository internal constructor(
 
     @Throws(Throwable::class)
     suspend fun searchProducts(query: String): List<Product> = withContext(io) {
-        db.productQueries.search("%$query%").executeAsList().map { it.toModel() }
+        db.productQueries.search("%${escapeLike(query)}%").executeAsList().map { it.toModel() }
     }
+
+    /** `%` et `_` saisis par l'utilisateur sont des caractères, pas des jokers (ESCAPE '\'). */
+    private fun escapeLike(s: String) = s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     /**
      * Scan en rafale : si un produit porte déjà ce code (asset tag / référence), +1 sur sa quantité,
@@ -215,6 +290,12 @@ class StockItRepository internal constructor(
      */
     @Throws(Throwable::class)
     suspend fun addOrIncrementByCode(code: String): String? {
+        val trimmed = code.trim()
+        if (!InputRules.isPlausibleBarcode(trimmed)) return null
+        return addOrIncrementValidCode(trimmed)
+    }
+
+    private suspend fun addOrIncrementValidCode(code: String): String? {
         val existing = withContext(io) {
             db.productQueries.getAll().executeAsList().map { it.toModel() }
                 .firstOrNull { it.assetTag.equals(code, true) || it.articleNumber.equals(code, true) }
@@ -293,10 +374,11 @@ class StockItRepository internal constructor(
      */
     @Throws(Throwable::class)
     suspend fun updateQuantity(product: Product, delta: Int, syncAssets: Boolean = true): Product? {
+        if (delta == 0 || delta !in -InputRules.MAX_STOCK_DELTA..InputRules.MAX_STOCK_DELTA) return null
         val r = withContext(io) {
-            if (currentUser == null) return@withContext null
-            val fresh = db.productQueries.getById(product.id).executeAsOneOrNull()?.toModel() ?: product
-            val newQty = maxOf(0, fresh.quantity + delta)
+            if (currentUser?.canAdjustStock != true) return@withContext null
+            val fresh = db.productQueries.getById(product.id).executeAsOneOrNull()?.toModel() ?: return@withContext null
+            val newQty = (fresh.quantity.toLong() + delta).coerceIn(0L, InputRules.MAX_STOCK_QUANTITY.toLong()).toInt()
             db.productQueries.updateQuantity(newQty.toLong(), fresh.id)
             insertMovement(fresh.id, fresh.name, if (delta > 0) "IN" else "OUT", kotlin.math.abs(delta), Strings.MOV_MANUAL_ADJ, null)
             audit("UPDATE_QUANTITY", Strings.auditQtyAdjusted(fresh.name, delta))
@@ -350,8 +432,13 @@ class StockItRepository internal constructor(
     }
 
     @Throws(Throwable::class)
-    suspend fun recordMovement(productId: Long, productName: String, type: String, qty: Int, reason: String?, comment: String?): Unit =
-        withContext(io) { insertMovement(productId, productName, type, qty, reason, comment) }
+    suspend fun recordMovement(productId: Long, productName: String, type: String, qty: Int, reason: String?, comment: String?): Boolean =
+        withContext(io) {
+            if (currentUser?.canAdjustStock != true) return@withContext false
+            if (type != "IN" && type != "OUT" || qty !in 1..InputRules.MAX_STOCK_DELTA) return@withContext false
+            insertMovement(productId, productName, type, qty, reason, comment)
+            true
+        }
 
     /**
      * Sortie liée à un ticket Jira. Retourne false si stock insuffisant.
@@ -360,7 +447,8 @@ class StockItRepository internal constructor(
     @Throws(Throwable::class)
     suspend fun recordExitToTicket(product: Product, qty: Int, ticketId: String, assignmentReason: String?): Boolean =
         withContext(io) {
-            if (qty <= 0) return@withContext false
+            if (currentUser?.canAdjustStock != true) return@withContext false
+            if (qty !in 1..InputRules.MAX_STOCK_DELTA || !JiraKeys.isValidOrNoTicket(ticketId)) return@withContext false
             val fresh = db.productQueries.getById(product.id).executeAsOneOrNull()?.toModel()
                 ?: return@withContext false
             if (fresh.quantity < qty) return@withContext false
@@ -410,12 +498,22 @@ class StockItRepository internal constructor(
      * Les produits saisis à la main (non liés à Jira) ne sont pas touchés.
      * Lecture seule côté Jira : aucune écriture.
      */
+    /** Lecture Jira Assets (remplaçable dans les tests). */
+    internal var assetsFetcher: suspend () -> JiraAssetsClient.FetchResult = { JiraAssetsClient.fetchAll() }
+
+    /**
+     * Garde-fous : il faut être connecté ; un résultat tronqué ou vide (panne, droits) ne remet
+     * jamais de stock à 0 ; l'audit garde l'avant/après ; seuls ADMIN / MANAGER renvoient des produits vers Jira.
+     */
     @Throws(Throwable::class)
     suspend fun syncFromJiraAssets(): SyncReport {
-        val fetched = com.example.stockit.shared.network.JiraAssetsClient.fetchAll()
+        if (currentUser == null) return SyncReport(false, "not_signed_in", 0, 0, 0, 0, 0, 0)
+        val fetched = assetsFetcher()
         val units = fetched.units ?: return SyncReport(false, fetched.error, 0, 0, 0, 0, 0, 0)
         val groups = com.example.stockit.shared.ai.AssetGrouping.group(units)
         var created = 0; var updated = 0; var removed = 0; var demo = 0
+        val changes = mutableListOf<String>()
+        val canZero = fetched.complete && units.isNotEmpty()
         withContext(io) {
             db.transaction {
                 val all = db.productQueries.getAll().executeAsList()
@@ -449,7 +547,10 @@ class StockItRepository internal constructor(
                             g.vendor ?: existing.receivedFrom, existing.articleNumber, g.brand ?: existing.brand,
                             existing.packagePoNumber, existing.id,
                         )
-                        if (existing.quantity != g.quantity.toLong() || existing.name != g.name) updated++
+                        if (existing.quantity != g.quantity.toLong() || existing.name != g.name) {
+                            updated++
+                            changes += "${existing.name} ${existing.quantity}→${g.quantity}"
+                        }
                     } else {
                         db.productQueries.insert(
                             g.name, category, null, serialNote, tag, g.quantity.toLong(), 0.0, null, null, 5,
@@ -459,15 +560,22 @@ class StockItRepository internal constructor(
                     }
                 }
                 // Modèles synchronisés qui n'ont plus d'unité « In stock » dans Jira → 0.
-                synced.values.filter { it.assetTag !in seen && it.quantity != 0L }.forEach {
-                    db.productQueries.updateQuantity(0, it.id); removed++
+                val missing = synced.values.filter { it.assetTag !in seen && it.quantity != 0L }
+                if (canZero) {
+                    missing.forEach {
+                        db.productQueries.updateQuantity(0, it.id); removed++
+                        changes += "${it.name} ${it.quantity}→0"
+                    }
+                } else if (missing.isNotEmpty()) {
+                    audit("ASSETS_SYNC_PARTIAL", "Résultat Jira incomplet ou vide : ${missing.size} produit(s) conservé(s) sans mise à 0")
                 }
-                audit("ASSETS_SYNC", "Jira Assets → inventaire : ${groups.size} modèles, ${groups.sumOf { it.quantity }} unités " +
-                    "(+$created, ~$updated, 0:$removed, démo:$demo)")
+                audit("ASSETS_SYNC", ("Jira Assets → inventaire : ${groups.size} modèles, ${groups.sumOf { it.quantity }} unités " +
+                    "(+$created, ~$updated, 0:$removed, démo:$demo)" +
+                    (if (changes.isEmpty()) "" else " — " + changes.joinToString("; "))).take(2000))
             }
         }
-        // Produits créés à la main (ou hors ligne) qui n'existent pas encore dans Jira → envoyés.
-        val pushed = pushLocalOnlyProducts()
+        // Produits créés à la main (ou hors ligne) qui n'existent pas encore dans Jira → envoyés (ADMIN / MANAGER).
+        val pushed = if (canEditStock) pushLocalOnlyProducts() else 0
         lastAssetsSyncMs = nowMs()
         return SyncReport(true, null, groups.size + pushed, groups.sumOf { it.quantity }, created + pushed, updated, removed, demo)
     }
@@ -600,6 +708,8 @@ class StockItRepository internal constructor(
     suspend fun syncAssetsCheckIn(
         name: String, qty: Int, brand: String?, model: String?, poNumber: String?, vendor: String?, serials: List<String>,
     ): OpResult {
+        if (currentUser?.canAdjustStock != true) return OpResult(false, "permission_denied")
+        if (qty !in 1..InputRules.MAX_STOCK_DELTA) return OpResult(false, "invalid_quantity")
         if (!JiraAssetsClient.isConfigured) return OpResult(false, "assets_not_configured")
         val r = JiraAssetsClient.checkIn(name, qty, brand, model, poNumber, vendor, serials)
         withContext(io) {
@@ -616,7 +726,9 @@ class StockItRepository internal constructor(
     suspend fun syncAssetsCheckOut(
         name: String, qty: Int, ticketKey: String, assignedTo: String?, aiReason: String?,
     ): OpResult {
-        val hasTicket = ticketKey.isNotBlank() && !ticketKey.equals("NO-TICKET", ignoreCase = true)
+        if (currentUser?.canAdjustStock != true) return OpResult(false, "permission_denied")
+        if (qty !in 1..InputRules.MAX_STOCK_DELTA || !JiraKeys.isValidOrNoTicket(ticketKey)) return OpResult(false, "invalid_request")
+        val hasTicket = ticketKey != JiraKeys.NO_TICKET
         val tag = withContext(io) {
             db.productQueries.getAll().executeAsList().firstOrNull { it.name == name && it.assetTag?.startsWith(ASSETS_TAG) == true }?.assetTag
         }
@@ -654,7 +766,7 @@ class StockItRepository internal constructor(
     @Throws(Throwable::class)
     suspend fun saveLlmAnalysis(ticketId: String, equipmentName: String, ticketSummary: String?, suggestedQty: Int, reason: String?): Unit =
         withContext(io) {
-            if (ticketId.isEmpty()) return@withContext
+            if (currentUser?.canAdjustStock != true || !JiraKeys.isValid(ticketId)) return@withContext
             val key = equipmentKeyOf(equipmentName)
             val existing = db.analyzedTicketQueries.getByTicketAndEquipment(ticketId, key).executeAsOneOrNull()
             val now = nowMs()
@@ -672,7 +784,7 @@ class StockItRepository internal constructor(
     @Throws(Throwable::class)
     suspend fun recordDeliveryToTicket(ticketId: String, equipmentName: String, qty: Int, reasonIfManual: String?): Unit =
         withContext(io) {
-            if (ticketId.isEmpty() || qty <= 0 || ticketId.equals("NO-TICKET", ignoreCase = true)) return@withContext
+            if (currentUser?.canAdjustStock != true || qty !in 1..InputRules.MAX_STOCK_DELTA || !JiraKeys.isValid(ticketId)) return@withContext
             val key = equipmentKeyOf(equipmentName)
             val t = db.analyzedTicketQueries.getByTicketAndEquipment(ticketId, key).executeAsOneOrNull()
             val now = nowMs()
@@ -725,7 +837,9 @@ class StockItRepository internal constructor(
     }
 
     @Throws(Throwable::class)
+    /** Journal complet : ADMIN / MANAGER uniquement. */
     suspend fun getAuditLogs(): List<AuditLog> = withContext(io) {
+        if (!canEditStock) return@withContext emptyList()
         db.auditLogQueries.getAll().executeAsList().map {
             AuditLog(it.id, it.userId, it.action, it.details, it.timestamp, it.ipAddress, it.device)
         }
@@ -768,9 +882,18 @@ class StockItRepository internal constructor(
         buildString {
             append("ID,Nom,Quantite,Prix\n")
             db.productQueries.getAll().executeAsList().forEach {
-                append(it.id).append(',').append(it.name ?: "").append(',').append(it.quantity).append(',').append(it.unitPrice).append('\n')
+                append(it.id).append(',').append(csvCell(it.name ?: "")).append(',').append(it.quantity).append(',').append(it.unitPrice).append('\n')
             }
         }
+    }
+
+    /**
+     * Cellule CSV sûre pour Excel / Sheets : toujours entre guillemets, guillemets doublés,
+     * et préfixe « ' » devant = + - @ tabulation / retour chariot (injection de formules).
+     */
+    internal fun csvCell(value: String): String {
+        val safe = if (value.isNotEmpty() && value[0] in "=+-@\t\r") "'$value" else value
+        return "\"" + safe.replace("\"", "\"\"") + "\""
     }
 
     /** Envoi du rapport planifié au workflow n8n (ReportWorker.doWork). */
@@ -891,6 +1014,7 @@ class StockItRepository internal constructor(
 
     @Throws(Throwable::class)
     suspend fun getShippingOrders(): List<ShippingOrder> = withContext(io) {
+        if (currentUser == null) return@withContext emptyList()
         var list = db.shippingOrderQueries.getAll().executeAsList()
         if (list.isEmpty()) {
             db.shippingOrderQueries.insert("Client Vistaprint", "Laptop Dell x2", "Paris", "TRACK123", "", "PENDING")
@@ -900,15 +1024,19 @@ class StockItRepository internal constructor(
     }
 
     @Throws(Throwable::class)
-    suspend fun addShippingOrder(customer: String, items: String?, address: String?, ticket: String?): Unit = withContext(io) {
+    suspend fun addShippingOrder(customer: String, items: String?, address: String?, ticket: String?): Boolean = withContext(io) {
+        if (currentUser?.canAdjustStock != true || customer.isBlank()) return@withContext false
         db.shippingOrderQueries.insert(customer, items, address, "", ticket, Strings.SHIP_PENDING)
         audit("ADD_SHIPPING", Strings.auditShipCreated(customer))
+        true
     }
 
     @Throws(Throwable::class)
-    suspend fun updateShippingOrder(o: ShippingOrder): Unit = withContext(io) {
+    suspend fun updateShippingOrder(o: ShippingOrder): Boolean = withContext(io) {
+        if (currentUser?.canAdjustStock != true) return@withContext false
         db.shippingOrderQueries.update(o.customerName, o.itemsSummary, o.shippingAddress, o.trackingNumber, o.ticketNumber, o.status, o.id)
         audit("UPDATE_SHIPPING", Strings.auditShipUpdated(o.id.toString()))
+        true
     }
 
     @Throws(Throwable::class)
@@ -950,7 +1078,7 @@ class StockItRepository internal constructor(
     /** Assistant IA (AIChatActivity). */
     @Throws(Throwable::class)
     suspend fun askAssistant(question: String): String {
-        if (!StockItConfig.isAIConfigured && !AIGateway.looksLikeGoogleApiKey(StockItConfig.geminiApiKey)) {
+        if (!StockItConfig.isAIConfigured) {
             return OfflineAI.answer(question, getStock(), getReportData(), generateAIInsights())
         }
         val r = AIGateway.ask(Strings.AI_SYSTEM_ROLE + "\n\n" + stockContext() + "\n\nQuestion: " + question)
@@ -993,7 +1121,7 @@ class StockItRepository internal constructor(
         val d = getReportData()
         val raw = "Inventaire Vistaprint : ${d.totalQuantity} articles, ${d.outOfStockCount} en rupture, " +
             "${d.lowStockCount} stock bas. Valeur : ${formatMoney(d.totalValue)} euros."
-        if (!StockItConfig.isAIConfigured && !AIGateway.looksLikeGoogleApiKey(StockItConfig.geminiApiKey)) {
+        if (!StockItConfig.isAIConfigured) {
             return OfflineAI.monthlyReport(getStock(), d, generateAIInsights())
         }
         val prompt = "Agis comme un gestionnaire de stock IT expert pour Vistaprint. Voici les données brutes du mois : " + raw +
@@ -1135,6 +1263,7 @@ class StockItRepository internal constructor(
 
     @Throws(Throwable::class)
     suspend fun addClaim(subject: String, desc: String?, priority: String) {
+        if (currentUser == null || subject.isBlank()) return
         val claim = Claim(
             subject = subject, description = desc,
             senderName = currentUser?.username ?: Strings.CLAIMS_ANONYMOUS,
@@ -1152,7 +1281,8 @@ class StockItRepository internal constructor(
 
     @Throws(Throwable::class)
     suspend fun addMessage(claimId: Long, text: String): Boolean {
-        val uid = currentUser?.username ?: Strings.USER_GUEST
+        val uid = currentUser?.username ?: return false
+        if (text.isBlank()) return false
         return runCatching { StockItApi.addMessage(claimId, ChatMessage(uid, uid, text, nowMs())) }.getOrDefault(false)
     }
 
@@ -1164,6 +1294,11 @@ class StockItRepository internal constructor(
      */
     @Throws(Throwable::class)
     suspend fun triggerLowStockAlert(p: Product): OpResult {
+        if (currentUser == null) return OpResult(false, "not_signed_in")
+        val now = nowMs()
+        val last = lastAlertAt[p.id]
+        if (last != null && now - last < ALERT_COOLDOWN_MS) return OpResult(false, "rate_limited")
+        lastAlertAt[p.id] = now
         val data = buildJsonObject {
             put("event", "LOW_STOCK_ALERT")
             put("productName", p.name)
@@ -1195,9 +1330,6 @@ class StockItRepository internal constructor(
     }
 
     // =========================================================== GAMIFICATION
-
-    @Throws(Throwable::class)
-    suspend fun addPoints(points: Int): Unit = withContext(io) { addPointsInternal(points) }
 
     private fun addPointsInternal(points: Int) {
         var u = currentUser ?: return
@@ -1263,7 +1395,7 @@ class StockItRepository internal constructor(
                 put("reason", reason ?: ""); put("ticket_id", ticketId ?: ""); put("timestamp", ts)
                 put("user", s?.username ?: "stockit-system")
                 put("user_email", s?.email?.takeIf { it.isNotBlank() } ?: StockItConfig.defaultRecipientEmail)
-                put("source", "ios"); put("secret", StockItConfig.stockitWebhookSecret)
+                put("source", "ios"); put("event_id", randomId())
             }.toString()
         }
         val assetUrl = StockItConfig.stockitAssetStatusWebhookUrl
@@ -1275,38 +1407,88 @@ class StockItRepository internal constructor(
         background.launch {
             for ((url, body) in calls) {
                 val r = StockItReporter.postJson(url, body)
-                if (!r.success) withContext(io) { db.outboxQueries.insert(url, body, r.detail, nowMs()) }
+                if (!r.success) withContext(io) { db.outboxQueries.insert(url, body, r.detail, nowMs(), nowMs() + backoffMs(1)) }
             }
         }
     }
 
-    /** Renvoie les appels webhook en attente. Retourne le nombre restant. */
+    /**
+     * Renvoie les appels webhook en attente (utilisateur connecté requis). Les éléments en échec
+     * attendent un délai croissant ; le secret n'est jamais stocké (ajouté et signé à l'envoi).
+     * Retourne le nombre restant.
+     */
     @Throws(Throwable::class)
     suspend fun flushOutbox(): Long {
-        val items = withContext(io) { db.outboxQueries.pending().executeAsList() }
+        if (currentUser == null) return withContext(io) { db.outboxQueries.count().executeAsOne() }
+        val items = withContext(io) {
+            sanitizeOutbox()
+            db.outboxQueries.pending(nowMs()).executeAsList()
+        }
         for (it in items) {
             val r = StockItReporter.postJson(it.url, it.body)
             withContext(io) {
-                if (r.success) db.outboxQueries.delete(it.id) else db.outboxQueries.markFailed(r.detail, it.id)
+                if (r.success) db.outboxQueries.delete(it.id)
+                else db.outboxQueries.markFailed(r.detail?.take(200), nowMs() + backoffMs(it.attempts + 1), it.id)
             }
         }
         return withContext(io) { db.outboxQueries.count().executeAsOne() }
+    }
+
+    /** 30 s, 1 min, 2 min… plafonné à 6 h. */
+    private fun backoffMs(attempts: Long): Long = (30_000L shl (attempts - 1).coerceIn(0, 10).toInt()).coerceAtMost(6 * 3_600_000L)
+
+    /** Anciennes versions : le secret partagé était enregistré dans le corps des appels en attente. */
+    private fun sanitizeOutbox() {
+        for (row in db.outboxQueries.all().executeAsList()) {
+            if (!row.body.contains("\"secret\"")) continue
+            val clean = runCatching {
+                val o = Http.json.parseToJsonElement(row.body).jsonObject
+                JsonObject(o - "secret").toString()
+            }.getOrNull()
+            if (clean != null) db.outboxQueries.setBody(clean, row.id) else db.outboxQueries.delete(row.id)
+        }
     }
 
     /** Nombre d'appels webhook en attente (affiché dans Paramètres). */
     @Throws(Throwable::class)
     suspend fun pendingWebhookCount(): Long = withContext(io) { db.outboxQueries.count().executeAsOne() }
 
-    private fun audit(action: String, details: String) {
-        db.auditLogQueries.insert(currentUser?.username ?: Strings.USER_GUEST, action, details, nowMs(), "127.0.0.1", deviceName)
+    /**
+     * Journal d'audit chaîné : hash = SHA-256(hash précédent | utilisateur | action | détails | horodatage | appareil).
+     * Pas d'adresse IP inventée : l'appareil est l'information fiable disponible côté client.
+     */
+    private fun audit(action: String, details: String, actor: String? = null) {
+        val user = actor ?: currentUser?.username ?: Strings.USER_GUEST
+        val ts = nowMs()
+        val prev = db.auditLogQueries.lastHash().executeAsOneOrNull() ?: GENESIS_HASH
+        db.auditLogQueries.insert(user, action, details, ts, null, deviceName, auditHash(prev, user, action, details, ts, deviceName))
+    }
+
+    private fun auditHash(prev: String, user: String?, action: String, details: String?, ts: Long, device: String?): String =
+        Sha256.digest(listOf(prev, user.orEmpty(), action, details.orEmpty(), ts.toString(), device.orEmpty())
+            .joinToString("\u001f").encodeToByteArray()).toHex()
+
+    /**
+     * Vérifie la chaîne du journal : false si une entrée a été modifiée, supprimée ou insérée hors application.
+     * (Les entrées antérieures à la mise à jour, sans hash, ne sont pas couvertes.)
+     */
+    @Throws(Throwable::class)
+    suspend fun verifyAuditChain(): Boolean = withContext(io) {
+        var prev = GENESIS_HASH
+        for (row in db.auditLogQueries.chain().executeAsList()) {
+            val expected = auditHash(prev, row.userId, row.action, row.details, row.timestamp, row.device)
+            if (expected != row.hash) return@withContext false
+            prev = expected
+        }
+        true
     }
 
     private fun updateUserRow(u: User) {
-        db.userQueries.update(u.username, u.password, u.role, u.points.toLong(), u.level.toLong(), u.badges, u.id)
+        db.userQueries.updateProfile(u.role, u.points.toLong(), u.level.toLong(), u.badges, u.id)
     }
 
     private fun com.example.stockit.shared.db.Users.toModel() =
-        User(id, username, password, role, points.toInt(), level.toInt(), badges)
+        User(id, username, Roles.normalize(role), points.toInt(), level.toInt(), badges, provider)
 
     private fun com.example.stockit.shared.db.Products.toModel() = Product(
         id = id, name = name ?: "", category = category, categoryId = categoryId, description = description,
@@ -1319,6 +1501,16 @@ class StockItRepository internal constructor(
     private fun com.example.stockit.shared.db.Stock_movements.toModel() = StockMovement(
         id, productId, productName, type, quantity.toInt(), date, reason, userName, comment, ticketId, assignmentReason,
     )
+
+    private companion object {
+        const val MAX_FAILED_LOGINS = 5
+        const val LOCKOUT_WINDOW_MS = 5 * 60_000L
+        const val ALERT_COOLDOWN_MS = 10 * 60_000L
+        const val GENESIS_HASH = "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+
+    /** Dernière alerte stock bas envoyée, par produit (anti-flood Slack / Jira). */
+    private val lastAlertAt = mutableMapOf<Long, Long>()
 }
 
 /** "1234.5" → "1234.50" (sans dépendance à String.format, absent en Kotlin/Native). */

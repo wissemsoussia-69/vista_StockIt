@@ -87,8 +87,12 @@ public final class JiraReader {
     public static void getIssue(final String key, final GetCallback cb) {
         new Thread(() -> {
             try {
+                if (!com.example.stockit.util.JiraPaths.isValidKey(key)) {
+                    cb.onResult(null, "invalid_issue_key");
+                    return;
+                }
                 String url = BuildConfig.JIRA_BASE_URL.replaceAll("/$", "")
-                        + "/rest/api/3/issue/" + key.trim()
+                        + "/rest/api/3/issue/" + com.example.stockit.util.JiraPaths.encodeKey(key)
                         + "?fields=summary,status,priority,duedate,description,assignee,reporter,labels";
 
                 Request req = new Request.Builder()

@@ -31,10 +31,10 @@ import okhttp3.Response;
  *      https://gateway.ai.cimpress.io/v1/chat/completions
  *      Auth: Authorization: Bearer $CIMPRESS_GATEWAY_KEY
  *      Modèle: $CIMPRESS_VISION_MODEL (défaut : @Anthropic/eu.anthropic.claude-opus-4-8)
- *   2. Portkey Gateway (secondaire) — headers x-portkey-api-key + x-portkey-virtual-key
- *   3. Google Gemini direct (si GEMINI_API_KEY est au format AIza...)
- *   4. Hugging Face vit-base-patch16-224 (réseau)
- *   5. MLKit image labeling (OFFLINE, sans réseau) — filet de sécurité ultime.
+ *   2. MLKit image labeling (OFFLINE, sans réseau) — filet de sécurité ultime.
+ *
+ * TM-01 / TM-26 : les fournisseurs tiers hors Vista (Portkey, Google Gemini,
+ * Hugging Face) et leurs clés ont été retirés de l'app.
  *
  * Sortie : nom court FR (Clavier, Souris, Écran, ...), .trim() et max 2 mots.
  */
@@ -81,30 +81,11 @@ public final class GeminiGatewayClient {
                 trace.append("Cimpress key missing; ");
             }
 
-            // 2) Portkey Gateway (secondaire)
-            String portkey = BuildConfig.PORTKEY_API_KEY;
-            String virtual = BuildConfig.GEMINI_API_KEY;
-            if (!TextUtils.isEmpty(portkey) && !TextUtils.isEmpty(virtual)) {
-                String r = tryPortkey(jpegBytes, portkey, virtual, trace);
-                if (r != null) { cb.onResult(clean(r), null); return; }
-            }
+            // TM-01 / TM-26 : plus aucun égress direct vers Portkey / Google Gemini /
+            // Hugging Face (clés tierces retirées). Seuls la passerelle Vista (Cimpress)
+            // et MLKit hors ligne restent.
 
-            // 3) Google Gemini direct si la clé est en réalité au format Google
-            if (looksLikeGoogleApiKey(virtual)) {
-                String r = tryGemini(jpegBytes, virtual, trace);
-                if (r != null) { cb.onResult(clean(r), null); return; }
-            }
-
-            // 4) Hugging Face fallback (réseau)
-            String hfToken = BuildConfig.HUGGING_FACE_TOKEN;
-            if (!TextUtils.isEmpty(hfToken)) {
-                String r = tryHuggingFace(jpegBytes, hfToken, trace);
-                if (r != null) { cb.onResult(mapToFrench(r), null); return; }
-            } else {
-                trace.append("HF token missing; ");
-            }
-
-            // 5) Fallback ULTIME : MLKit offline (aucun réseau requis)
+            // 2) Fallback ULTIME : MLKit offline (aucun réseau requis)
             String r = tryMlKit(jpegBytes, trace);
             if (r != null) {
                 // On expose la trace pour diagnostiquer pourquoi les IA distantes ont échoué
@@ -201,49 +182,6 @@ public final class GeminiGatewayClient {
 
     // ---------- Portkey (OpenAI-compatible) ----------
 
-    private static String tryPortkey(byte[] jpeg, String portkeyKey, String virtualKey, StringBuilder trace) {
-        try {
-            String b64 = Base64.encodeToString(jpeg, Base64.NO_WRAP);
-            String body = "{\n" +
-                    "  \"model\": \"gemini-1.5-flash\",\n" +
-                    "  \"max_tokens\": 32,\n" +
-                    "  \"temperature\": 0.1,\n" +
-                    "  \"messages\": [{\n" +
-                    "    \"role\": \"user\",\n" +
-                    "    \"content\": [\n" +
-                    "      { \"type\": \"text\", \"text\": " + jsonQuote(PROMPT) + " },\n" +
-                    "      { \"type\": \"image_url\", \"image_url\": { \"url\": \"data:image/jpeg;base64," + b64 + "\" } }\n" +
-                    "    ]\n" +
-                    "  }]\n" +
-                    "}";
-
-            Request req = new Request.Builder()
-                    .url("https://api.portkey.ai/v1/chat/completions")
-                    .header("Content-Type", "application/json")
-                    .header("x-portkey-api-key", portkeyKey)
-                    .header("x-portkey-virtual-key", virtualKey)
-                    .post(RequestBody.create(body, JSON))
-                    .build();
-
-            try (Response resp = CLIENT.newCall(req).execute()) {
-                String payload = resp.body() != null ? resp.body().string() : "";
-                if (!resp.isSuccessful()) {
-                    Log.w(TAG, "Portkey HTTP " + resp.code() + " -> " + trimLog(payload));
-                    trace.append("PortkeyHTTP").append(resp.code())
-                         .append("[").append(shortBody(payload)).append("]; ");
-                    return null;
-                }
-                // Réponse OpenAI-compatible : choices[0].message.content = string
-                String text = extractOpenAiContent(payload);
-                Log.i(TAG, "Portkey OK -> " + text);
-                return text;
-            }
-        } catch (IOException e) {
-            Log.e(TAG, "Portkey IO", e);
-            trace.append("PortkeyIO(").append(e.getMessage()).append("); ");
-            return null;
-        }
-    }
 
     /** Extrait choices[0].message.content d'une réponse OpenAI/Portkey. */
     private static String extractOpenAiContent(String json) {
@@ -277,123 +215,12 @@ public final class GeminiGatewayClient {
 
     // ---------- Google Gemini direct ----------
 
-    private static boolean looksLikeGoogleApiKey(String k) {
-        return k != null && k.startsWith("AIza") && k.length() >= 35;
-    }
 
-    private static String tryGemini(byte[] jpeg, String apiKey, StringBuilder trace) {
-        try {
-            String b64 = Base64.encodeToString(jpeg, Base64.NO_WRAP);
-            String body = "{\n" +
-                    "  \"contents\": [{\n" +
-                    "    \"parts\": [\n" +
-                    "      { \"text\": " + jsonQuote(PROMPT) + " },\n" +
-                    "      { \"inline_data\": { \"mime_type\": \"image/jpeg\", \"data\": \"" + b64 + "\" } }\n" +
-                    "    ]\n" +
-                    "  }],\n" +
-                    "  \"generationConfig\": { \"maxOutputTokens\": 32, \"temperature\": 0.1 }\n" +
-                    "}";
 
-            Request req = new Request.Builder()
-                    .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey)
-                    .header("Content-Type", "application/json")
-                    .post(RequestBody.create(body, JSON))
-                    .build();
-
-            try (Response resp = CLIENT.newCall(req).execute()) {
-                String payload = resp.body() != null ? resp.body().string() : "";
-                if (!resp.isSuccessful()) {
-                    Log.w(TAG, "Gemini HTTP " + resp.code() + " -> " + trimLog(payload));
-                    trace.append("GeminiHTTP").append(resp.code()).append("; ");
-                    return null;
-                }
-                String text = extractGeminiText(payload);
-                Log.i(TAG, "Gemini OK -> " + text);
-                return text;
-            }
-        } catch (IOException e) {
-            Log.e(TAG, "Gemini IO", e);
-            trace.append("GeminiIO(").append(e.getMessage()).append("); ");
-            return null;
-        }
-    }
-
-    private static String extractGeminiText(String json) {
-        if (json == null) return null;
-        int idx = json.indexOf("\"text\"");
-        if (idx < 0) return null;
-        int colon = json.indexOf(':', idx);
-        if (colon < 0) return null;
-        int q1 = json.indexOf('"', colon + 1);
-        if (q1 < 0) return null;
-        StringBuilder sb = new StringBuilder();
-        for (int i = q1 + 1; i < json.length(); i++) {
-            char ch = json.charAt(i);
-            if (ch == '\\' && i + 1 < json.length()) {
-                char n = json.charAt(++i);
-                switch (n) {
-                    case 'n': sb.append(' '); break;
-                    case 't': sb.append(' '); break;
-                    case '"': sb.append('"'); break;
-                    case '\\': sb.append('\\'); break;
-                    case 'u':
-                        if (i + 4 < json.length()) {
-                            try { sb.append((char) Integer.parseInt(json.substring(i + 1, i + 5), 16)); i += 4; }
-                            catch (Exception ex) { sb.append(n); }
-                        } else sb.append(n);
-                        break;
-                    default: sb.append(n);
-                }
-            } else if (ch == '"') {
-                return sb.toString();
-            } else {
-                sb.append(ch);
-            }
-        }
-        return sb.toString();
-    }
 
     // ---------- Hugging Face fallback ----------
 
-    private static String tryHuggingFace(byte[] jpeg, String hfToken, StringBuilder trace) {
-        try {
-            Request req = new Request.Builder()
-                    .url("https://api-inference.huggingface.co/models/google/vit-base-patch16-224")
-                    .header("Authorization", "Bearer " + hfToken)
-                    .header("x-wait-for-model", "true")
-                    .post(RequestBody.create(jpeg, JPEG))
-                    .build();
 
-            try (Response resp = CLIENT.newCall(req).execute()) {
-                String payload = resp.body() != null ? resp.body().string() : "";
-                if (!resp.isSuccessful()) {
-                    Log.w(TAG, "HF HTTP " + resp.code() + " -> " + trimLog(payload));
-                    trace.append("HFHTTP").append(resp.code()).append("; ");
-                    return null;
-                }
-                String label = extractFirstHfLabel(payload);
-                Log.i(TAG, "HF OK -> " + label);
-                return label;
-            }
-        } catch (IOException e) {
-            Log.e(TAG, "HF IO", e);
-            trace.append("HFIO(").append(e.getMessage()).append("); ");
-            return null;
-        }
-    }
-
-    private static String extractFirstHfLabel(String json) {
-        if (json == null) return null;
-        int idx = json.indexOf("\"label\"");
-        if (idx < 0) return null;
-        int colon = json.indexOf(':', idx);
-        if (colon < 0) return null;
-        int q1 = json.indexOf('"', colon + 1);
-        if (q1 < 0) return null;
-        int q2 = json.indexOf('"', q1 + 1);
-        if (q2 < 0) return null;
-        return json.substring(q1 + 1, q2);
-    }
 
     /** Traduit un label EN de vit-base en libellé court français IT. */
     private static String mapToFrench(String raw) {

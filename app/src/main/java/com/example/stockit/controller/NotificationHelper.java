@@ -18,6 +18,8 @@ public class NotificationHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID, com.example.stockit.util.AppLanguage.L(CHANNEL_NAME), NotificationManager.IMPORTANCE_DEFAULT);
             channel.setDescription(com.example.stockit.util.AppLanguage.L(CHANNEL_DESC));
+            // TM-43 : pas de détail de stock sur l'écran de verrouillage.
+            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PRIVATE);
             notificationManager.createNotificationChannel(channel);
         }
 
@@ -26,6 +28,8 @@ public class NotificationHelper {
                 .setContentTitle(title)
                 .setContentText(message)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                // TM-43 : le détail est masqué sur l'écran de verrouillage.
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                 .setAutoCancel(true);
 
         notificationManager.notify(notificationId, builder.build());

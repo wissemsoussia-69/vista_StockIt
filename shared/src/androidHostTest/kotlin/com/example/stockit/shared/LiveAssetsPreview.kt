@@ -4,11 +4,12 @@ import com.example.stockit.shared.ai.AssetGrouping
 import com.example.stockit.shared.network.JiraAssetsClient
 import kotlin.test.Test
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume
 
 /** Aperçu réel (lecture seule) : exécuté seulement si STOCKIT_LIVE=1. */
 class LiveAssetsPreview {
     @Test fun preview() = runBlocking {
-        if (System.getenv("STOCKIT_LIVE") != "1") return@runBlocking
+        Assume.assumeTrue("live Jira test (STOCKIT_LIVE=1)", System.getenv("STOCKIT_LIVE") == "1")
         val r = JiraAssetsClient.fetchAll()
         println("ERREUR=" + r.error)
         val units = r.units ?: return@runBlocking

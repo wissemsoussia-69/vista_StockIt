@@ -49,6 +49,22 @@ public final class DeliveryNoteParser {
 
     private DeliveryNoteParser() {}
 
+    /** Texte OCR envoyé au modèle : borné à 8 000 caractères, sans caractères de contrôle (TM-35). */
+    public static String clipOcr(String ocr) {
+        if (ocr == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ocr.length() && sb.length() < 8_000; i++) {
+            char c = ocr.charAt(i);
+            if (c == '\n' || c == '\t' || c >= ' ') sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    /** Erreur affichable (TM-41) : jamais d'écho de la sortie brute du modèle. */
+    public static String parseError(String rawLlm) {
+        return "json_parse_fail"; // seul le code, pas le contenu du modèle
+    }
+
     /** Un bloc PO extrait de la facture. Serializable pour transit via Intent extras. */
     public static class POBlock implements Serializable {
         public final String number;      // ex "PO-1234"
@@ -113,7 +129,8 @@ public final class DeliveryNoteParser {
     }
 
     // ---------- Claude Opus 4 via Cimpress ----------
-    private static ParsedNote extractViaClaude(String ocrText) {
+    private static ParsedNote extractViaClaude(String ocr) {
+        String ocrText = clipOcr(ocr);
         ParsedNote note = new ParsedNote();
         String key = BuildConfig.CIMPRESS_GATEWAY_KEY;
         String url = BuildConfig.GATEWAY_URL;
@@ -197,8 +214,8 @@ public final class DeliveryNoteParser {
                 }
             }
         } catch (org.json.JSONException e) {
-            Log.w(TAG, "JSON parse fail, raw=" + preview(clean, 300), e);
-            note.error = "json_parse_fail — raw=" + preview(clean, 120);
+            Log.w(TAG, "JSON parse fail");
+            note.error = parseError(clean);
         }
     }
 

@@ -24,7 +24,7 @@ getAll:
 SELECT * FROM products ORDER BY name ASC;
 
 search:
-SELECT * FROM products WHERE name LIKE :q OR category LIKE :q OR assetTag LIKE :q ORDER BY name ASC;
+SELECT * FROM products WHERE name LIKE :q ESCAPE '\' OR category LIKE :q ESCAPE '\' OR assetTag LIKE :q ESCAPE '\' ORDER BY name ASC;
 
 getById:
 SELECT * FROM products WHERE id = ?;

@@ -9,8 +9,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume
 
-/** Test RÉEL (STOCKIT_LIVE=1) : produit créé à la main → Jira, +1, renommage, suppression → Inactive. */
+/**
+ * Test RÉEL qui ÉCRIT dans Jira Assets : produit créé à la main → Jira, +1, renommage, suppression → Inactive.
+ * Exécuté seulement avec STOCKIT_LIVE=1 ET STOCKIT_LIVE_WRITE=1, sur un schéma de test ; sinon signalé « ignoré ».
+ */
 class LiveManualSyncTest {
     private class Mem : KeyValueStore {
         val m = mutableMapOf<String, Any?>()
@@ -28,11 +32,12 @@ class LiveManualSyncTest {
     }
 
     @Test fun manualProductLifecycle() = runBlocking {
-        if (System.getenv("STOCKIT_LIVE") != "1") return@runBlocking
+        Assume.assumeTrue("live Jira test (STOCKIT_LIVE=1)", System.getenv("STOCKIT_LIVE") == "1")
+        Assume.assumeTrue("writes to Jira Assets (STOCKIT_LIVE_WRITE=1)", System.getenv("STOCKIT_LIVE_WRITE") == "1")
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { StockItDatabase.Schema.create(it) }
         StockIt.setup(driver, Mem(), "test-agent")
         val repo = StockIt.repository
-        repo.login("admin", "admin123")!!
+        repo.loginSso("live-test|admin", "stockit-live-test", "ADMIN")
         val name = "StockIT TEST SYNC"
         val name2 = "StockIT TEST SYNC RENAMED"
 

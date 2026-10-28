@@ -65,7 +65,9 @@ public class ImageOptimizerUtil {
                         }
 
                         // 3. Compression WebP (Format ultra-léger recommandé par Google)
-                        File optimizedFile = new File(context.getExternalFilesDir(null), "OPT_" + System.currentTimeMillis() + ".webp");
+                        // TM-36 : cache interne de l'app (pas de stockage externe), fichier
+                        // éphémère — le système peut le nettoyer, aucune rétention hors de l'app.
+                        File optimizedFile = new File(context.getCacheDir(), "OPT_" + System.currentTimeMillis() + ".webp");
                         try (FileOutputStream out = new FileOutputStream(optimizedFile)) {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                                 processedBitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 75, out);

@@ -57,6 +57,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // TM-33 : captures d'écran / aperçu multitâche désactivés sur cet écran.
+        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE);
         // Garde : aucun accès sans utilisateur connecté (processus relancé par le système, etc.).
         if (MainController.getCurrentUser() == null) {
             com.example.stockit.util.SessionManager sm = com.example.stockit.util.SessionManager.get(this);
@@ -822,18 +825,18 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 tvCat.setText(sb.length() == 0 ? L("Aucune donnée") : sb.toString().trim());
             }
 
-            // --- PIE CHART (Distribution) ---
-            com.github.mikephil.charting.charts.PieChart pieChart = findViewById(R.id.pieChart);
+            // --- PIE CHART (Distribution) — vue maison, JitPack retiré (TM-31) ---
+            com.example.stockit.util.CategoryPieView pieChart = findViewById(R.id.pieChart);
             if (pieChart != null && counts != null && !counts.isEmpty()) {
-                java.util.List<com.github.mikephil.charting.data.PieEntry> entries = new java.util.ArrayList<>();
+                java.util.List<com.example.stockit.util.CategoryPieView.Slice> entries = new java.util.ArrayList<>();
+                int i = 0;
                 for (com.example.stockit.model.ProductDao.CategoryCount c : counts) {
-                    entries.add(new com.github.mikephil.charting.data.PieEntry(c.total, com.example.stockit.util.AppLanguage.LV(c.category)));
+                    entries.add(new com.example.stockit.util.CategoryPieView.Slice(
+                            com.example.stockit.util.AppLanguage.LV(c.category == null ? "-" : c.category),
+                            c.total, com.example.stockit.util.CategoryPieView.PALETTE[i % com.example.stockit.util.CategoryPieView.PALETTE.length]));
+                    i++;
                 }
-                com.github.mikephil.charting.data.PieDataSet dataSet = new com.github.mikephil.charting.data.PieDataSet(entries, L("Catégories"));
-                dataSet.setColors(com.github.mikephil.charting.utils.ColorTemplate.MATERIAL_COLORS);
-                com.github.mikephil.charting.data.PieData data = new com.github.mikephil.charting.data.PieData(dataSet);
-                pieChart.setData(data);
-                pieChart.invalidate();
+                pieChart.setSlices(entries);
             }
         });
     }
@@ -1302,50 +1305,27 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     /**
      * Mini sparkline turquoise dans le hero — 7 derniers points d'évolution du stock
      * (placeholder si pas assez de données). Pas d'axes, pas de légende : juste la ligne.
+     * Vue maison (JitPack / MPAndroidChart retiré, TM-31).
      */
     private void renderHeroChart() {
-        final com.github.mikephil.charting.charts.LineChart chart = findViewById(R.id.dashHeroChart);
+        final com.example.stockit.util.SparkLineView chart = findViewById(R.id.dashHeroChart);
         if (chart == null) return;
+        int turquoise = androidx.core.content.ContextCompat.getColor(this, R.color.vista_turquoise);
+        chart.setStrokeColor(turquoise);
 
         controller.getStockMovements(movements -> {
-            java.util.List<com.github.mikephil.charting.data.Entry> entries = new java.util.ArrayList<>();
+            java.util.List<Float> pts = new java.util.ArrayList<>();
             int n = Math.min(7, movements.size());
             if (n < 2) {
                 // Placeholder décoratif si trop peu de mouvements réels
                 float[] seed = {2, 3.2f, 2.8f, 4.1f, 3.6f, 5.0f, 4.7f};
-                for (int i = 0; i < seed.length; i++) entries.add(
-                        new com.github.mikephil.charting.data.Entry(i, seed[i]));
+                for (float v : seed) pts.add(v);
             } else {
                 for (int i = 0; i < n; i++) {
-                    com.example.stockit.model.StockMovement m = movements.get(movements.size() - n + i);
-                    entries.add(new com.github.mikephil.charting.data.Entry(i, Math.abs(m.getQuantity())));
+                    pts.add((float) Math.abs(movements.get(movements.size() - n + i).getQuantity()));
                 }
             }
-
-            int turquoise = androidx.core.content.ContextCompat.getColor(this, R.color.vista_turquoise);
-            com.github.mikephil.charting.data.LineDataSet set =
-                    new com.github.mikephil.charting.data.LineDataSet(entries, "Stock");
-            set.setColor(turquoise);
-            set.setLineWidth(2f);
-            set.setDrawCircles(false);
-            set.setDrawValues(false);
-            set.setMode(com.github.mikephil.charting.data.LineDataSet.Mode.CUBIC_BEZIER);
-            set.setDrawFilled(true);
-            set.setFillColor(turquoise);
-            set.setFillAlpha(60);
-
-            chart.setData(new com.github.mikephil.charting.data.LineData(set));
-            chart.getDescription().setEnabled(false);
-            chart.getLegend().setEnabled(false);
-            chart.getXAxis().setEnabled(false);
-            chart.getAxisLeft().setEnabled(false);
-            chart.getAxisRight().setEnabled(false);
-            chart.setDrawGridBackground(false);
-            chart.setDrawBorders(false);
-            chart.setTouchEnabled(false);
-            chart.setViewPortOffsets(0, 0, 0, 0);
-            chart.animateX(900);
-            chart.invalidate();
+            chart.setPoints(pts);
         });
     }
 }

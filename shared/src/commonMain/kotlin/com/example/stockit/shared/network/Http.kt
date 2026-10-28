@@ -2,6 +2,7 @@ package com.example.stockit.shared.network
 
 import com.example.stockit.shared.platform.createPlatformHttpClient
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -22,10 +23,15 @@ internal object Http {
         explicitNulls = false
     }
 
-    /** Client par défaut (timeouts alignés sur les OkHttpClient Android). */
-    val client: HttpClient by lazy { create(connectMs = 15_000, readMs = 60_000) }
+    /** Tests uniquement : moteur simulé (MockEngine) utilisé à la place du moteur natif. */
+    internal var testEngine: HttpClientEngine? = null
 
-    fun create(connectMs: Long, readMs: Long): HttpClient = createPlatformHttpClient {
+    private val defaultClient: HttpClient by lazy { create(connectMs = 15_000, readMs = 60_000) }
+
+    /** Client par défaut (timeouts alignés sur les OkHttpClient Android). */
+    val client: HttpClient get() = testEngine?.let { HttpClient(it) { expectSuccess = false } } ?: defaultClient
+
+    fun create(connectMs: Long, readMs: Long): HttpClient = testEngine?.let { HttpClient(it) { expectSuccess = false } } ?: createPlatformHttpClient {
         expectSuccess = false
         install(HttpTimeout) {
             connectTimeoutMillis = connectMs

@@ -47,6 +47,25 @@ public final class PackageLabelParser {
 
     private PackageLabelParser() {}
 
+    /** Quantité maximale plausible sur une étiquette de carton. */
+    public static final int MAX_QUANTITY = 500;
+
+    /** Quantité bornée (TM-35) : 1..MAX_QUANTITY ; au-delà, 1 (à corriger par l'utilisateur). */
+    public static int boundQuantity(int q) {
+        return (q >= 1 && q <= MAX_QUANTITY) ? q : 1;
+    }
+
+    /** Texte OCR envoyé au modèle : borné à 8 000 caractères, sans caractères de contrôle (TM-35). */
+    public static String clipOcr(String ocr) {
+        if (ocr == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ocr.length() && sb.length() < 8_000; i++) {
+            char c = ocr.charAt(i);
+            if (c == '\n' || c == '\t' || c >= ' ') sb.append(c);
+        }
+        return sb.toString();
+    }
+
     public static class Label implements Serializable {
         public String rawOcr;
         public String productName;
@@ -109,7 +128,8 @@ public final class PackageLabelParser {
     }
 
     // ---------- Claude Opus 4 via Cimpress ----------
-    private static Label extractViaClaude(String ocrText) {
+    private static Label extractViaClaude(String ocr) {
+        String ocrText = clipOcr(ocr);
         Label lbl = new Label();
         String key = BuildConfig.CIMPRESS_GATEWAY_KEY;
         String url = BuildConfig.GATEWAY_URL;
@@ -181,14 +201,14 @@ public final class PackageLabelParser {
         try {
             org.json.JSONObject obj = new org.json.JSONObject(clean);
             lbl.productName    = optStrOrNull(obj, "productName");
-            lbl.quantity       = obj.optInt("quantity", 1);
+            lbl.quantity       = boundQuantity(obj.optInt("quantity", 1));
             lbl.articleNumber  = optStrOrNull(obj, "articleNumber");
             lbl.brand          = optStrOrNull(obj, "brand");
             lbl.poOnLabel      = optStrOrNull(obj, "poOnLabel");
             if (lbl.quantity <= 0) lbl.quantity = 1;
         } catch (org.json.JSONException e) {
-            Log.w(TAG, "JSON parse fail, raw=" + preview(clean, 300), e);
-            lbl.error = "json_parse_fail — raw=" + preview(clean, 120);
+            Log.w(TAG, "JSON parse fail");
+            lbl.error = parseError(clean);
         }
     }
 
@@ -196,6 +216,11 @@ public final class PackageLabelParser {
         if (!o.has(key) || o.isNull(key)) return null;
         String v = o.optString(key, "").trim();
         return v.isEmpty() || "null".equalsIgnoreCase(v) ? null : v;
+    }
+
+    /** Erreur affichable (TM-41) : jamais d'écho de la sortie brute du modèle. */
+    public static String parseError(String rawLlm) {
+        return "json_parse_fail"; // seul le code, pas le contenu du modèle
     }
 
     // ---------- helpers (identiques à DeliveryNoteParser) ----------

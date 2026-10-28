@@ -58,6 +58,11 @@ public final class JiraClient {
             if (cb != null) cb.onResult(false, "jira_credentials_missing");
             return;
         }
+        String project = com.example.stockit.util.JiraPaths.normalizeKey(projectKey);
+        if (project == null || project.isEmpty()) {
+            if (cb != null) cb.onResult(false, "invalid_project_key");
+            return;
+        }
         if (com.example.stockit.shared.config.StockItConfig.INSTANCE.getTestMode()) {
             Log.i(TAG, "Mode test : ticket Jira simulé — " + summary);
             if (cb != null) cb.onResult(true, "TEST-0 (mode test)");
@@ -76,7 +81,7 @@ public final class JiraClient {
                 if (issueType == null || issueType.isEmpty()) issueType = "Task";
 
                 StringBuilder fields = new StringBuilder();
-                fields.append("    \"project\": { \"key\": ").append(jsonQuote(projectKey)).append(" },\n");
+                fields.append("    \"project\": { \"key\": ").append(jsonQuote(project)).append(" },\n");
                 fields.append("    \"summary\": ").append(jsonQuote(summary)).append(",\n");
                 fields.append("    \"issuetype\": { \"name\": ").append(jsonQuote(issueType)).append(" },\n");
                 fields.append("    \"labels\": [\"StockIT-PFE\",\"AutoCreated\"],\n");

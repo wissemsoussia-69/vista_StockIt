@@ -74,8 +74,8 @@
                     android:textColor="#E6FFFFFF"
                     android:textSize="12sp" />
 
-                <!-- Mini courbe stock (7 derniers jours) — turquoise -->
-                <com.github.mikephil.charting.charts.LineChart
+                <!-- Mini courbe stock (7 derniers jours) — turquoise (vue maison, JitPack retiré) -->
+                <com.example.stockit.util.SparkLineView
                     android:id="@+id/dashHeroChart"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"

@@ -1,21 +1,30 @@
 -- File d'attente des appels webhook échoués (réseau coupé, workflow n8n inactif…).
+-- body : JSON SANS le secret partagé (ajouté et signé au moment de l'envoi).
+-- nextAttemptAt : prochain essai autorisé (backoff exponentiel).
 CREATE TABLE outbox (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     url TEXT NOT NULL,
     body TEXT NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0,
     lastError TEXT,
-    createdAt INTEGER NOT NULL
+    createdAt INTEGER NOT NULL,
+    nextAttemptAt INTEGER NOT NULL DEFAULT 0
 );
 
 insert:
-INSERT INTO outbox(url, body, attempts, lastError, createdAt) VALUES (?, ?, 0, ?, ?);
+INSERT INTO outbox(url, body, attempts, lastError, createdAt, nextAttemptAt) VALUES (?, ?, 1, ?, ?, ?);
 
 pending:
-SELECT * FROM outbox WHERE attempts < 20 ORDER BY id ASC LIMIT 50;
+SELECT * FROM outbox WHERE attempts < 20 AND nextAttemptAt <= ? ORDER BY id ASC LIMIT 50;
+
+all:
+SELECT * FROM outbox;
 
 markFailed:
-UPDATE outbox SET attempts = attempts + 1, lastError = ? WHERE id = ?;
+UPDATE outbox SET attempts = attempts + 1, lastError = ?, nextAttemptAt = ? WHERE id = ?;
+
+setBody:
+UPDATE outbox SET body = ? WHERE id = ?;
 
 delete:
 DELETE FROM outbox WHERE id = ?;

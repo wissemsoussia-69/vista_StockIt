@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 // =============================================================================
 //  StockIT — module Kotlin Multiplatform partagé (Android + iOS).
 //
@@ -26,12 +28,10 @@ plugins {
 // -----------------------------------------------------------------------------
 val configKeys = listOf(
     "CIMPRESS_GATEWAY_KEY", "GATEWAY_URL", "CIMPRESS_VISION_MODEL",
-    "PORTKEY_API_KEY", "GEMINI_API_KEY",
     "SLACK_WEBHOOK_URL", "SLACK_BOT_TOKEN",
     "JIRA_USER_EMAIL", "JIRA_API_TOKEN", "JIRA_BASE_URL", "JIRA_PROJECT_KEY",
     "JIRA_ISSUE_TYPE", "JIRA_COST_CENTER", "JIRA_COMPONENT",
-    "HUGGING_FACE_TOKEN", "SENDGRID_API_KEY",
-    "STOCKIT_WEBHOOK_URL", "STOCKIT_WEBHOOK_SECRET",
+    "STOCKIT_WEBHOOK_URL", "STOCKIT_WEBHOOK_SECRET", "STOCKIT_WEBHOOK_LEGACY_BODY_SECRET",
     "AUTH0_AUDIENCE", "STOCKIT_API_BASE_URL",
     "STOCKIT_EVENT_WEBHOOK_URL", "STOCKIT_SSO_DEFAULT_ROLE",
     "CLAUDE_API_KEY", "CLAUDE_MODEL", "STOCKIT_ASSET_STATUS_WEBHOOK_URL", "SLACK_CHANNEL_ID",
@@ -67,7 +67,13 @@ val generateStockItConfig by tasks.registering {
             System.getenv(k)?.takeIf { it.isNotBlank() } ?: fromFile[k].orEmpty()
         }
     }
-    inputs.property("values", values.toSortedMap().toString())
+    // Empreinte seulement : les valeurs (clés API) ne finissent ni dans le cache Gradle ni dans un build scan.
+    inputs.property(
+        "valuesSha256",
+        MessageDigest.getInstance("SHA-256")
+            .digest(values.toSortedMap().toString().toByteArray())
+            .joinToString("") { "%02x".format(it) },
+    )
     outputs.dir(outDir)
     doLast {
         fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$")
@@ -88,7 +94,7 @@ val generateStockItConfig by tasks.registering {
 kotlin {
     android {
         namespace = "com.example.stockit.shared"
-        compileSdk = 35
+        compileSdk = 37
         minSdk = 26
         withHostTestBuilder {}
     }
@@ -120,6 +126,8 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         getByName("androidHostTest").dependencies {
             implementation(libs.sqldelight.sqlite.driver)
@@ -133,6 +141,13 @@ kotlin {
             implementation(libs.ktor.client.darwin)
             implementation(libs.sqldelight.native.driver)
         }
+    }
+}
+
+// CI : simulateur choisi par la machine (-Pstockit.iosSimulator=<UDID ou nom>), sinon celui par défaut de Kotlin.
+providers.gradleProperty("stockit.iosSimulator").orNull?.takeIf { it.isNotBlank() }?.let { sim ->
+    tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest>().configureEach {
+        device.set(sim)
     }
 }
 

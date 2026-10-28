@@ -1,3 +1,5 @@
+-- password : PBKDF2 hash ("pbkdf2-sha256$…") for local (offline) accounts, '' for SSO accounts.
+-- provider : 'local' | 'auth0'. authSubject : immutable Auth0 `sub` (SSO identity key).
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
@@ -5,24 +7,47 @@ CREATE TABLE users (
     role TEXT NOT NULL,
     points INTEGER NOT NULL DEFAULT 0,
     level INTEGER NOT NULL DEFAULT 1,
-    badges TEXT NOT NULL DEFAULT ''
+    badges TEXT NOT NULL DEFAULT '',
+    provider TEXT NOT NULL DEFAULT 'local',
+    authSubject TEXT
 );
 
-login:
-SELECT * FROM users WHERE username = ? AND password = ? LIMIT 1;
+CREATE UNIQUE INDEX users_auth_subject ON users(authSubject);
 
--- Équivalent Room @Insert(onConflict = REPLACE)
-register:
-INSERT OR REPLACE INTO users(username, password, role, points, level, badges) VALUES (?, ?, ?, ?, ?, ?);
+insertLocal:
+INSERT INTO users(username, password, role, points, level, badges, provider, authSubject)
+VALUES (?, ?, ?, 0, 1, '', 'local', NULL);
 
-update:
-UPDATE users SET username = ?, password = ?, role = ?, points = ?, level = ?, badges = ? WHERE id = ?;
+insertSso:
+INSERT INTO users(username, password, role, points, level, badges, provider, authSubject)
+VALUES (?, '', ?, 0, 1, '', 'auth0', ?);
+
+updateProfile:
+UPDATE users SET role = ?, points = ?, level = ?, badges = ? WHERE id = ?;
+
+setLocalCredentials:
+UPDATE users SET password = ?, role = ? WHERE id = ? AND provider = 'local';
+
+bindSubject:
+UPDATE users SET authSubject = ? WHERE id = ? AND provider = 'auth0' AND authSubject IS NULL;
 
 getAll:
 SELECT * FROM users;
 
+findById:
+SELECT * FROM users WHERE id = ?;
+
 findByUsername:
 SELECT * FROM users WHERE username = ? COLLATE NOCASE LIMIT 1;
+
+findLocalByUsername:
+SELECT * FROM users WHERE username = ? COLLATE NOCASE AND provider = 'local' LIMIT 1;
+
+findBySubject:
+SELECT * FROM users WHERE authSubject = ? LIMIT 1;
+
+findLegacySso:
+SELECT * FROM users WHERE username = ? COLLATE NOCASE AND provider = 'auth0' AND authSubject IS NULL LIMIT 1;
 
 count:
 SELECT COUNT(*) FROM users;

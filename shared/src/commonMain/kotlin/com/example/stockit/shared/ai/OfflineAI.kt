@@ -48,7 +48,7 @@ object OfflineAI {
 
     fun parsePackageLabel(ocr: String): PackageLabel {
         val lines = ocr.lines().map { it.trim() }.filter { it.isNotEmpty() }
-        val qty = QTY_REGEX.find(ocr)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 } ?: 1
+        val qty = PackageLabelParser.boundQuantity(QTY_REGEX.find(ocr)?.groupValues?.get(1)?.toIntOrNull() ?: 1)
         val art = ART_REGEX.find(ocr)?.groupValues?.get(1)
         val po = PO_LABEL_REGEX.find(ocr)?.groupValues?.get(1)
         val brand = BRANDS.firstOrNull { b -> Regex("""\b${Regex.escape(b)}\b""", RegexOption.IGNORE_CASE).containsMatchIn(ocr) }

@@ -36,9 +36,14 @@ public class SplashActivity extends AppCompatActivity {
         setContentView(R.layout.activity_splash);
         Auth0Manager.get(getApplicationContext()).clearLocalCredentials();
         MainController.logoutLocal();
+        // TM-17 : le mode test ne survit jamais à une session (ni au redémarrage).
+        try {
+            com.example.stockit.util.SharedBridge.setTestMode(this, false);
+        } catch (Throwable ignored) { }
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             Intent next = new Intent(this, LoginActivity.class);
+            // TM-39 : seul le raccourci documenté est transmis, jamais une action arbitraire.
             if (getIntent() != null && ACTION_ADD_PRODUCT.equals(getIntent().getAction())) {
                 next.putExtra(LoginActivity.EXTRA_THEN_ACTION, ACTION_ADD_PRODUCT);
             }
@@ -50,7 +55,10 @@ public class SplashActivity extends AppCompatActivity {
 
     private void openMain() {
         Intent i = new Intent(this, MainActivity.class);
-        if (getIntent() != null) i.setAction(getIntent().getAction());
+        // TM-39 : seules les actions connues de l'app sont transmises à MainActivity.
+        if (getIntent() != null && ACTION_ADD_PRODUCT.equals(getIntent().getAction())) {
+            i.setAction(ACTION_ADD_PRODUCT);
+        }
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(i);
         finish();

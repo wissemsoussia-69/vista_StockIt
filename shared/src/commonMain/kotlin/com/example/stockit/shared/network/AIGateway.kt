@@ -2,15 +2,14 @@ package com.example.stockit.shared.network
 
 import com.example.stockit.shared.tr
 import com.example.stockit.shared.config.StockItConfig
+import com.example.stockit.shared.security.InputRules
 import io.ktor.client.request.header
-import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
-import kotlin.io.encoding.Base64
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -41,12 +40,10 @@ data class VisionParse(val name: String?, val confidence: Int, val serial: Strin
  * Passerelles IA — portage de util/GeminiGatewayClient.java + appels LLM texte
  * (TicketMatcher, parsers, assistant, rapport).
  *
- * Vision, cascade identique à Android :
+ * Vision :
  *   1. Cimpress Gateway (OpenAI-compatible, Bearer)
- *   2. Portkey
- *   3. Gemini direct (si clé "AIza…")
- *   4. Hugging Face vit-base-patch16-224
- *   5. (plateforme) MLKit Android / Apple Vision iOS — hors réseau
+ *   2. Claude direct (api.anthropic.com)
+ *   3. (plateforme) MLKit Android / Apple Vision iOS — hors réseau
  */
 object AIGateway {
 
@@ -64,7 +61,8 @@ object AIGateway {
             "50 = type sûr mais marque/modèle incertains, < 30 = photo floue ou objet ambigu). " +
             "Si aucun équipement IT n'est visible : {\"type\": null, \"brand\": null, \"model\": null, \"name\": null, \"serial\": null, \"confidence\": 0}."
 
-    private val visionClient by lazy { Http.create(connectMs = 15_000, readMs = 45_000) }
+    private val defaultVisionClient by lazy { Http.create(connectMs = 15_000, readMs = 45_000) }
+    private val visionClient get() = if (Http.testEngine != null) Http.client else defaultVisionClient
 
     // ------------------------------------------------------------------ texte
 
@@ -141,40 +139,12 @@ object AIGateway {
             ?.joinToString("") { it.contentOrNull ?: "" }
     }.getOrNull()
 
-    /** Gemini generateContent (texte). */
-    @Throws(Throwable::class)
-    suspend fun geminiText(prompt: String, model: String = "gemini-1.5-pro"): TextResult {
-        val key = StockItConfig.geminiApiKey
-        if (!looksLikeGoogleApiKey(key)) return TextResult(null, "gemini_key_missing")
-        return runCatching {
-            val body = buildJsonObject {
-                putJsonArray("contents") {
-                    addJsonObject { putJsonArray("parts") { addJsonObject { put("text", prompt) } } }
-                }
-            }.toString()
-            val resp = Http.client.post("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent") {
-                parameter("key", key)
-                contentType(ContentType.Application.Json)
-                setBody(body)
-            }
-            val payload = resp.bodyAsText()
-            if (!resp.status.isSuccess()) TextResult(null, "HTTP ${resp.status.value}")
-            else TextResult(extractGeminiText(payload), null)
-        }.getOrElse { TextResult(null, it.message) }
-    }
-
     /**
-     * Assistant conversationnel (AIChatActivity). Android utilise le SDK Gemini
-     * (gemini-1.5-pro) ; ici : Gemini si clé Google valide, sinon Cimpress Gateway.
+     * Assistant conversationnel : passerelle Cimpress (Claude), sinon Claude direct.
+     * Plus de repli vers Gemini : le contexte de stock ne part pas chez un fournisseur supplémentaire.
      */
     @Throws(Throwable::class)
-    suspend fun ask(prompt: String): TextResult {
-        val c = cimpressChat(prompt, maxTokens = 800)
-        if (c.text != null) return c
-        val g = geminiText(prompt)
-        if (g.text != null) return g
-        return TextResult(null, "IA: ${c.error} / Gemini: ${g.error}")
-    }
+    suspend fun ask(prompt: String): TextResult = cimpressChat(prompt, maxTokens = 800)
 
     // ------------------------------------------------------------------ vision
 
@@ -228,7 +198,7 @@ object AIGateway {
             if (o != null) {
                 val conf = o.int("confidence", -1).let { if (it < 0) -1 else it.coerceAtMost(100) }
                 val serial = normalizeSerial(o.str("serial"))
-                o.str("name")?.let { return VisionParse(it.trim().take(80), conf, serial) }
+                o.str("name")?.let { return VisionParse(InputRules.clip(it.trim(), 80).replace("\n", " "), conf, serial) }
                 val parts = listOfNotNull(o.str("type"), o.str("brand"), o.str("model"))
                 return VisionParse(if (parts.isEmpty()) null else parts.joinToString(" ").take(80), conf, serial)
             }
@@ -284,61 +254,7 @@ object AIGateway {
         }
     }.getOrElse { trace.append("${label}IO(${it.message}); "); null }
 
-    private suspend fun tryGeminiVision(b64: String, apiKey: String, trace: StringBuilder): String? = runCatching {
-        val body = buildJsonObject {
-            putJsonArray("contents") {
-                addJsonObject {
-                    putJsonArray("parts") {
-                        addJsonObject { put("text", VISION_PROMPT) }
-                        addJsonObject {
-                            putJsonObject("inline_data") {
-                                put("mime_type", "image/jpeg")
-                                put("data", b64)
-                            }
-                        }
-                    }
-                }
-            }
-            putJsonObject("generationConfig") { put("maxOutputTokens", 32); put("temperature", 0.1) }
-        }.toString()
-        val resp = visionClient.post("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent") {
-            parameter("key", apiKey)
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }
-        val payload = resp.bodyAsText()
-        if (!resp.status.isSuccess()) {
-            trace.append("GeminiHTTP${resp.status.value}; "); null
-        } else extractGeminiText(payload)
-    }.getOrElse { trace.append("GeminiIO(${it.message}); "); null }
-
-    private suspend fun tryHuggingFace(b64: String, token: String, trace: StringBuilder): String? = runCatching {
-        val bytes = Base64.decode(b64)
-        val resp = visionClient.post("https://api-inference.huggingface.co/models/google/vit-base-patch16-224") {
-            header("Authorization", "Bearer $token")
-            header("x-wait-for-model", "true")
-            contentType(ContentType.Image.JPEG)
-            setBody(bytes)
-        }
-        val payload = resp.bodyAsText()
-        if (!resp.status.isSuccess()) {
-            trace.append("HFHTTP${resp.status.value}; "); null
-        } else {
-            val arr = Http.json.parseToJsonElement(payload) as? JsonArray
-            (arr?.firstOrNull() as? JsonObject)?.str("label")
-        }
-    }.getOrElse { trace.append("HFIO(${it.message}); "); null }
-
     // ------------------------------------------------------------------ helpers
-
-    fun looksLikeGoogleApiKey(k: String?): Boolean = k != null && k.startsWith("AIza") && k.length >= 35
-
-    internal fun extractGeminiText(payload: String): String? = runCatching {
-        Http.json.parseToJsonElement(payload).jsonObject["candidates"]?.jsonArray?.firstOrNull()
-            ?.jsonObject?.get("content")?.jsonObject?.get("parts")?.jsonArray
-            ?.mapNotNull { (it as? JsonObject)?.get("text") as? JsonPrimitive }
-            ?.joinToString("") { it.contentOrNull ?: "" }
-    }.getOrNull()
 
     /** Nettoie la réponse (guillemets, points, 2 mots max). */
     fun clean(s: String): String {
