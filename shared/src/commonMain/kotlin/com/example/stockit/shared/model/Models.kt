@@ -94,10 +94,10 @@ data class User(
     val provider: String = "local",
 ) {
     val isAdmin: Boolean get() = role == Roles.ADMIN
-    /** Création / modification / suppression du catalogue. */
-    val canEditStock: Boolean get() = role == Roles.ADMIN || role == Roles.MANAGER
-    /** Mouvements de stock (+/−, sorties sur ticket, réceptions). USER = lecture seule. */
-    val canAdjustStock: Boolean get() = canEditStock || role == Roles.TECHNICIEN
+    /** Création / modification du catalogue : ouvert à tous les utilisateurs connectés. */
+    val canEditStock: Boolean get() = true
+    /** Mouvements de stock (+/−, sorties sur ticket, réceptions) : ouvert à tous les utilisateurs connectés. */
+    val canAdjustStock: Boolean get() = true
 }
 
 data class StockMovement(

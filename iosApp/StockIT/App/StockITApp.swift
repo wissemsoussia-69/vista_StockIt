@@ -17,6 +17,10 @@ struct StockITApp: App {
         }
         #endif
         IosStockIt.shared.setup(deviceName: "Apple \(UIDevice.current.model) iOS \(UIDevice.current.systemVersion)")
+        #if DEBUG
+        // Accès de secours hors ligne : builds Debug uniquement (jamais en Release).
+        StockItConfig.shared.localLoginEnabled = true
+        #endif
         StockItConfig.shared.testMode = UserDefaults.standard.bool(forKey: "testMode")
         AppLanguage.applyToShared()
         NotificationService.requestPermission()

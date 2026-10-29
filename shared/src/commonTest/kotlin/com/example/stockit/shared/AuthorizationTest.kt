@@ -35,22 +35,22 @@ class AuthorizationTest {
     // ------------------------------------------------------------------ read-only USER
 
     @Test
-    fun readOnlyUserCannotChangeStock() = runTest {
+    fun regularUserCanChangeStock() = runTest {
         val (repo, _) = newTestRepository()
         val id = repo.seedProduct()
         repo.loginSso("auth0|viewer", "viewer", "USER")
         val p = repo.getProduct(id)!!
-        assertNull(repo.updateQuantity(p, -3), "USER is read-only")
-        assertFalse(repo.recordExitToTicket(p, 1, "SD-12", null))
-        assertEquals(5, repo.getProduct(id)!!.quantity)
+        assertEquals(2, repo.updateQuantity(p, -3)?.quantity, "stock is open to every signed-in user")
+        assertTrue(repo.recordExitToTicket(repo.getProduct(id)!!, 1, "SD-12", null))
+        assertEquals(1, repo.getProduct(id)!!.quantity)
     }
 
     @Test
-    fun readOnlyUserCannotCreateOrEditShippingOrders() = runTest {
+    fun regularUserCanCreateShippingOrders() = runTest {
         val (repo, driver) = newTestRepository()
         repo.loginSso("auth0|viewer", "viewer", "USER")
-        assertFalse(repo.addShippingOrder("ACME", "Laptop x1", "1 rue X", "SD-1"))
-        assertEquals(0, driver.count("SELECT COUNT(*) FROM shipping_orders"))
+        assertTrue(repo.addShippingOrder("ACME", "Laptop x1", "1 rue X", "SD-1"))
+        assertEquals(1, driver.count("SELECT COUNT(*) FROM shipping_orders"))
     }
 
     @Test

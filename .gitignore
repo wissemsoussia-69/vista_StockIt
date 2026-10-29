@@ -32,6 +32,8 @@ iosApp/DerivedData/
 
 # iOS — compilation locale et données
 iosApp/build/
+iosApp/build-sim/
+iosApp/StockITUITests/TmpShots.swift
 *.xcresult
 *.ipa
 *.dSYM.zip

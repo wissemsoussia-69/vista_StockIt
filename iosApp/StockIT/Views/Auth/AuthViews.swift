@@ -7,7 +7,7 @@ struct SplashView: View {
         ZStack {
             LinearGradient(colors: [.vistaBlue, .vistaBlueDeep], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
             VStack(spacing: 18) {
-                Image(systemName: "shippingbox.fill").font(.system(size: 64)).foregroundColor(.white)
+                VistaLogo().frame(width: 84, height: 84).padding(22).background(Color.white, in: RoundedRectangle(cornerRadius: 28))
                 Text("StockIT - Vistaprint").font(.title.bold()).foregroundColor(.white)
                 Text("Vérification de votre session…").foregroundColor(.white.opacity(0.85))
                 ProgressView().tint(.white)
@@ -31,7 +31,7 @@ struct LoginView: View {
         ScrollView {
             VStack(spacing: 20) {
                 VStack(spacing: 6) {
-                    Image(systemName: "shippingbox.fill").font(.system(size: 50)).foregroundColor(.vistaBlue)
+                    VistaLogo().frame(width: 72, height: 72)
                     Text("StockIT").font(.largeTitle.bold()).foregroundColor(.vistaNavy)
                     Text("Accès restreint aux employés Vistaprint").font(.footnote).foregroundColor(.secondary)
                 }
@@ -106,13 +106,17 @@ struct LoginView: View {
     }
 
     private func loadProfiles() async {
-        var list = (try? await app.repo.getUsers()) ?? []
-        if list.count < 5 {
-            _ = try? await app.repo.login(username: "admin", password: "admin123")
-            app.repo.logout()
-            list = (try? await app.repo.getUsers()) ?? []
+        #if DEBUG
+        // Aucun compte par défaut : compte « demo » à mot de passe aléatoire, pré-rempli (démo hors ligne).
+        if username.isEmpty && password.isEmpty {
+            let alphabet = Array("abcdefghijklmnopqrstuvwxyz")
+            let pwd = "StockIT-" + String((0..<8).map { _ in alphabet.randomElement()! })
+            if (try? await app.repo.provisionLocalUser(username: "demo", password: pwd, role: "MANAGER")) != nil {
+                username = "demo"; password = pwd
+            }
         }
-        profiles = list
+        #endif
+        profiles = ((try? await app.repo.getUsers()) ?? []).filter { $0.provider == "local" }
     }
 
     private func sso() async {
@@ -121,7 +125,7 @@ struct LoginView: View {
         defer { loading = false; app.signingIn = false }
         do {
             let p = try await AuthService.shared.signIn()
-            let u = try await app.repo.loginSso(username: p.username, role: p.role)
+            let u = try await app.repo.loginSso(subject: p.subject, username: p.username, role: p.role)
             app.didLogin(u)
         } catch {
             ssoStatus = L("Erreur SSO : %@", String(describing: error.localizedDescription))
@@ -135,13 +139,20 @@ struct LoginView: View {
         if ctx.canEvaluatePolicy(policy, error: &err) {
             do {
                 let ok = try await ctx.evaluatePolicy(policy, localizedReason: L("Connexion pour %@", String(describing: u.username)))
-                if ok { await localLogin(u.username, u.password) }
+                if ok { openLocalSession(u) }
             } catch {
                 app.show(L("Erreur empreinte : %@", String(describing: error.localizedDescription)), style: .urgent)
             }
         } else {
-            await localLogin(u.username, u.password)
+            app.show(L("Verrouillez l'appareil pour utiliser la biométrie, ou saisissez le mot de passe"), style: .urgent)
         }
+    }
+
+    /// La biométrie a validé l'identité : session locale ouverte sans mot de passe.
+    private func openLocalSession(_ u: User) {
+        app.session.saveLocalSession(username: u.username, role: u.role)
+        guard app.repo.openLocalSession(user: u) else { return }
+        app.didLogin(u)
     }
 
     private func localLogin(_ u: String, _ p: String) async {
@@ -153,5 +164,30 @@ struct LoginView: View {
         } else {
             app.show(L("Identifiants incorrects"), style: .urgent)
         }
+    }
+}
+
+/// Logo Vistaprint (mêmes triangles que logo_vistaprint.xml côté Android).
+struct VistaLogo: View {
+    private static let parts: [(Color, [(CGFloat, CGFloat)])] = [
+        (Color(red: 0.502, green: 0.847, blue: 1.0), [(18, 18), (54, 18), (36, 54)]),
+        (Color(red: 0, green: 0.690, blue: 1.0), [(54, 18), (90, 18), (72, 54)]),
+        (Color(red: 0, green: 0.569, blue: 0.918), [(36, 54), (72, 54), (54, 18)]),
+        (Color(red: 0.004, green: 0.341, blue: 0.608), [(36, 54), (72, 54), (54, 90)]),
+    ]
+    var body: some View {
+        Canvas { ctx, size in
+            let k = min(size.width, size.height) / 72
+            for (color, pts) in Self.parts {
+                var path = Path()
+                for (i, pt) in pts.enumerated() {
+                    let q = CGPoint(x: (pt.0 - 18) * k, y: (pt.1 - 18) * k)
+                    if i == 0 { path.move(to: q) } else { path.addLine(to: q) }
+                }
+                path.closeSubpath()
+                ctx.fill(path, with: .color(color))
+            }
+        }
+        .accessibilityLabel("Vistaprint")
     }
 }

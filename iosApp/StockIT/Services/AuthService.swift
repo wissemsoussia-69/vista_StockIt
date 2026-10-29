@@ -19,7 +19,7 @@ final class AuthService {
         return !d.isEmpty && !c.isEmpty && !d.contains("REPLACE") && !c.contains("REPLACE")
     }
 
-    struct Profile { let username: String; let email: String?; let role: String }
+    struct Profile { let username: String; let email: String?; let role: String; let subject: String }
 
     /// Session valide (ou rafraîchissable) ? Purge le stockage sinon.
     func hasValidSession() async -> Bool {
@@ -60,10 +60,9 @@ final class AuthService {
             if let arr = v as? [Any] { flat[k] = arr.map { "\($0)" }.joined(separator: ",") }
             else { flat[k] = "\(v)" }
         }
-        var role = RoleResolver.shared.resolve(claims: flat)
-        if role == "USER" { role = StockItConfig.shared.ssoDefaultRole }
+        let role = RoleResolver.shared.resolve(claims: flat, defaultRole: StockItConfig.shared.ssoDefaultRole)
         StockIt.shared.session.saveSsoSession(username: username, email: email, role: role)
-        return Profile(username: username, email: email, role: role)
+        return Profile(username: username, email: email, role: role, subject: (claims["sub"] as? String) ?? "")
     }
 
     /// Efface les tokens du Keychain sans ouvrir de navigateur (utilisable en arrière-plan).

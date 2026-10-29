@@ -125,6 +125,13 @@ class StockItRepository internal constructor(
         return recent.size >= MAX_FAILED_LOGINS
     }
 
+    /** Ouvre la session d'un compte local après validation biométrique de l'appareil (Debug uniquement). */
+    fun openLocalSession(user: User): Boolean {
+        if (!StockItConfig.localLoginEnabled || user.provider != "local") return false
+        currentUser = user
+        return true
+    }
+
     /**
      * Crée (ou réinitialise) un compte local — environnement de développement / tests UI uniquement.
      * Refusé si l'accès local est désactivé, si le nom appartient à un compte SSO, ou si le mot de passe est faible.
@@ -839,7 +846,7 @@ class StockItRepository internal constructor(
     @Throws(Throwable::class)
     /** Journal complet : ADMIN / MANAGER uniquement. */
     suspend fun getAuditLogs(): List<AuditLog> = withContext(io) {
-        if (!canEditStock) return@withContext emptyList()
+        if (currentUser?.role != Roles.ADMIN && currentUser?.role != Roles.MANAGER) return@withContext emptyList()
         db.auditLogQueries.getAll().executeAsList().map {
             AuditLog(it.id, it.userId, it.action, it.details, it.timestamp, it.ipAddress, it.device)
         }
@@ -1217,7 +1224,7 @@ class StockItRepository internal constructor(
      */
     @Throws(Throwable::class)
     suspend fun approveOrderDraft(d: OrderDraft): OpResult {
-        if (!canEditStock) return OpResult(false, tr("Permission refusée : rôle ADMIN ou MANAGER requis", "Permission denied: ADMIN or MANAGER role required"))
+        if (!canEditStock) return OpResult(false, tr("Permission refusée : connexion requise", "Permission denied: login required"))
         if (d.quantity <= 0) return OpResult(false, tr("Quantité invalide", "Invalid quantity"))
         val id = withContext(io) {
             db.transactionWithResult {
